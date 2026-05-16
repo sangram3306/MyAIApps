@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "ReplyMate AI",
+    "slug": "replymate-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "replymateai",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F8FAFC"
+    },
+    "android": {
+      "package": "com.replymateai.app"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

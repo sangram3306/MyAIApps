@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: replymate-ai-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-8b-instruct
+      - key: NVIDIA_API_KEY
+        sync: false
