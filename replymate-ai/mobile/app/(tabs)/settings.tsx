@@ -13,7 +13,7 @@ export default function SettingsScreen() {
           <Text style={styles.title}>Settings</Text>
         </View>
         <Text style={styles.subtitle}>
-          ReplyMate AI is connected to the production reply engine automatically.
+          TupuChat is connected to the production reply engine automatically.
         </Text>
       </View>
 
@@ -24,7 +24,7 @@ export default function SettingsScreen() {
         <View style={styles.statusText}>
           <Text style={styles.cardTitle}>AI backend online</Text>
           <Text style={styles.cardCopy}>
-            Replies are generated through the secure cloud backend. No NVIDIA API key is stored in
+            Messages are generated through the secure cloud backend. No NVIDIA API key is stored in
             the Android app.
           </Text>
         </View>

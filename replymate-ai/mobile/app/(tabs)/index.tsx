@@ -12,19 +12,24 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { BrandLogo, brandFont } from "../../components/BrandLogo";
+import { BrandLogo } from "../../components/BrandLogo";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
+import { RoleSelector } from "../../components/RoleSelector";
+import { Role } from "../../constants/roles";
 import { ToneSelector } from "../../components/ToneSelector";
 import { Tone } from "../../constants/tones";
 import { colors, spacing } from "../../constants/theme";
-import { generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
+import { fixGrammarFromApi, generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
 import { addHistoryItem, getBackendUrl, saveFavorite } from "../../storage/appStorage";
+
+type Mode = "reply" | "rewrite" | "grammar";
 
 export default function HomeScreen() {
   const [message, setMessage] = useState("");
-  const [tone, setTone] = useState<Tone>("polite");
-  const [mode, setMode] = useState<"reply" | "rewrite">("reply");
+  const [tone, setTone] = useState<Tone>("none");
+  const [role, setRole] = useState<Role>("none");
+  const [mode, setMode] = useState<Mode>("reply");
   const [backendUrl, setBackendUrl] = useState("");
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,7 +49,7 @@ export default function HomeScreen() {
 
   async function handleGenerate() {
     if (!backendUrl) {
-      setError("ReplyMate could not find the built-in backend URL. Please restart the app.");
+      setError("TupuChat could not find the built-in backend URL. Please restart the app.");
       return;
     }
 
@@ -63,23 +68,32 @@ export default function HomeScreen() {
               backendUrl,
               message: message.trim(),
               tone,
+              role,
             })
-          : await rewriteMessageFromApi({
-              backendUrl,
-              message: message.trim(),
-              tone,
-            });
+          : mode === "rewrite"
+            ? await rewriteMessageFromApi({
+                backendUrl,
+                message: message.trim(),
+                tone,
+                role,
+              })
+            : await fixGrammarFromApi({
+                backendUrl,
+                message: message.trim(),
+                tone,
+              });
       setReplies(generated);
       await addHistoryItem({
         id: Date.now().toString(),
         message: message.trim(),
         tone,
+        role,
         replies: generated,
         createdAt: new Date().toISOString(),
       });
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Please try again.";
-      setError(`Could not reach ReplyMate backend. ${detail}`);
+      setError(`Could not reach TupuChat backend. ${detail}`);
     } finally {
       setLoading(false);
     }
@@ -91,6 +105,7 @@ export default function HomeScreen() {
       reply,
       sourceMessage: message,
       tone,
+      role,
       createdAt: new Date().toISOString(),
     });
     Alert.alert("Saved", "Reply added to favorites.");
@@ -104,42 +119,38 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <BrandLogo />
-          <Text style={styles.subtitle}>
-            Generate a smart reply or rewrite your own message in a better style.
-          </Text>
+          <Text style={styles.subtitle}>Smart replies, rewrites, and grammar fixes.</Text>
         </View>
 
         <View style={styles.modeSwitch}>
-          <Pressable
-            onPress={() => {
-              setMode("reply");
-              setReplies([]);
-            }}
-            style={[styles.modeButton, mode === "reply" && styles.modeButtonActive]}
-          >
-            <Text style={[styles.modeText, mode === "reply" && styles.modeTextActive]}>Reply</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setMode("rewrite");
-              setReplies([]);
-            }}
-            style={[styles.modeButton, mode === "rewrite" && styles.modeButtonActive]}
-          >
-            <Text style={[styles.modeText, mode === "rewrite" && styles.modeTextActive]}>
-              Rewrite
-            </Text>
-          </Pressable>
+          {(["reply", "rewrite", "grammar"] as Mode[]).map((item) => (
+            <Pressable
+              key={item}
+              onPress={() => {
+                setMode(item);
+                setReplies([]);
+              }}
+              style={[styles.modeButton, mode === item && styles.modeButtonActive]}
+            >
+              <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
+                {item === "reply" ? "Reply" : item === "rewrite" ? "Rewrite" : "Grammar"}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         <View style={styles.inputBlock}>
-          <Text style={styles.label}>{mode === "reply" ? "Message to reply to" : "Your message"}</Text>
+          <Text style={styles.label}>
+            {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
+          </Text>
           <TextInput
             multiline
             placeholder={
               mode === "reply"
                 ? "Paste the message you received..."
-                : "Type the message you want to rewrite..."
+                : mode === "rewrite"
+                  ? "Type the message you want to rewrite..."
+                  : "Type text with grammar mistakes..."
             }
             placeholderTextColor={colors.muted}
             style={styles.input}
@@ -149,10 +160,19 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View>
-          <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
-          <ToneSelector selectedTone={tone} onSelect={setTone} />
-        </View>
+        {mode !== "grammar" ? (
+          <>
+            <View>
+              <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
+              <ToneSelector selectedTone={tone} onSelect={setTone} />
+            </View>
+
+            <View>
+              <Text style={styles.label}>Role</Text>
+              <RoleSelector selectedRole={role} onSelect={setRole} />
+            </View>
+          </>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -165,7 +185,7 @@ export default function HomeScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.generateButtonText}>
-              {mode === "reply" ? "Generate Replies" : "Rewrite Message"}
+              {mode === "reply" ? "Generate Replies" : mode === "rewrite" ? "Rewrite Message" : "Fix Grammar"}
             </Text>
           )}
         </Pressable>
@@ -177,11 +197,19 @@ export default function HomeScreen() {
             ))
           ) : (
             <EmptyState
-              title={mode === "reply" ? "No replies yet" : "No rewrites yet"}
+              title={
+                mode === "reply"
+                  ? "No replies yet"
+                  : mode === "rewrite"
+                    ? "No rewrites yet"
+                    : "No grammar fixes yet"
+              }
               message={
                 mode === "reply"
                   ? "Your generated replies will appear here."
-                  : "Your rewritten message options will appear here."
+                  : mode === "rewrite"
+                    ? "Your rewritten message options will appear here."
+                    : "Your corrected message options will appear here."
               }
             />
           )}
@@ -202,19 +230,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   header: {
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
-  },
-  title: {
-    color: colors.text,
-    fontFamily: brandFont,
-    fontSize: 38,
-    fontWeight: "900",
+    gap: spacing.md,
+    paddingTop: spacing.md,
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 14,
+    lineHeight: 20,
   },
   inputBlock: {
     gap: spacing.sm,

@@ -1,29 +1,43 @@
 import { GenerateRepliesInput } from "../schemas/replySchemas";
 
-export function getMockReplies({ tone, message }: GenerateRepliesInput): string[] {
+export function getMockReplies({ tone, message, role }: GenerateRepliesInput): string[] {
   const preview = message.length > 60 ? `${message.slice(0, 57)}...` : message;
+  const rolePrefix = role && role !== "none" ? `[${role}] ` : "";
 
   return [
-    `Thanks for sharing this. I understand: "${preview}"`,
-    "I appreciate your message. Let me think about it and get back to you soon.",
-    "That makes sense. I will respond properly in a bit.",
+    `${rolePrefix}Thanks for sharing this. I understand: "${preview}"`,
+    `${rolePrefix}I appreciate your message. Let me think about it and get back to you soon.`,
+    `${rolePrefix}That makes sense. I will respond properly in a bit.`,
     tone === "funny"
-      ? "Haha, fair point. Give me a minute to come up with my best reply."
-      : "Got it. Thanks for letting me know.",
-    tone === "short" ? "Sure, noted." : "Thanks, I will keep this in mind.",
+      ? `${rolePrefix}Haha, fair point. Give me a minute to come up with my best reply.`
+      : `${rolePrefix}Got it. Thanks for letting me know.`,
+    tone === "short" ? `${rolePrefix}Sure, noted.` : `${rolePrefix}Thanks, I will keep this in mind.`,
   ];
 }
 
-export function getMockRewrites({ tone, message }: GenerateRepliesInput): string[] {
+export function getMockRewrites({ tone, message, role }: GenerateRepliesInput): string[] {
+  const cleanMessage = message.trim();
+  const rolePrefix = role && role !== "none" ? `[${role}] ` : "";
+
+  return [
+    `${rolePrefix}${cleanMessage}`,
+    tone === "professional"
+      ? `${rolePrefix}Thank you for your message. ${cleanMessage}`
+      : `${rolePrefix}Hey, ${cleanMessage}`,
+    tone === "short" ? `${rolePrefix}${cleanMessage.slice(0, 90)}` : `${rolePrefix}Just wanted to say: ${cleanMessage}`,
+    tone === "Hinglish" ? `${rolePrefix}Hey, ${cleanMessage} - please bata dena.` : `${rolePrefix}I wanted to share that ${cleanMessage}`,
+    tone === "polite" ? `${rolePrefix}Please note, ${cleanMessage}` : `${rolePrefix}Here is what I mean: ${cleanMessage}`,
+  ];
+}
+
+export function getMockGrammarFixes({ message }: GenerateRepliesInput): string[] {
   const cleanMessage = message.trim();
 
   return [
-    `${cleanMessage}`,
-    tone === "professional"
-      ? `Thank you for your message. ${cleanMessage}`
-      : `Hey, ${cleanMessage}`,
-    tone === "short" ? cleanMessage.slice(0, 90) : `Just wanted to say: ${cleanMessage}`,
-    tone === "Hinglish" ? `Hey, ${cleanMessage} - please bata dena.` : `I wanted to share that ${cleanMessage}`,
-    tone === "polite" ? `Please note, ${cleanMessage}` : `Here is what I mean: ${cleanMessage}`,
+    cleanMessage,
+    `${cleanMessage}.`,
+    `I cannot come today.`,
+    `I am unable to come today.`,
+    `Sorry, I cannot make it today.`,
   ];
 }

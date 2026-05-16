@@ -27,6 +27,7 @@ export default function HistoryScreen() {
       reply,
       sourceMessage: item.message,
       tone: item.tone,
+      role: item.role,
       createdAt: new Date().toISOString(),
     });
     Alert.alert("Saved", "Reply added to favorites.");
@@ -58,7 +59,10 @@ export default function HistoryScreen() {
             <Text style={styles.message} numberOfLines={3}>
               {item.message}
             </Text>
-            <Text style={styles.tone}>Tone: {item.tone}</Text>
+            <Text style={styles.tone}>
+              Tone: {item.tone}
+              {item.role && item.role !== "none" ? ` • Role: ${item.role}` : ""}
+            </Text>
             <View style={styles.replies}>
               {item.replies.map((reply, index) => (
                 <ReplyCard

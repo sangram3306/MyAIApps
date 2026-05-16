@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "ReplyMate AI",
-    "slug": "replymate-ai",
+    "name": "TupuChat",
+    "slug": "tupuchat",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "replymateai",
+    "scheme": "tupuchat",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#050506"
     },
     "android": {
-      "package": "com.replymateai.app"
+      "package": "com.tupuchat.app"
     },
     "plugins": ["expo-router"],
     "experiments": {

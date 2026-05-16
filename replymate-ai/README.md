@@ -1,6 +1,6 @@
-# ReplyMate AI
+# TupuChat
 
-ReplyMate AI is an Android-ready Expo React Native app that generates smart replies for WhatsApp, SMS, email, and social messages. The mobile app calls your own Node.js backend, and the backend calls NVIDIA NIM using an OpenAI-compatible API.
+TupuChat is an Android-ready Expo React Native app that generates smart replies and rewrites messages for WhatsApp, SMS, email, and social messages. The mobile app calls your own Node.js backend, and the backend calls NVIDIA NIM using an OpenAI-compatible API.
 
 ```
 Expo React Native Android App
@@ -231,7 +231,7 @@ Allowed tones:
 
 6. Deploy.
 7. If your Render URL changes, update `DEFAULT_BACKEND_URL` in `mobile/constants/api.ts`.
-8. Open ReplyMate AI on your phone.
+8. Open TupuChat on your phone.
 
 ## NVIDIA NIM Notes
 

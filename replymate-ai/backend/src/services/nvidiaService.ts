@@ -1,5 +1,5 @@
 import { GenerateRepliesInput } from "../schemas/replySchemas";
-import { getMockReplies, getMockRewrites } from "../utils/mockReplies";
+import { getMockGrammarFixes, getMockReplies, getMockRewrites } from "../utils/mockReplies";
 import { parseRepliesFromModel } from "../utils/parseReplies";
 import { hasNvidiaApiKey } from "../utils/env";
 
@@ -20,8 +20,8 @@ export async function generateReplies(input: GenerateRepliesInput): Promise<stri
     mockFallback: getMockReplies,
     logLabel: "replies",
     systemPrompt:
-      'You are ReplyMate AI. Generate exactly 5 natural reply suggestions for the user\'s message. Match the selected tone. Keep replies concise, human, and useful. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
-    userPrompt: `Original message:\n${input.message}\n\nSelected tone: ${input.tone}`,
+      'You are TupuChat. Generate exactly 5 natural reply suggestions for the user\'s message. Match the selected tone and persona role if provided. Keep replies concise, human, and useful. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+    userPrompt: `Original message:\n${input.message}\n\nSelected tone: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}`,
   });
 }
 
@@ -31,8 +31,46 @@ export async function rewriteMessage(input: GenerateRepliesInput): Promise<strin
     mockFallback: getMockRewrites,
     logLabel: "rewrites",
     systemPrompt:
-      'You are ReplyMate AI. Rewrite the user\'s own message in exactly 5 different versions. Match the selected writing style or language. Preserve the original meaning. Do not write replies to the message. Keep each version concise, natural, and ready to send. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
-    userPrompt: `Message to rewrite:\n${input.message}\n\nSelected writing style: ${input.tone}`,
+      'You are TupuChat. Rewrite the user\'s own message in exactly 5 different versions. Match the selected writing style or language and persona role if provided. Preserve the original meaning. Do not write replies to the message. Keep each version concise, natural, and ready to send. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+    userPrompt: `Message to rewrite:\n${input.message}\n\nSelected writing style: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}`,
+  });
+}
+
+function getTonePrompt(tone?: string): string {
+  if (!tone || tone === "none") {
+    return "none";
+  }
+
+  return tone;
+}
+
+function getRolePrompt(role?: string): string {
+  if (!role || role === "none") {
+    return "none";
+  }
+
+  const labels: Record<string, string> = {
+    comedian: "comedian - playful, witty, light humor",
+    thief: "sneaky fictional thief - cheeky and mischievous, no real criminal instructions",
+    kid: "kid - simple, innocent, playful wording",
+    engineer: "engineer - clear, logical, precise wording",
+    cowboy: "cowboy - warm western slang, friendly and rugged",
+    superhero: "superhero - confident, brave, uplifting wording",
+    police: "police officer - firm, respectful, direct wording",
+    teacher: "teacher - clear, patient, helpful wording",
+  };
+
+  return labels[role] || role;
+}
+
+export async function fixGrammar(input: GenerateRepliesInput): Promise<string[]> {
+  return generateWithNvidia({
+    input,
+    mockFallback: getMockGrammarFixes,
+    logLabel: "grammar fixes",
+    systemPrompt:
+      'You are TupuChat. Fix grammar, spelling, punctuation, capitalization, and clarity in the user\'s message. Preserve the original meaning and do not add new information. Return exactly 5 corrected versions, from minimal correction to slightly more polished. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+    userPrompt: `Message to fix:\n${input.message}`,
   });
 }
 

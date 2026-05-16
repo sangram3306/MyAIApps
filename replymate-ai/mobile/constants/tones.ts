@@ -1,4 +1,5 @@
 export type Tone =
+  | "none"
   | "polite"
   | "professional"
   | "funny"
@@ -9,6 +10,7 @@ export type Tone =
   | "English";
 
 export const tones: Array<{ label: string; value: Tone }> = [
+  { label: "None", value: "none" },
   { label: "Polite", value: "polite" },
   { label: "Professional", value: "professional" },
   { label: "Funny", value: "funny" },
