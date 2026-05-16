@@ -13,3 +13,17 @@ export function getMockReplies({ tone, message }: GenerateRepliesInput): string[
     tone === "short" ? "Sure, noted." : "Thanks, I will keep this in mind.",
   ];
 }
+
+export function getMockRewrites({ tone, message }: GenerateRepliesInput): string[] {
+  const cleanMessage = message.trim();
+
+  return [
+    `${cleanMessage}`,
+    tone === "professional"
+      ? `Thank you for your message. ${cleanMessage}`
+      : `Hey, ${cleanMessage}`,
+    tone === "short" ? cleanMessage.slice(0, 90) : `Just wanted to say: ${cleanMessage}`,
+    tone === "Hinglish" ? `Hey, ${cleanMessage} - please bata dena.` : `I wanted to share that ${cleanMessage}`,
+    tone === "polite" ? `Please note, ${cleanMessage}` : `Here is what I mean: ${cleanMessage}`,
+  ];
+}

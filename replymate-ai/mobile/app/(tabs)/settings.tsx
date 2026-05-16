@@ -1,49 +1,59 @@
-import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { BrandLogo, brandFont } from "../../components/BrandLogo";
 import { colors, spacing } from "../../constants/theme";
-import { getBackendUrl, saveBackendUrl } from "../../storage/appStorage";
 
 export default function SettingsScreen() {
-  const [backendUrl, setBackendUrl] = useState("");
-
-  useEffect(() => {
-    getBackendUrl().then(setBackendUrl);
-  }, []);
-
-  async function handleSave() {
-    await saveBackendUrl(backendUrl);
-    Alert.alert("Saved", "Backend URL saved.");
-  }
-
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Settings</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>Backend URL</Text>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="https://your-render-service.onrender.com"
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-          value={backendUrl}
-          onChangeText={setBackendUrl}
-        />
-        <Pressable style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Backend URL</Text>
-        </Pressable>
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>Control room</Text>
+        <View style={styles.titleRow}>
+          <BrandLogo compact />
+          <Text style={styles.title}>Settings</Text>
+        </View>
+        <Text style={styles.subtitle}>
+          ReplyMate AI is connected to the production reply engine automatically.
+        </Text>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Setup guide</Text>
-        <Text style={styles.infoText}>1. Run the backend locally or deploy it on Render.</Text>
-        <Text style={styles.infoText}>2. Copy the backend URL, without a trailing slash.</Text>
-        <Text style={styles.infoText}>3. Paste it above and save.</Text>
-        <Text style={styles.infoText}>4. Go back Home and generate replies.</Text>
+      <View style={styles.statusCard}>
+        <View style={styles.statusIcon}>
+          <Feather name="zap" color={colors.primary} size={22} />
+        </View>
+        <View style={styles.statusText}>
+          <Text style={styles.cardTitle}>AI backend online</Text>
+          <Text style={styles.cardCopy}>
+            Replies are generated through the secure cloud backend. No NVIDIA API key is stored in
+            the Android app.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.grid}>
+        <InfoTile icon="shield" title="Private by design" copy="Secrets stay on the backend." />
+        <InfoTile icon="clock" title="History ready" copy="Recent generations are saved locally." />
+        <InfoTile icon="heart" title="Favorites" copy="Keep your best replies one tap away." />
       </View>
     </ScrollView>
+  );
+}
+
+function InfoTile({
+  icon,
+  title,
+  copy,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  copy: string;
+}) {
+  return (
+    <View style={styles.tile}>
+      <Feather name={icon} color={colors.secondary} size={20} />
+      <Text style={styles.tileTitle}>{title}</Text>
+      <Text style={styles.tileCopy}>{copy}</Text>
+    </View>
   );
 }
 
@@ -54,61 +64,89 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
+  header: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  titleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
   title: {
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
+    fontFamily: brandFont,
+    fontSize: 34,
+    fontWeight: "900",
   },
-  card: {
+  subtitle: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  statusCard: {
+    alignItems: "flex-start",
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.md,
+    padding: spacing.lg,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+  },
+  statusIcon: {
+    alignItems: "center",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 46,
+    justifyContent: "center",
+    width: 46,
+  },
+  statusText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  cardTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  cardCopy: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  grid: {
+    gap: spacing.md,
+  },
+  tile: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  label: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 15,
-    padding: spacing.md,
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 50,
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  infoCard: {
-    backgroundColor: "#FFF7ED",
-    borderColor: "#FED7AA",
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.md,
   },
-  infoTitle: {
+  tileTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
-  infoText: {
-    color: colors.text,
+  tileCopy: {
+    color: colors.muted,
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 20,
   },
 });

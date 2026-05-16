@@ -157,15 +157,13 @@ Allowed tones:
    npx expo start
    ```
 
-5. Open the app on Android and go to Settings.
+5. Open the app on Android. The production backend is already built in:
 
-6. Enter your backend URL:
+   ```text
+   https://myaiapps.onrender.com
+   ```
 
-   - Android emulator: `http://10.0.2.2:4000`
-   - Real phone on same Wi-Fi: `http://YOUR_COMPUTER_IP:4000`
-   - Render deployment: `https://your-service-name.onrender.com`
-
-7. Go back Home, paste a message, choose a tone, and generate replies.
+6. Paste a message, choose a tone, and generate replies.
 
 ## Install On Android Phone
 
@@ -179,7 +177,7 @@ Allowed tones:
    ```
 
 3. Scan the QR code with Expo Go.
-4. Put your backend URL in the Settings screen.
+4. The Render backend URL is already built in.
 
 ### Option B: Build APK With EAS
 
@@ -232,9 +230,8 @@ Allowed tones:
    Render provides `PORT` automatically.
 
 6. Deploy.
-7. Copy the Render backend URL.
+7. If your Render URL changes, update `DEFAULT_BACKEND_URL` in `mobile/constants/api.ts`.
 8. Open ReplyMate AI on your phone.
-9. Paste the URL in Settings and save.
 
 ## NVIDIA NIM Notes
 
@@ -253,7 +250,7 @@ The model is controlled by `NVIDIA_MODEL`, so you can switch to another NVIDIA-h
 - Do not put `NVIDIA_API_KEY` in the mobile app.
 - Do not commit `.env`.
 - Store `NVIDIA_API_KEY` only in backend `.env` locally or Render environment variables.
-- The mobile app stores only the backend URL, history, and favorites in AsyncStorage.
+- The mobile app stores only history and favorites in AsyncStorage.
 
 ## Troubleshooting
 

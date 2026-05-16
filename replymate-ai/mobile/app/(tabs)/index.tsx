@@ -12,17 +12,19 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { BrandLogo, brandFont } from "../../components/BrandLogo";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
 import { ToneSelector } from "../../components/ToneSelector";
 import { Tone } from "../../constants/tones";
 import { colors, spacing } from "../../constants/theme";
-import { generateRepliesFromApi } from "../../services/api";
+import { generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
 import { addHistoryItem, getBackendUrl, saveFavorite } from "../../storage/appStorage";
 
 export default function HomeScreen() {
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<Tone>("polite");
+  const [mode, setMode] = useState<"reply" | "rewrite">("reply");
   const [backendUrl, setBackendUrl] = useState("");
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,7 @@ export default function HomeScreen() {
 
   async function handleGenerate() {
     if (!backendUrl) {
-      setError("Add your backend URL in Settings before generating replies.");
+      setError("ReplyMate could not find the built-in backend URL. Please restart the app.");
       return;
     }
 
@@ -55,11 +57,18 @@ export default function HomeScreen() {
     setError("");
 
     try {
-      const generated = await generateRepliesFromApi({
-        backendUrl,
-        message: message.trim(),
-        tone,
-      });
+      const generated =
+        mode === "reply"
+          ? await generateRepliesFromApi({
+              backendUrl,
+              message: message.trim(),
+              tone,
+            })
+          : await rewriteMessageFromApi({
+              backendUrl,
+              message: message.trim(),
+              tone,
+            });
       setReplies(generated);
       await addHistoryItem({
         id: Date.now().toString(),
@@ -94,22 +103,44 @@ export default function HomeScreen() {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.title}>ReplyMate AI</Text>
-          <Text style={styles.subtitle}>Paste any message and get five ready-to-send replies.</Text>
+          <BrandLogo />
+          <Text style={styles.subtitle}>
+            Generate a smart reply or rewrite your own message in a better style.
+          </Text>
         </View>
 
-        {!backendUrl ? (
-          <EmptyState
-            title="Backend setup needed"
-            message="Open Settings and paste your local or Render backend URL. Your NVIDIA API key stays only on the backend."
-          />
-        ) : null}
+        <View style={styles.modeSwitch}>
+          <Pressable
+            onPress={() => {
+              setMode("reply");
+              setReplies([]);
+            }}
+            style={[styles.modeButton, mode === "reply" && styles.modeButtonActive]}
+          >
+            <Text style={[styles.modeText, mode === "reply" && styles.modeTextActive]}>Reply</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setMode("rewrite");
+              setReplies([]);
+            }}
+            style={[styles.modeButton, mode === "rewrite" && styles.modeButtonActive]}
+          >
+            <Text style={[styles.modeText, mode === "rewrite" && styles.modeTextActive]}>
+              Rewrite
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.inputBlock}>
-          <Text style={styles.label}>Message</Text>
+          <Text style={styles.label}>{mode === "reply" ? "Message to reply to" : "Your message"}</Text>
           <TextInput
             multiline
-            placeholder="Paste WhatsApp, SMS, email, or social message here..."
+            placeholder={
+              mode === "reply"
+                ? "Paste the message you received..."
+                : "Type the message you want to rewrite..."
+            }
             placeholderTextColor={colors.muted}
             style={styles.input}
             textAlignVertical="top"
@@ -119,7 +150,7 @@ export default function HomeScreen() {
         </View>
 
         <View>
-          <Text style={styles.label}>Tone</Text>
+          <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
           <ToneSelector selectedTone={tone} onSelect={setTone} />
         </View>
 
@@ -133,7 +164,9 @@ export default function HomeScreen() {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.generateButtonText}>Generate Replies</Text>
+            <Text style={styles.generateButtonText}>
+              {mode === "reply" ? "Generate Replies" : "Rewrite Message"}
+            </Text>
           )}
         </Pressable>
 
@@ -143,7 +176,14 @@ export default function HomeScreen() {
               <ReplyCard key={`${reply}-${index}`} reply={reply} onFavorite={() => handleFavorite(reply)} />
             ))
           ) : (
-            <EmptyState title="No replies yet" message="Your generated replies will appear here." />
+            <EmptyState
+              title={mode === "reply" ? "No replies yet" : "No rewrites yet"}
+              message={
+                mode === "reply"
+                  ? "Your generated replies will appear here."
+                  : "Your rewritten message options will appear here."
+              }
+            />
           )}
         </View>
       </ScrollView>
@@ -163,11 +203,13 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.xs,
+    paddingTop: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
+    fontFamily: brandFont,
+    fontSize: 38,
+    fontWeight: "900",
   },
   subtitle: {
     color: colors.muted,
@@ -177,24 +219,56 @@ const styles = StyleSheet.create({
   inputBlock: {
     gap: spacing.sm,
   },
-  label: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  input: {
+  modeSwitch: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.xs,
+  },
+  modeButton: {
+    alignItems: "center",
+    borderRadius: 8,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  modeButtonActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
+    borderWidth: 1,
+  },
+  modeText: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  modeTextActive: {
+    color: colors.primary,
+  },
+  label: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  input: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderStrong,
     borderRadius: 8,
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
     minHeight: 160,
     padding: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
   },
   error: {
-    backgroundColor: "#FEF2F2",
-    borderColor: "#FECACA",
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
     color: colors.danger,
@@ -203,17 +277,20 @@ const styles = StyleSheet.create({
   },
   generateButton: {
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     borderRadius: 8,
     minHeight: 52,
     justifyContent: "center",
     padding: spacing.md,
+    shadowColor: colors.secondary,
+    shadowOpacity: 0.36,
+    shadowRadius: 18,
   },
   generateButtonDisabled: {
     opacity: 0.7,
   },
   generateButtonText: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "800",
   },

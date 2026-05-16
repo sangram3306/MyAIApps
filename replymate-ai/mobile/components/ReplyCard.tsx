@@ -25,7 +25,7 @@ export function ReplyCard({ reply, onFavorite, favoriteLabel = "Save" }: Props) 
       <Text style={styles.reply}>{reply}</Text>
       <View style={styles.actions}>
         <Action icon={<Feather name="copy" size={17} color={colors.primary} />} label="Copy" onPress={handleCopy} />
-        <Action icon={<Feather name="send" size={17} color={colors.primary} />} label="Share" onPress={handleShare} />
+        <Action icon={<Feather name="send" size={17} color={colors.secondary} />} label="Share" onPress={handleShare} />
         {onFavorite ? (
           <Action
             icon={<Feather name="heart" size={17} color={colors.primary} />}
@@ -57,12 +57,15 @@ function Action({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.md,
     padding: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
   },
   reply: {
     color: colors.text,
@@ -77,6 +80,8 @@ const styles = StyleSheet.create({
   action: {
     alignItems: "center",
     backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: 8,
     flexDirection: "row",
     gap: spacing.xs,
@@ -84,7 +89,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   actionText: {
-    color: colors.primary,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700",
   },

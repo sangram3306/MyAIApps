@@ -1,18 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DEFAULT_BACKEND_URL } from "../constants/api";
 import { FavoriteReply, ReplyHistoryItem } from "./types";
 
 const keys = {
-  backendUrl: "replymate.backendUrl",
   history: "replymate.history",
   favorites: "replymate.favorites",
 };
 
 export async function getBackendUrl(): Promise<string> {
-  return (await AsyncStorage.getItem(keys.backendUrl)) || "";
-}
-
-export async function saveBackendUrl(url: string): Promise<void> {
-  await AsyncStorage.setItem(keys.backendUrl, url.trim().replace(/\/$/, ""));
+  return DEFAULT_BACKEND_URL;
 }
 
 export async function getHistory(): Promise<ReplyHistoryItem[]> {

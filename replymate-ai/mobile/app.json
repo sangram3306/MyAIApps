@@ -5,10 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "replymateai",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#F8FAFC"
+      "backgroundColor": "#050506"
     },
     "android": {
       "package": "com.replymateai.app"

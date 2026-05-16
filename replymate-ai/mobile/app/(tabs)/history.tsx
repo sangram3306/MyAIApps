@@ -35,7 +35,10 @@ export default function HistoryScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>History</Text>
+        <View>
+          <Text style={styles.eyebrow}>Reply trail</Text>
+          <Text style={styles.title}>History</Text>
+        </View>
         {items.length > 0 ? (
           <Pressable onPress={handleClear} style={styles.clearButton}>
             <Text style={styles.clearText}>Clear</Text>
@@ -89,9 +92,18 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
   },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
   clearButton: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
     borderRadius: 8,
+    borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -100,7 +112,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   group: {
-    backgroundColor: "#EEF6FF",
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
@@ -118,7 +130,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   tone: {
-    color: colors.primary,
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: "800",
   },

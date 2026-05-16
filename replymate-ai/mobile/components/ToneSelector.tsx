@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   chip: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
   },
   chipText: {
     color: colors.text,
@@ -49,6 +49,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chipTextSelected: {
-    color: "#FFFFFF",
+    color: colors.primary,
   },
 });

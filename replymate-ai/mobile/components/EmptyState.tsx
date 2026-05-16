@@ -23,6 +23,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: spacing.lg,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
   },
   title: {
     color: colors.text,

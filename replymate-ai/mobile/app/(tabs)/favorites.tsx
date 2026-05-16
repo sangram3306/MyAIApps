@@ -24,6 +24,7 @@ export default function FavoritesScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.eyebrow}>Saved replies</Text>
       <Text style={styles.title}>Favorites</Text>
 
       {favorites.length === 0 ? (
@@ -54,5 +55,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     marginBottom: spacing.sm,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0,
+    textTransform: "uppercase",
   },
 });
