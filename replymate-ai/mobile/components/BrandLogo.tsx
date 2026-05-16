@@ -1,4 +1,5 @@
 import { Image, Platform, StyleSheet, View } from "react-native";
+import { Text } from "react-native";
 
 type Props = {
   compact?: boolean;
@@ -13,11 +14,14 @@ export function BrandLogo({ compact = false }: Props) {
         style={[styles.logo, compact && styles.logoCompact]}
       />
       {!compact ? (
-        <Image
-          resizeMode="contain"
-          source={require("../assets/brand/tupuchat_title.png")}
-          style={styles.title}
-        />
+        <View style={styles.titleBlock}>
+          <Image
+            resizeMode="contain"
+            source={require("../assets/brand/tupuchat_title.png")}
+            style={styles.title}
+          />
+          <Text style={styles.credit}>by Sangram</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -34,22 +38,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 14,
+    transform: [{ translateY: -14 }],
   },
   wrapCompact: {
     gap: 0,
   },
   logo: {
-    height: 64,
+    height: 82,
     transform: [{ translateX: -10 }],
-    width: 64,
+    width: 82,
   },
   logoCompact: {
     height: 42,
     width: 42,
   },
   title: {
-    height: 84,
-    transform: [{ translateX: -84 }],
-    width: 366,
+    height: 104,
+    width: 454,
+  },
+  titleBlock: {
+    transform: [{ translateX: -150 }, { translateY: -16 }],
+  },
+  credit: {
+    color: "rgba(255, 255, 255, 0.42)",
+    fontSize: 9,
+    fontStyle: "italic",
+    fontWeight: "700",
+    marginTop: -40,
+    textAlign: "center",
   },
 });

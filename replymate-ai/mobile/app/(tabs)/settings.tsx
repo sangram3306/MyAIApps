@@ -5,7 +5,7 @@ import { colors, spacing } from "../../constants/theme";
 
 export default function SettingsScreen() {
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Control room</Text>
         <View style={styles.titleRow}>
@@ -58,8 +58,13 @@ function InfoTile({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   container: {
     backgroundColor: colors.background,
+    flexGrow: 1,
     gap: spacing.lg,
     padding: spacing.md,
     paddingBottom: spacing.xl,

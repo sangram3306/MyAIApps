@@ -34,7 +34,7 @@ export default function HistoryScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.eyebrow}>Reply trail</Text>
@@ -80,8 +80,13 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   container: {
     backgroundColor: colors.background,
+    flexGrow: 1,
     gap: spacing.lg,
     padding: spacing.md,
     paddingBottom: spacing.xl,

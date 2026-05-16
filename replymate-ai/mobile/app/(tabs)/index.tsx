@@ -13,12 +13,11 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { BrandLogo } from "../../components/BrandLogo";
+import { ChipSelector } from "../../components/ChipSelector";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
-import { RoleSelector } from "../../components/RoleSelector";
-import { Role } from "../../constants/roles";
-import { ToneSelector } from "../../components/ToneSelector";
-import { Tone } from "../../constants/tones";
+import { Role, replyRoles, rewriteRoles } from "../../constants/roles";
+import { replyTones, rewriteStyles, Tone } from "../../constants/tones";
 import { colors, spacing } from "../../constants/theme";
 import { fixGrammarFromApi, generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
 import { addHistoryItem, getBackendUrl, saveFavorite } from "../../storage/appStorage";
@@ -126,10 +125,12 @@ export default function HomeScreen() {
           {(["reply", "rewrite", "grammar"] as Mode[]).map((item) => (
             <Pressable
               key={item}
-              onPress={() => {
-                setMode(item);
-                setReplies([]);
-              }}
+            onPress={() => {
+              setMode(item);
+              setTone(item === "rewrite" ? "clearer" : "none");
+              setRole("none");
+              setReplies([]);
+            }}
               style={[styles.modeButton, mode === item && styles.modeButtonActive]}
             >
               <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
@@ -164,12 +165,20 @@ export default function HomeScreen() {
           <>
             <View>
               <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
-              <ToneSelector selectedTone={tone} onSelect={setTone} />
+              <ChipSelector
+                options={mode === "reply" ? replyTones : rewriteStyles}
+                selectedValue={tone}
+                onSelect={setTone}
+              />
             </View>
 
             <View>
               <Text style={styles.label}>Role</Text>
-              <RoleSelector selectedRole={role} onSelect={setRole} />
+              <ChipSelector
+                options={mode === "reply" ? replyRoles : rewriteRoles}
+                selectedValue={role}
+                onSelect={setRole}
+              />
             </View>
           </>
         ) : null}
@@ -237,6 +246,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+    textAlign: "center",
   },
   inputBlock: {
     gap: spacing.sm,

@@ -23,7 +23,7 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.eyebrow}>Saved replies</Text>
       <Text style={styles.title}>Favorites</Text>
 
@@ -44,8 +44,13 @@ export default function FavoritesScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   container: {
     backgroundColor: colors.background,
+    flexGrow: 1,
     gap: spacing.md,
     padding: spacing.md,
     paddingBottom: spacing.xl,

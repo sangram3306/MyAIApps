@@ -11,7 +11,7 @@ export function getMockReplies({ tone, message, role }: GenerateRepliesInput): s
     tone === "funny"
       ? `${rolePrefix}Haha, fair point. Give me a minute to come up with my best reply.`
       : `${rolePrefix}Got it. Thanks for letting me know.`,
-    tone === "short" ? `${rolePrefix}Sure, noted.` : `${rolePrefix}Thanks, I will keep this in mind.`,
+    tone === "short_sweet" ? `${rolePrefix}Sure, noted.` : `${rolePrefix}Thanks, I will keep this in mind.`,
   ];
 }
 
@@ -24,8 +24,8 @@ export function getMockRewrites({ tone, message, role }: GenerateRepliesInput): 
     tone === "professional"
       ? `${rolePrefix}Thank you for your message. ${cleanMessage}`
       : `${rolePrefix}Hey, ${cleanMessage}`,
-    tone === "short" ? `${rolePrefix}${cleanMessage.slice(0, 90)}` : `${rolePrefix}Just wanted to say: ${cleanMessage}`,
-    tone === "Hinglish" ? `${rolePrefix}Hey, ${cleanMessage} - please bata dena.` : `${rolePrefix}I wanted to share that ${cleanMessage}`,
+    tone === "short_sweet" ? `${rolePrefix}${cleanMessage.slice(0, 90)}` : `${rolePrefix}Just wanted to say: ${cleanMessage}`,
+    tone === "casual" ? `${rolePrefix}Hey, ${cleanMessage}` : `${rolePrefix}I wanted to share that ${cleanMessage}`,
     tone === "polite" ? `${rolePrefix}Please note, ${cleanMessage}` : `${rolePrefix}Here is what I mean: ${cleanMessage}`,
   ];
 }

@@ -41,6 +41,19 @@ function getTonePrompt(tone?: string): string {
     return "none";
   }
 
+  if (tone === "short_sweet") {
+    return "short and sweet";
+  }
+
+  const labels: Record<string, string> = {
+    simple_english: "simple English",
+    more_human: "more human and natural",
+  };
+
+  if (labels[tone]) {
+    return labels[tone];
+  }
+
   return tone;
 }
 
@@ -50,13 +63,19 @@ function getRolePrompt(role?: string): string {
   }
 
   const labels: Record<string, string> = {
+    friend: "friend - warm, natural, familiar",
+    best_friend: "best friend - very close, casual, supportive",
+    partner: "romantic partner - caring and emotionally warm",
+    customer_support: "customer support - helpful, patient, service-oriented",
+    manager: "manager - clear, professional, decisive",
+    professional_writer: "professional writer - polished, concise, expressive",
+    sales_expert: "sales expert - persuasive, benefit-focused, confident",
+    marketing_expert: "marketing expert - punchy, engaging, audience-aware",
+    influencer: "influencer - trendy, relatable, social-media friendly",
+    startup_founder: "startup founder - direct, ambitious, high-energy",
     comedian: "comedian - playful, witty, light humor",
-    thief: "sneaky fictional thief - cheeky and mischievous, no real criminal instructions",
-    kid: "kid - simple, innocent, playful wording",
-    engineer: "engineer - clear, logical, precise wording",
-    cowboy: "cowboy - warm western slang, friendly and rugged",
-    superhero: "superhero - confident, brave, uplifting wording",
-    police: "police officer - firm, respectful, direct wording",
+    savage_friend: "savage friend - teasing, bold, witty, but not cruel",
+    poet: "poet - expressive, lyrical, elegant",
     teacher: "teacher - clear, patient, helpful wording",
   };
 
