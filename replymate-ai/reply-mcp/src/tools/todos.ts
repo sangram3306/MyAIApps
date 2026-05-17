@@ -109,6 +109,15 @@ function matchTargetTodo(input: unknown, summaryPrefix: string): TodoToolOutput 
     return fallback("Could not read the target todo.");
   }
 
+  if (isAllTodosTarget(parsed.data.target)) {
+    return {
+      source: "static",
+      confidence: 0.88,
+      summary: "Prepared deletion of all todos.",
+      count: parsed.data.currentTodos.length,
+    };
+  }
+
   const match = findTodo(parsed.data.currentTodos, parsed.data.target);
   if (!match) {
     return fallback("Could not match the target todo.");
@@ -139,6 +148,26 @@ function findTodo(todos: TodoItem[], target: string): TodoItem | null {
 
 function normalizeTitle(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function isAllTodosTarget(value: string): boolean {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    "all todos",
+    "all todo",
+    "all tasks",
+    "the todos",
+    "the tasks",
+    "todos",
+    "tasks",
+    "them all",
+    "everything",
+  ].includes(normalized);
 }
 
 function fallback(summary: string): TodoToolOutput {

@@ -3,6 +3,7 @@ import { safeParseJson } from "../utils/safeJson";
 import {
   completeTodo,
   createTodo,
+  deleteAllTodos,
   deleteTodo,
   listTodos,
   TodoItem,
@@ -172,6 +173,35 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
         target: identifier,
         currentTodos: todosSnapshotBefore,
       });
+
+      if (isDeleteAllTarget(identifier)) {
+        const deletedTodos = await deleteAllTodos();
+        trace.push("Deleted todo items");
+        toolCalls.push({
+          name: "deleteTodo",
+          source: mcpResult.source,
+          summary: `Deleted ${deletedTodos.length} todo${deletedTodos.length === 1 ? "" : "s"}`,
+        });
+        return {
+          assistantReply:
+            deletedTodos.length > 0
+              ? `Deleted ${deletedTodos.length} todo${deletedTodos.length === 1 ? "" : "s"}.`
+              : "There were no todos to delete.",
+          intent: classification.intent,
+          toolCalls,
+          todos: [],
+          agentTrace: [...trace, "Returned delete confirmation"],
+          metadata: {
+            toolsUsed: [...toolsUsed, "deleteTodo"],
+            toolSources: {
+              classifyIntent: classification.source,
+              todoSkill: mcpResult.source,
+              answerGeneration: "static",
+            },
+          },
+        };
+      }
+
       const deleted = await deleteTodo(mcpResult.matchedId || identifier);
       if (deleted) {
         trace.push("Deleted todo item");
@@ -596,6 +626,26 @@ function extractTodoTarget(message: string): string {
   }
 
   return message.trim();
+}
+
+function isDeleteAllTarget(value: string): boolean {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    "all todos",
+    "all todo",
+    "all tasks",
+    "the todos",
+    "the tasks",
+    "todos",
+    "tasks",
+    "them all",
+    "everything",
+  ].includes(normalized);
 }
 
 function extractReplacementText(message: string): string {

@@ -122,6 +122,10 @@ test("todo tools prepare stateless todo operations", async () => {
   const deleted = await deleteTodoTool({ target: "John", currentTodos });
   assert.equal(deleted.source, "static");
   assert.equal(deleted.matchedId, "todo-1");
+
+  const deleteAll = await deleteTodoTool({ target: "the todos", currentTodos });
+  assert.equal(deleteAll.source, "static");
+  assert.equal(deleteAll.count, 1);
 });
 
 function startMockNvidiaServer(payload: unknown): Promise<{ url: string; close: () => void }> {

@@ -53,6 +53,36 @@ test("POST /api/chat/message lists todos from the todo skill", async () => {
   }
 });
 
+test("POST /api/chat/message deletes all todos when asked to delete the todos", async () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
+  process.env.MCP_SERVER_URL = "";
+
+  try {
+    await invokeChatMessage({ message: "Add a todo to call John tomorrow" });
+    await invokeChatMessage({ message: "Add a todo to send the report" });
+
+    const deleteResponse = await invokeChatMessage({ message: "Delete the todos" });
+    const deleteData = deleteResponse.body as Record<string, unknown>;
+
+    assert.equal(deleteResponse.statusCode, 200);
+    assert.equal(deleteData.intent, "delete_todo");
+    assert.match(String(deleteData.assistantReply), /Deleted 2 todos/i);
+    assert.equal((deleteData.todos as Array<unknown>).length, 0);
+
+    const listResponse = await invokeChatMessage({ message: "Show my todos" });
+    const listData = listResponse.body as Record<string, unknown>;
+
+    assert.match(String(listData.assistantReply), /do not have any todos/i);
+    assert.equal((listData.todos as Array<unknown>).length, 0);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+    delete process.env.TODO_STORE_PATH;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
 test("POST /api/chat/message falls back to NVIDIA for general questions", async () => {
   const originalFetch = globalThis.fetch;
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));

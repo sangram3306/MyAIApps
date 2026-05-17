@@ -89,6 +89,12 @@ export async function deleteTodo(identifier: string): Promise<TodoItem | null> {
   return deleted ?? null;
 }
 
+export async function deleteAllTodos(): Promise<TodoItem[]> {
+  const todos = await readTodos();
+  await writeTodos([]);
+  return todos;
+}
+
 export async function updateTodo(identifier: string, title: string): Promise<TodoItem | null> {
   const todos = await readTodos();
   const index = findTodoIndex(todos, identifier);

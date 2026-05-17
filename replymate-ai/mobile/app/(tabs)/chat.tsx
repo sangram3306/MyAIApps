@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
 import { colors, spacing } from "../../constants/theme";
 import { getBackendUrl } from "../../storage/appStorage";
@@ -131,25 +132,23 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
       style={styles.keyboard}
     >
       <View style={styles.container}>
         <View style={styles.matrixGlowTop} />
         <View style={styles.matrixGlowBottom} />
 
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>AI chat</Text>
-          <Text style={styles.title}>Chat</Text>
-          <Text style={styles.subtitle}>
-            A clean space for general questions, writing help, planning, and quick thinking.
-          </Text>
-        </View>
-
         <View style={styles.thread}>
+          <View style={styles.threadHeader}>
+            <Text style={styles.threadTitle}>Chat</Text>
+            <Text style={styles.threadSubtitle}>ReplyMate AI</Text>
+          </View>
           <ScrollView
             ref={scrollRef}
             contentContainerStyle={styles.threadContent}
+            keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -165,50 +164,32 @@ export default function ChatScreen() {
                 <Text style={styles.bubbleText}>{item.content}</Text>
 
                 {item.role === "assistant" && item.metadata && item.id !== "welcome" ? (
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.detailTitle}>Skill / Tool Used</Text>
-                    <View style={styles.toolList}>
-                      {getSkillRows(item).map((tool) => (
-                        <View key={`${item.id}-${tool.name}`} style={styles.toolRow}>
-                          <View style={styles.toolTextGroup}>
-                            <Text style={styles.toolName}>{tool.name}</Text>
-                            {tool.summary ? <Text style={styles.toolSummary}>{tool.summary}</Text> : null}
+                  <>
+                    <View style={styles.flowBlock}>
+                      <Text style={styles.flowTitle}>Agent loop</Text>
+                      <View style={styles.flowLine}>
+                        {getAgentFlow(item).map((step, index, steps) => (
+                          <View key={`${item.id}-${step}-${index}`} style={styles.flowStep}>
+                            <View style={styles.flowDot} />
+                            <Text numberOfLines={1} style={styles.flowText}>
+                              {shortAgentStep(step)}
+                            </Text>
+                            {index < steps.length - 1 ? <View style={styles.flowConnector} /> : null}
                           </View>
-                          <Text style={styles.toolSource}>{tool.source}</Text>
-                        </View>
-                      ))}
+                        ))}
+                      </View>
                     </View>
-                  </View>
-                ) : null}
 
-                {item.role === "assistant" && item.agentTrace?.length ? (
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.detailTitle}>Agent Steps</Text>
-                    <View style={styles.stepList}>
-                      {item.agentTrace.map((step) => (
-                        <View key={`${item.id}-${step}`} style={styles.stepPill}>
-                          <Text style={styles.stepText}>{step}</Text>
+                    <View style={styles.pillRow}>
+                      {getSkillPills(item).map((pill) => (
+                        <View key={`${item.id}-${pill.label}`} style={styles.metaPill}>
+                          <Text style={styles.metaPillKind}>{pill.kind}</Text>
+                          <Text style={styles.metaPillText}>{pill.label}</Text>
+                          <Text style={styles.metaPillSource}>{pill.source}</Text>
                         </View>
                       ))}
                     </View>
-                  </View>
-                ) : null}
-
-                {item.role === "assistant" && item.todos?.length ? (
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.detailTitle}>Todo Snapshot</Text>
-                    <View style={styles.todoList}>
-                      {item.todos.slice(0, 5).map((todo) => (
-                        <View key={todo.id} style={styles.todoRow}>
-                          <View style={[styles.todoDot, todo.completed && styles.todoDotDone]} />
-                          <Text style={styles.todoText}>
-                            {todo.title}
-                            {todo.completed ? " (done)" : ""}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
+                  </>
                 ) : null}
               </View>
             ))}
@@ -218,67 +199,109 @@ export default function ChatScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.composer}>
-          <TextInput
-            multiline
-            placeholder="Ask anything..."
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            textAlignVertical="top"
-            value={message}
-            onChangeText={setMessage}
-          />
+          <View style={styles.composerShell}>
+            <TextInput
+              multiline
+              placeholder="Ask anything..."
+              placeholderTextColor={colors.muted}
+              style={styles.input}
+              textAlignVertical="center"
+              value={message}
+              onChangeText={setMessage}
+            />
 
-          <Pressable
-            disabled={loading}
-            onPress={() => handleSend()}
-            style={[styles.sendButton, loading && styles.sendButtonDisabled]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#08110D" />
-            ) : (
-              <Text style={styles.sendButtonText}>Send</Text>
-            )}
-          </Pressable>
+            <Pressable
+              disabled={loading}
+              onPress={() => handleSend()}
+              style={[styles.sendButton, loading && styles.sendButtonDisabled]}
+              accessibilityLabel="Send message"
+            >
+              {loading ? (
+                <ActivityIndicator color="#08110D" />
+              ) : (
+                <Ionicons name="arrow-up" color="#08110D" size={22} />
+              )}
+            </Pressable>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function getSkillRows(item: ChatBubble): Array<{
-  name: string;
+function getSkillPills(item: ChatBubble): Array<{
+  kind: "Skill" | "Tool";
+  label: string;
   source: "static" | "llm" | "fallback";
-  summary?: string;
 }> {
   if (!item.metadata) {
     return [];
   }
 
-  const rows = [
+  const pills: Array<{
+    kind: "Skill" | "Tool";
+    label: string;
+    source: "static" | "llm" | "fallback";
+  }> = [
     {
-      name: "Intent Router",
+      kind: "Skill",
+      label: "Intent Router",
       source: item.metadata.toolSources.classifyIntent,
-      summary: "Classified the message request.",
     },
   ];
 
   if (item.toolCalls?.length) {
     item.toolCalls.forEach((tool) => {
-      rows.push({
-        name: formatToolName(tool.name),
+      pills.push({
+        kind: "Tool",
+        label: formatToolName(tool.name),
         source: tool.source,
-        summary: tool.summary,
       });
     });
   }
 
-  rows.push({
-    name: "Answer Generator",
+  pills.push({
+    kind: "Skill",
+    label: "Answer Generator",
     source: item.metadata.toolSources.answerGeneration,
-    summary: "Prepared the final chat response.",
   });
 
-  return rows;
+  return pills;
+}
+
+function getAgentFlow(item: ChatBubble): string[] {
+  const trace = item.agentTrace?.length ? item.agentTrace : [];
+  const safeTrace = trace.filter((step) => step !== "Ready for chat");
+
+  if (safeTrace.length) {
+    return safeTrace;
+  }
+
+  return ["Checked message", "Selected skill", "Generated response"];
+}
+
+function shortAgentStep(step: string): string {
+  const labels: Record<string, string> = {
+    "Checked chat message": "Check",
+    "Classified intent": "Route",
+    "Created todo item": "Create",
+    "Loaded todo list": "List",
+    "Marked todo completed": "Complete",
+    "Deleted todo item": "Delete",
+    "Deleted todo items": "Delete",
+    "Updated todo item": "Update",
+    "Returned todo confirmation": "Reply",
+    "Returned todo list": "Reply",
+    "Returned completion confirmation": "Reply",
+    "Returned delete confirmation": "Reply",
+    "Returned update confirmation": "Reply",
+    "Answered directly": "Answer",
+    "Generated AI response": "Generate",
+    "Used fallback response": "Fallback",
+    "Request failed": "Failed",
+  };
+
+  return labels[step] || step;
 }
 
 function formatToolName(name: string): string {
@@ -301,8 +324,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    padding: spacing.sm,
+    paddingBottom: spacing.md,
   },
   matrixGlowTop: {
     backgroundColor: "rgba(69, 245, 198, 0.16)",
@@ -324,64 +347,63 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 220,
   },
-  header: {
-    gap: spacing.sm,
-    paddingTop: spacing.lg,
-    zIndex: 1,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: "900",
-    letterSpacing: -0.8,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 440,
-  },
   thread: {
-    backgroundColor: "rgba(17, 19, 24, 0.88)",
-    borderColor: "rgba(69, 245, 198, 0.18)",
-    borderRadius: 22,
+    backgroundColor: "rgba(12, 14, 18, 0.94)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 0,
     borderWidth: 1,
     flex: 1,
+    marginHorizontal: -spacing.sm,
+    marginTop: -spacing.sm,
     overflow: "hidden",
     shadowColor: colors.primary,
     shadowOpacity: 0.12,
     shadowRadius: 18,
     zIndex: 1,
   },
-  threadContent: {
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
+  threadHeader: {
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    borderBottomWidth: 1,
+    gap: 2,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.md,
   },
-  bubble: {
-    borderRadius: 18,
-    borderWidth: 1,
+  threadTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  threadSubtitle: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  threadContent: {
     gap: spacing.sm,
     padding: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  bubble: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   userBubble: {
     alignSelf: "flex-end",
     backgroundColor: "rgba(69, 245, 198, 0.10)",
     borderColor: "rgba(69, 245, 198, 0.28)",
-    width: "92%",
+    maxWidth: "88%",
+    minWidth: "34%",
   },
   assistantBubble: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(24, 27, 34, 0.98)",
     borderColor: "rgba(69, 245, 198, 0.16)",
-    width: "92%",
+    maxWidth: "92%",
+    minWidth: "44%",
   },
   bubbleRole: {
     color: colors.primary,
@@ -395,91 +417,78 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  detailBlock: {
-    gap: spacing.sm,
+  flowBlock: {
+    gap: 4,
+    paddingTop: 2,
   },
-  detailTitle: {
+  flowTitle: {
     color: colors.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "900",
-    letterSpacing: 1,
     textTransform: "uppercase",
   },
-  toolList: {
-    gap: spacing.sm,
+  flowLine: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "nowrap",
   },
-  toolRow: {
+  flowStep: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  flowDot: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 5,
+    marginRight: 4,
+    width: 5,
+  },
+  flowText: {
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "800",
+    maxWidth: 52,
+    textTransform: "uppercase",
+  },
+  flowConnector: {
+    backgroundColor: "rgba(69, 245, 198, 0.22)",
+    height: 1,
+    marginHorizontal: 5,
+    width: 14,
+  },
+  pillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    paddingTop: 2,
+  },
+  metaPill: {
     alignItems: "center",
     backgroundColor: "rgba(69, 245, 198, 0.06)",
     borderColor: "rgba(69, 245, 198, 0.16)",
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 5,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 5,
   },
-  toolTextGroup: {
-    flex: 1,
-    gap: 2,
-    paddingRight: spacing.sm,
-  },
-  toolName: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  toolSummary: {
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  toolSource: {
+  metaPillKind: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "900",
     textTransform: "uppercase",
   },
-  stepList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  stepPill: {
-    backgroundColor: "rgba(69, 245, 198, 0.06)",
-    borderColor: "rgba(69, 245, 198, 0.18)",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  stepText: {
-    color: colors.primary,
-    fontSize: 11,
+  metaPillText: {
+    color: colors.text,
+    fontSize: 10,
     fontWeight: "800",
   },
-  todoList: {
-    gap: spacing.sm,
-  },
-  todoRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  todoDot: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    height: 8,
-    width: 8,
-  },
-  todoDotDone: {
-    backgroundColor: colors.muted,
-  },
-  todoText: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+  metaPillSource: {
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   error: {
     backgroundColor: colors.dangerSoft,
@@ -491,34 +500,43 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   composer: {
+    paddingBottom: Platform.OS === "android" ? spacing.xs : 0,
+    paddingTop: spacing.xs,
+  },
+  composerShell: {
+    alignItems: "flex-end",
+    backgroundColor: "rgba(24, 27, 34, 0.98)",
+    borderColor: "rgba(69, 245, 198, 0.26)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
     gap: spacing.sm,
+    minHeight: 58,
+    padding: spacing.xs,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
   },
   input: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.borderStrong,
-    borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: "transparent",
     color: colors.text,
+    flex: 1,
     fontSize: 15,
-    minHeight: 92,
-    padding: spacing.md,
+    maxHeight: 120,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     lineHeight: 22,
   },
   sendButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: 14,
+    height: 46,
     justifyContent: "center",
-    minHeight: 52,
-    padding: spacing.md,
+    width: 46,
   },
   sendButtonDisabled: {
     opacity: 0.75,
-  },
-  sendButtonText: {
-    color: "#08110D",
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: 0.5,
   },
 });
