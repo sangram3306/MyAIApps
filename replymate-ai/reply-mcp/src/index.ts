@@ -7,6 +7,13 @@ import { detectEmotion } from "./tools/detectEmotion.js";
 import { relationshipRules } from "./tools/relationshipRules.js";
 import { riskAssessment } from "./tools/riskAssessment.js";
 import { qualityCheck } from "./tools/qualityCheck.js";
+import {
+  completeTodoTool,
+  createTodoTool,
+  deleteTodoTool,
+  listTodosTool,
+  updateTodoTool,
+} from "./tools/todos.js";
 
 dotenv.config();
 
@@ -85,6 +92,26 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "qualityCheck") {
       return res.json(await qualityCheck(payload));
+    }
+
+    if (toolName === "createTodo") {
+      return res.json(await createTodoTool(payload));
+    }
+
+    if (toolName === "listTodos") {
+      return res.json(await listTodosTool(payload));
+    }
+
+    if (toolName === "completeTodo") {
+      return res.json(await completeTodoTool(payload));
+    }
+
+    if (toolName === "deleteTodo") {
+      return res.json(await deleteTodoTool(payload));
+    }
+
+    if (toolName === "updateTodo") {
+      return res.json(await updateTodoTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

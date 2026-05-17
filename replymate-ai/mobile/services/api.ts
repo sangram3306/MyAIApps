@@ -115,6 +115,36 @@ export type CoachAnalyzeResponse = {
   };
 };
 
+export type ChatToolCall = {
+  name: string;
+  source: "static" | "llm" | "fallback";
+  summary: string;
+};
+
+export type ChatTodoItem = {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatMessageResponse = {
+  assistantReply: string;
+  intent: string;
+  toolCalls: ChatToolCall[];
+  todos: ChatTodoItem[];
+  agentTrace: string[];
+  metadata: {
+    toolsUsed: string[];
+    toolSources: {
+      classifyIntent: "static" | "llm" | "fallback";
+      todoSkill: "static" | "llm" | "fallback";
+      answerGeneration: "static" | "llm" | "fallback";
+    };
+  };
+};
+
 export async function analyzeCoachFromApi(params: {
   backendUrl: string;
   message: string;
@@ -153,4 +183,39 @@ export async function analyzeCoachFromApi(params: {
   }
 
   return data as CoachAnalyzeResponse;
+}
+
+export async function sendChatMessageFromApi(params: {
+  backendUrl: string;
+  message: string;
+}): Promise<ChatMessageResponse> {
+  const response = await fetch(`${params.backendUrl}/api/chat/message`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: params.message,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<ChatMessageResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Backend could not process the chat message.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    typeof data?.intent !== "string" ||
+    !Array.isArray(data?.toolCalls) ||
+    !Array.isArray(data?.todos) ||
+    !Array.isArray(data?.agentTrace)
+  ) {
+    throw new Error("Backend returned an unexpected response.");
+  }
+
+  return data as ChatMessageResponse;
 }

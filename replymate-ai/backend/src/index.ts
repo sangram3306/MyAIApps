@@ -1,6 +1,7 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import chatRouter from "./routes/chatRoutes";
 import coachRouter from "./routes/coachRoutes";
 import repliesRouter from "./routes/replies";
 import { hasNvidiaApiKey, logEnvStatus } from "./utils/env";
@@ -10,6 +11,7 @@ logEnvStatus();
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
@@ -47,6 +49,7 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.use("/api/replies", repliesRouter);
 app.use("/api/coach", coachRouter);
+app.use("/api/chat", chatRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found." });

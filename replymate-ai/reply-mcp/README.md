@@ -10,12 +10,21 @@ It exposes:
 - `POST /tools/relationshipRules`
 - `POST /tools/riskAssessment`
 - `POST /tools/qualityCheck`
+- `POST /tools/createTodo`
+- `POST /tools/listTodos`
+- `POST /tools/completeTodo`
+- `POST /tools/deleteTodo`
+- `POST /tools/updateTodo`
 
 The tools are hybrid:
 
 1. Try static rules first.
 2. Use NVIDIA NIM when the static confidence is not strong enough.
 3. Fall back gracefully if NVIDIA or the model response fails.
+
+The todo tools are stateless helper tools for the Chat agent. They prepare,
+normalize, and match todo operations, while the backend remains responsible for
+storing todo data.
 
 ## Local Setup
 
@@ -58,4 +67,3 @@ MCP_SHARED_SECRET=
 - Do not expose NVIDIA keys to the mobile app.
 - Keep `MCP_SHARED_SECRET` private.
 - The backend should be the only caller of this service.
-

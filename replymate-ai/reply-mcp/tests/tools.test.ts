@@ -6,6 +6,13 @@ import { detectEmotion } from "../src/tools/detectEmotion.js";
 import { relationshipRules } from "../src/tools/relationshipRules.js";
 import { riskAssessment } from "../src/tools/riskAssessment.js";
 import { qualityCheck } from "../src/tools/qualityCheck.js";
+import {
+  completeTodoTool,
+  createTodoTool,
+  deleteTodoTool,
+  listTodosTool,
+  updateTodoTool,
+} from "../src/tools/todos.js";
 
 test("classifyIntent static match", async () => {
   const result = await classifyIntent({ message: "Sorry, my bad for the delay." });
@@ -30,8 +37,8 @@ test("classifyIntent llm fallback", async () => {
     assert.equal(result.intent, "request");
     assert.equal(result.source, "llm");
   } finally {
-    process.env.NVIDIA_API_KEY = originalApiKey;
-    process.env.NVIDIA_BASE_URL = originalBaseUrl;
+    restoreEnv("NVIDIA_API_KEY", originalApiKey);
+    restoreEnv("NVIDIA_BASE_URL", originalBaseUrl);
     server.close();
   }
 });
@@ -82,6 +89,41 @@ test("qualityCheck static pass/fail", async () => {
   assert.equal(fail.source, "static");
 });
 
+test("todo tools prepare stateless todo operations", async () => {
+  const create = await createTodoTool({ title: "  call John tomorrow  " });
+  assert.equal(create.source, "static");
+  assert.equal(create.title, "call John tomorrow");
+
+  const currentTodos = [
+    {
+      id: "todo-1",
+      title: "call John tomorrow",
+      completed: false,
+    },
+  ];
+
+  const list = await listTodosTool({ currentTodos });
+  assert.equal(list.source, "static");
+  assert.equal(list.count, 1);
+
+  const complete = await completeTodoTool({ target: "John", currentTodos });
+  assert.equal(complete.source, "static");
+  assert.equal(complete.matchedId, "todo-1");
+
+  const update = await updateTodoTool({
+    target: "John",
+    replacementText: "call John after lunch",
+    currentTodos,
+  });
+  assert.equal(update.source, "static");
+  assert.equal(update.matchedId, "todo-1");
+  assert.equal(update.replacementText, "call John after lunch");
+
+  const deleted = await deleteTodoTool({ target: "John", currentTodos });
+  assert.equal(deleted.source, "static");
+  assert.equal(deleted.matchedId, "todo-1");
+});
+
 function startMockNvidiaServer(payload: unknown): Promise<{ url: string; close: () => void }> {
   return new Promise((resolve) => {
     const server = http.createServer((_req, res) => {
@@ -109,4 +151,13 @@ function startMockNvidiaServer(payload: unknown): Promise<{ url: string; close: 
       }
     });
   });
+}
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
 }

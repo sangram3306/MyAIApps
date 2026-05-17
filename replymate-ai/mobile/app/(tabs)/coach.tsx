@@ -114,11 +114,13 @@ export default function CoachScreen() {
       style={styles.keyboard}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.matrixGlowTop} />
+        <View style={styles.matrixGlowBottom} />
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Smart coaching</Text>
           <Text style={styles.title}>Smart Reply Coach</Text>
           <Text style={styles.subtitle}>
-            Get a safer, smarter reply strategy for friends, family, and work conversations.
+            Decode intent, emotion, and risk through a neon matrix command center.
           </Text>
         </View>
 
@@ -156,14 +158,22 @@ export default function CoachScreen() {
 
         {result ? (
           <View style={styles.results}>
-            <ResultCard label="Intent" value={result.intent} />
-            <ResultCard label="Emotion" value={result.emotion} />
-            <ResultCard label="Risk Level" value={result.riskLevel} accent={riskAccent(result.riskLevel)} />
-            <ResultCard label="Suggested Tone" value={result.suggestedTone} />
-            <ResultCard label="Best Reply Strategy" value={result.strategy} />
+            <View style={styles.resultsGrid}>
+              <ResultCard label="Intent" value={result.intent} />
+              <ResultCard label="Emotion" value={result.emotion} />
+              <ResultCard label="Risk Level" value={result.riskLevel} accent={riskAccent(result.riskLevel)} />
+              <ResultCard label="Suggested Tone" value={result.suggestedTone} />
+            </View>
 
-            <TipsCard title="Do Tips" items={result.doTips} />
-            <TipsCard title="Don't Tips" items={result.dontTips} danger />
+            <View style={styles.replyCard}>
+              <Text style={styles.cardTitle}>Best Reply Strategy</Text>
+              <Text style={styles.strategy}>{result.strategy}</Text>
+            </View>
+
+            <View style={styles.dualColumn}>
+              <TipsCard title="Do Tips" items={result.doTips} />
+              <TipsCard title="Don't Tips" items={result.dontTips} danger />
+            </View>
 
             <View style={styles.replyCard}>
               <Text style={styles.cardTitle}>Recommended Reply</Text>
@@ -184,6 +194,23 @@ export default function CoachScreen() {
                 {agentSteps.map((step) => (
                   <View key={step} style={styles.stepPill}>
                     <Text style={styles.stepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.replyCard}>
+              <Text style={styles.cardTitle}>Tool Calls</Text>
+              <Text style={styles.toolSummary}>
+                MCP tools used by the backend to analyze your message.
+              </Text>
+              <View style={styles.toolList}>
+                {result.metadata.toolsUsed.map((tool) => (
+                  <View key={tool} style={styles.toolRow}>
+                    <Text style={styles.toolName}>{tool}</Text>
+                    <Text style={styles.toolSource}>
+                      {result.metadata.toolSources[tool as keyof typeof result.metadata.toolSources]}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -257,36 +284,62 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     flexGrow: 1,
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl * 1.5,
+  },
+  matrixGlowTop: {
+    backgroundColor: "rgba(69, 245, 198, 0.16)",
+    borderRadius: 999,
+    height: 180,
+    opacity: 0.4,
+    position: "absolute",
+    right: -70,
+    top: -40,
+    width: 180,
+  },
+  matrixGlowBottom: {
+    backgroundColor: "rgba(69, 245, 198, 0.08)",
+    borderRadius: 999,
+    bottom: 260,
+    height: 240,
+    left: -120,
+    opacity: 0.32,
+    position: "absolute",
+    width: 240,
   },
   header: {
     gap: spacing.sm,
-    paddingTop: spacing.md,
+    paddingTop: spacing.lg,
+    zIndex: 1,
   },
   eyebrow: {
     color: colors.primary,
     fontSize: 12,
     fontWeight: "900",
-    letterSpacing: 0,
+    letterSpacing: 1.4,
     textTransform: "uppercase",
   },
   title: {
     color: colors.text,
-    fontSize: 30,
+    fontSize: 34,
     fontWeight: "900",
+    letterSpacing: -0.8,
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
+    maxWidth: 420,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: "rgba(17, 19, 24, 0.96)",
+    borderColor: "rgba(69, 245, 198, 0.18)",
+    borderRadius: 18,
     borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
   },
   label: {
     color: colors.primary,
@@ -296,17 +349,18 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.surfaceElevated,
     borderColor: colors.borderStrong,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
-    minHeight: 150,
+    minHeight: 160,
     padding: spacing.md,
+    lineHeight: 22,
   },
   error: {
     backgroundColor: colors.dangerSoft,
     borderColor: colors.danger,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     color: colors.danger,
     lineHeight: 20,
@@ -315,10 +369,13 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 52,
+    borderRadius: 16,
+    minHeight: 56,
     justifyContent: "center",
     padding: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
   },
   buttonDisabled: {
     opacity: 0.75,
@@ -327,17 +384,31 @@ const styles = StyleSheet.create({
     color: "#08110D",
     fontSize: 16,
     fontWeight: "900",
+    letterSpacing: 0.5,
   },
   results: {
     gap: spacing.md,
   },
+  resultsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  dualColumn: {
+    gap: spacing.md,
+  },
   resultCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: "rgba(24, 27, 34, 0.96)",
+    borderColor: "rgba(69, 245, 198, 0.16)",
+    borderRadius: 16,
     borderWidth: 1,
     gap: spacing.xs,
     padding: spacing.md,
+    flexBasis: "48%",
+    flexGrow: 1,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
   },
   cardLabel: {
     color: colors.muted,
@@ -350,19 +421,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  strategy: {
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 23,
   },
   replyCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: "rgba(24, 27, 34, 0.96)",
+    borderColor: "rgba(69, 245, 198, 0.16)",
+    borderRadius: 18,
     borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
   },
   cardTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: "900",
+    letterSpacing: -0.2,
   },
   reply: {
     color: colors.text,
@@ -377,9 +458,9 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: "rgba(69, 245, 198, 0.08)",
+    borderColor: "rgba(69, 245, 198, 0.20)",
+    borderRadius: 14,
     borderWidth: 1,
     flexGrow: 1,
     justifyContent: "center",
@@ -392,14 +473,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     textAlign: "center",
+    letterSpacing: 0.2,
   },
   tipList: {
     gap: spacing.sm,
   },
   tipItem: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: "rgba(69, 245, 198, 0.08)",
+    borderColor: "rgba(69, 245, 198, 0.18)",
+    borderRadius: 14,
     borderWidth: 1,
     padding: spacing.sm,
   },
@@ -420,8 +502,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stepPill: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.borderStrong,
+    backgroundColor: "rgba(69, 245, 198, 0.08)",
+    borderColor: "rgba(69, 245, 198, 0.38)",
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
@@ -431,5 +513,36 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: "800",
+  },
+  toolSummary: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  toolList: {
+    gap: spacing.sm,
+  },
+  toolRow: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: "rgba(69, 245, 198, 0.16)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  toolName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  toolSource: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
 });

@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors } from "../../constants/theme";
 
 export default function TabsLayout() {
@@ -6,7 +7,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarShowIcon: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
@@ -15,6 +16,10 @@ export default function TabsLayout() {
           height: 66,
           paddingBottom: 8,
           paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "700",
         },
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -25,30 +30,54 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: "History",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
           title: "Favorites",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="coach"
         options={{
           title: "Coach",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="sparkles-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tabs>

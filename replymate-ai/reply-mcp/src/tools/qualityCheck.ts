@@ -52,22 +52,22 @@ function evaluateStatic(input: z.infer<typeof qualitySchema>): z.infer<typeof ou
     score -= 0.2;
   }
 
-  if (qualityRules.rudeTerms.some((term) => lowered.includes(term))) {
+  if (qualityRules.rudeTerms.some((term) => includesPhrase(lowered, term))) {
     issues.push("Reply sounds rude");
     score -= 0.3;
   }
 
-  if (qualityRules.defensiveTerms.some((term) => lowered.includes(term))) {
+  if (qualityRules.defensiveTerms.some((term) => includesPhrase(lowered, term))) {
     issues.push("Reply sounds defensive");
     score -= 0.25;
   }
 
-  if (qualityRules.blameTerms.some((term) => lowered.includes(term))) {
+  if (qualityRules.blameTerms.some((term) => includesPhrase(lowered, term))) {
     issues.push("Reply blames others");
     score -= 0.25;
   }
 
-  if (formalContext && qualityRules.slangForFormal.some((term) => lowered.includes(term))) {
+  if (formalContext && qualityRules.slangForFormal.some((term) => includesPhrase(lowered, term))) {
     issues.push("Reply uses casual slang in a formal context");
     score -= 0.25;
   }
@@ -95,6 +95,11 @@ function evaluateStatic(input: z.infer<typeof qualitySchema>): z.infer<typeof ou
     confidence: finalScore >= 0.8 ? 0.9 : 0.7,
     source: "static",
   };
+}
+
+function includesPhrase(value: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\W)${escaped}(\\W|$)`, "i").test(value);
 }
 
 function suggestImprovement(reply: string, relationshipContext: string): string {
