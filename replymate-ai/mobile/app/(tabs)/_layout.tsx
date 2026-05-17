@@ -1,5 +1,4 @@
 import { Tabs } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import { colors } from "../../constants/theme";
 
 export default function TabsLayout() {
@@ -7,6 +6,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowIcon: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
@@ -25,37 +25,30 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: "History",
-          tabBarIcon: ({ color, size }) => <Feather name="clock" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
           title: "Favorites",
-          tabBarIcon: ({ color, size }) => <Feather name="heart" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="coach"
         options={{
           title: "Coach",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="message-circle" color={color} size={size} />
-          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color, size }) => <Feather name="settings" color={color} size={size} />,
         }}
       />
     </Tabs>

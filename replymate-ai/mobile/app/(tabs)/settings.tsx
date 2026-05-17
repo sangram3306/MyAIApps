@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { BrandLogo, brandFont } from "../../components/BrandLogo";
 import { colors, spacing } from "../../constants/theme";
@@ -18,9 +17,6 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.statusCard}>
-        <View style={styles.statusIcon}>
-          <Feather name="zap" color={colors.primary} size={22} />
-        </View>
         <View style={styles.statusText}>
           <Text style={styles.cardTitle}>AI backend online</Text>
           <Text style={styles.cardCopy}>
@@ -31,26 +27,23 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.grid}>
-        <InfoTile icon="shield" title="Private by design" copy="Secrets stay on the backend." />
-        <InfoTile icon="clock" title="History ready" copy="Recent generations are saved locally." />
-        <InfoTile icon="heart" title="Favorites" copy="Keep your best replies one tap away." />
+        <InfoTile title="Private by design" copy="Secrets stay on the backend." />
+        <InfoTile title="History ready" copy="Recent generations are saved locally." />
+        <InfoTile title="Favorites" copy="Keep your best replies one tap away." />
       </View>
     </ScrollView>
   );
 }
 
 function InfoTile({
-  icon,
   title,
   copy,
 }: {
-  icon: keyof typeof Feather.glyphMap;
   title: string;
   copy: string;
 }) {
   return (
     <View style={styles.tile}>
-      <Feather name={icon} color={colors.secondary} size={20} />
       <Text style={styles.tileTitle}>{title}</Text>
       <Text style={styles.tileCopy}>{copy}</Text>
     </View>
@@ -108,16 +101,6 @@ const styles = StyleSheet.create({
     shadowColor: colors.primary,
     shadowOpacity: 0.22,
     shadowRadius: 24,
-  },
-  statusIcon: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.borderStrong,
-    borderRadius: 8,
-    borderWidth: 1,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
   },
   statusText: {
     flex: 1,
