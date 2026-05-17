@@ -1,7 +1,9 @@
 {
-  "name": "replymate-ai-backend",
+  "name": "reply-mcp",
   "version": "1.0.0",
-  "description": "ReplyMate AI backend API using NVIDIA NIM",
+  "private": true,
+  "description": "ReplyMate AI Smart Reply Coach MCP server",
+  "type": "module",
   "main": "dist/index.js",
   "engines": {
     "node": ">=18"
@@ -12,19 +14,10 @@
     "start": "node dist/index.js",
     "test": "node --import tsx --test tests/**/*.test.ts"
   },
-  "keywords": [
-    "replymate",
-    "nvidia",
-    "nim",
-    "express"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

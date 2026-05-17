@@ -1,19 +1,20 @@
 services:
   - type: web
-    name: replymate-ai-backend
+    name: reply-mcp
     env: node
     plan: free
-    rootDir: backend
+    rootDir: reply-mcp
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
+      - key: PORT
+        value: 5001
       - key: NVIDIA_BASE_URL
         value: https://integrate.api.nvidia.com/v1
       - key: NVIDIA_MODEL
         value: meta/llama-3.1-8b-instruct
       - key: NVIDIA_API_KEY
-        sync: false
-      - key: MCP_SERVER_URL
         sync: false
       - key: MCP_SHARED_SECRET
         sync: false

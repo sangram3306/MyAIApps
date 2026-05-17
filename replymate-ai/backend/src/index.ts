@@ -1,6 +1,7 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import coachRouter from "./routes/coachRoutes";
 import repliesRouter from "./routes/replies";
 import { hasNvidiaApiKey, logEnvStatus } from "./utils/env";
 
@@ -45,6 +46,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/replies", repliesRouter);
+app.use("/api/coach", coachRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found." });

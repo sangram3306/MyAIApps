@@ -92,3 +92,65 @@ export async function fixGrammarFromApi(params: {
 
   return data.replies;
 }
+
+export type CoachAnalyzeResponse = {
+  intent: string;
+  emotion: string;
+  riskLevel: "low" | "medium" | "high";
+  suggestedTone: string;
+  strategy: string;
+  doTips: string[];
+  dontTips: string[];
+  recommendedReply: string;
+  agentTrace: string[];
+  metadata: {
+    toolsUsed: string[];
+    toolSources: {
+      classifyIntent: "static" | "llm" | "fallback";
+      detectEmotion: "static" | "llm" | "fallback";
+      relationshipRules: "static" | "llm" | "fallback";
+      riskAssessment: "static" | "llm" | "fallback";
+      qualityCheck: "static" | "llm" | "fallback";
+    };
+  };
+};
+
+export async function analyzeCoachFromApi(params: {
+  backendUrl: string;
+  message: string;
+  relationshipContext: string;
+}): Promise<CoachAnalyzeResponse> {
+  const response = await fetch(`${params.backendUrl}/api/coach/analyze`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: params.message,
+      relationshipContext: params.relationshipContext,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<CoachAnalyzeResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Backend could not analyze the message.");
+  }
+
+  if (
+    typeof data?.intent !== "string" ||
+    typeof data?.emotion !== "string" ||
+    !Array.isArray(data?.doTips) ||
+    !Array.isArray(data?.dontTips) ||
+    typeof data?.recommendedReply !== "string" ||
+    typeof data?.suggestedTone !== "string" ||
+    typeof data?.strategy !== "string" ||
+    !Array.isArray(data?.agentTrace)
+  ) {
+    throw new Error("Backend returned an unexpected response.");
+  }
+
+  return data as CoachAnalyzeResponse;
+}

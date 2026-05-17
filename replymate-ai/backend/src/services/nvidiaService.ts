@@ -1,4 +1,5 @@
 import { GenerateRepliesInput } from "../schemas/replySchemas";
+import { CoachDraftInput } from "../agents/replyCoachTypes";
 import { getMockGrammarFixes, getMockReplies, getMockRewrites } from "../utils/mockReplies";
 import { parseRepliesFromModel } from "../utils/parseReplies";
 import { hasNvidiaApiKey } from "../utils/env";
@@ -93,6 +94,74 @@ export async function fixGrammar(input: GenerateRepliesInput): Promise<string[]>
   });
 }
 
+export async function generateCoachOutput(input: CoachDraftInput): Promise<{
+  suggestedTone: string;
+  strategy: string;
+  doTips: string[];
+  dontTips: string[];
+  recommendedReply: string;
+}> {
+  const apiKey = process.env.NVIDIA_API_KEY?.trim();
+  const model = process.env.NVIDIA_MODEL || defaultModel;
+  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
+
+  if (!hasNvidiaApiKey()) {
+    return {
+      suggestedTone: getSuggestedTone(input),
+      strategy: getFallbackStrategy(input),
+      doTips: getFallbackDoTips(input),
+      dontTips: getFallbackDontTips(input),
+      recommendedReply: getFallbackReply(input),
+    };
+  }
+
+  const prompt = buildCoachPrompt(input);
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.4,
+      max_tokens: 700,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are ReplyMate AI Smart Reply Coach. Return only valid JSON and no markdown. Do not expose chain-of-thought.',
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[nvidia] coach API error", response.status, errorText);
+    throw new Error(`NVIDIA API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as NvidiaChatResponse;
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("Model response did not include coaching content.");
+  }
+
+  const parsed = safeParseCoachJson(content);
+  if (!parsed) {
+    throw new Error("Model response did not contain valid coach JSON.");
+  }
+
+  return parsed;
+}
+
 async function generateWithNvidia({
   input,
   mockFallback,
@@ -159,4 +228,125 @@ async function generateWithNvidia({
   }
 
   return replies;
+}
+
+function buildCoachPrompt(input: CoachDraftInput): string {
+  return JSON.stringify({
+    task: "Generate a smart reply coaching plan for the user.",
+    rules: [
+      "Return only valid JSON.",
+      "No markdown.",
+      "No explanation outside JSON.",
+      "Keep tips short and user safe.",
+    ],
+    input: {
+      message: input.message,
+      relationshipContext: input.relationshipContext,
+      intent: input.intent,
+      emotion: input.emotion,
+      riskLevel: input.riskLevel,
+      styleRules: input.styleRules,
+      avoidRules: input.avoidRules,
+      recommendedHandling: input.recommendedHandling,
+    },
+    outputSchema: {
+      suggestedTone: "string",
+      strategy: "string",
+      doTips: ["string", "string", "string"],
+      dontTips: ["string", "string", "string"],
+      recommendedReply: "string",
+    },
+  });
+}
+
+function safeParseCoachJson(content: string): {
+  suggestedTone: string;
+  strategy: string;
+  doTips: string[];
+  dontTips: string[];
+  recommendedReply: string;
+} | null {
+  try {
+    const parsed = JSON.parse(content) as Partial<{
+      suggestedTone: string;
+      strategy: string;
+      doTips: unknown;
+      dontTips: unknown;
+      recommendedReply: string;
+    }>;
+
+    if (
+      typeof parsed.suggestedTone !== "string" ||
+      typeof parsed.strategy !== "string" ||
+      typeof parsed.recommendedReply !== "string" ||
+      !Array.isArray(parsed.doTips) ||
+      !Array.isArray(parsed.dontTips)
+    ) {
+      return null;
+    }
+
+    return {
+      suggestedTone: parsed.suggestedTone,
+      strategy: parsed.strategy,
+      doTips: parsed.doTips.filter((item): item is string => typeof item === "string").slice(0, 3),
+      dontTips: parsed.dontTips.filter((item): item is string => typeof item === "string").slice(0, 3),
+      recommendedReply: parsed.recommendedReply,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getSuggestedTone(input: CoachDraftInput): string {
+  if (input.riskLevel === "high") {
+    return input.relationshipContext === "Boss" || input.relationshipContext === "Client" || input.relationshipContext === "Customer"
+      ? "formal, calm, and professional"
+      : "calm, respectful, and careful";
+  }
+
+  if (input.intent === "romantic") {
+    return "warm and affectionate";
+  }
+
+  return input.relationshipContext === "Friend" || input.relationshipContext === "Sibling"
+    ? "friendly and natural"
+    : "balanced and considerate";
+}
+
+function getFallbackStrategy(input: CoachDraftInput): string {
+  return `Acknowledge the message, match the tone, and keep the reply aligned to ${input.relationshipContext.toLowerCase()} expectations.`;
+}
+
+function getFallbackDoTips(input: CoachDraftInput): string[] {
+  return [
+    `Keep the reply suited for a ${input.relationshipContext.toLowerCase()} conversation`,
+    "Address the main point clearly",
+    "End with a simple next step when needed",
+  ];
+}
+
+function getFallbackDontTips(input: CoachDraftInput): string[] {
+  return [
+    "Do not sound defensive",
+    "Do not add unnecessary detail",
+    input.relationshipContext === "Boss" || input.relationshipContext === "Client"
+      ? "Do not use casual slang"
+      : "Do not ignore the other person's tone",
+  ];
+}
+
+function getFallbackReply(input: CoachDraftInput): string {
+  if (input.riskLevel === "high") {
+    return "Thanks for letting me know. I understand your concern, and I want to handle this properly. Let me review it and get back to you shortly.";
+  }
+
+  if (input.intent === "apology") {
+    return "I understand, and I'm sorry about that. I'll handle it and make sure we move forward the right way.";
+  }
+
+  if (input.relationshipContext === "Friend" || input.relationshipContext === "Sibling") {
+    return "Got it. Thanks for telling me. I'm on it.";
+  }
+
+  return "Thanks for the message. I understand, and I'll keep this moving in the right direction.";
 }
