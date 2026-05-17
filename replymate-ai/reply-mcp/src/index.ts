@@ -37,7 +37,19 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+app.get("/", (_req: Request, res: Response) => {
+  res.json({
+    ok: true,
+    service: "reply-mcp",
+    message: "Use /health for monitoring and /tools/:toolName for coach tools.",
+  });
+});
+
 app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === "/" || req.path === "/health") {
+    return next();
+  }
+
   if (!sharedSecret) {
     return next();
   }
@@ -94,4 +106,3 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(port, () => {
   info(`reply-mcp running on port ${port}`);
 });
-
