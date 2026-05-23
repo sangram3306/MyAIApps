@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { mkdtempSync, rmSync } from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import { classifyIntent } from "../src/tools/classifyIntent.js";
 import { detectEmotion } from "../src/tools/detectEmotion.js";
 import { relationshipRules } from "../src/tools/relationshipRules.js";
@@ -89,43 +92,45 @@ test("qualityCheck static pass/fail", async () => {
   assert.equal(fail.source, "static");
 });
 
-test("todo tools prepare stateless todo operations", async () => {
-  const create = await createTodoTool({ title: "  call John tomorrow  " });
-  assert.equal(create.source, "static");
-  assert.equal(create.title, "call John tomorrow");
+test("todo tools perform stored todo operations", async () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "reply-mcp-todos-"));
+  const originalStorePath = process.env.TODO_STORE_PATH;
+  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
 
-  const currentTodos = [
-    {
-      id: "todo-1",
-      title: "call John tomorrow",
-      completed: false,
-    },
-  ];
+  try {
+    const create = await createTodoTool({ title: "  call John tomorrow  " });
+    assert.equal(create.source, "static");
+    assert.equal(create.title, "call John tomorrow");
+    assert.equal(create.todos.length, 1);
 
-  const list = await listTodosTool({ currentTodos });
-  assert.equal(list.source, "static");
-  assert.equal(list.count, 1);
+    const list = await listTodosTool({});
+    assert.equal(list.source, "static");
+    assert.equal(list.count, 1);
 
-  const complete = await completeTodoTool({ target: "John", currentTodos });
-  assert.equal(complete.source, "static");
-  assert.equal(complete.matchedId, "todo-1");
+    const complete = await completeTodoTool({ target: "John" });
+    assert.equal(complete.source, "static");
+    assert.equal(complete.todo?.completed, true);
 
-  const update = await updateTodoTool({
-    target: "John",
-    replacementText: "call John after lunch",
-    currentTodos,
-  });
-  assert.equal(update.source, "static");
-  assert.equal(update.matchedId, "todo-1");
-  assert.equal(update.replacementText, "call John after lunch");
+    const update = await updateTodoTool({
+      target: "John",
+      replacementText: "call John after lunch",
+    });
+    assert.equal(update.source, "static");
+    assert.equal(update.todo?.title, "call John after lunch");
 
-  const deleted = await deleteTodoTool({ target: "John", currentTodos });
-  assert.equal(deleted.source, "static");
-  assert.equal(deleted.matchedId, "todo-1");
+    const deleted = await deleteTodoTool({ target: "John" });
+    assert.equal(deleted.source, "static");
+    assert.equal(deleted.todos.length, 0);
 
-  const deleteAll = await deleteTodoTool({ target: "the todos", currentTodos });
-  assert.equal(deleteAll.source, "static");
-  assert.equal(deleteAll.count, 1);
+    await createTodoTool({ title: "send the report" });
+    const deleteAll = await deleteTodoTool({ target: "the todos" });
+    assert.equal(deleteAll.source, "static");
+    assert.equal(deleteAll.count, 1);
+    assert.equal(deleteAll.todos.length, 0);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+    restoreEnv("TODO_STORE_PATH", originalStorePath);
+  }
 });
 
 function startMockNvidiaServer(payload: unknown): Promise<{ url: string; close: () => void }> {

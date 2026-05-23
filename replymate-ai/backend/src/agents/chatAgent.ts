@@ -1,18 +1,17 @@
 import { hasNvidiaApiKey } from "../utils/env";
 import { safeParseJson } from "../utils/safeJson";
-import {
-  completeTodo,
-  createTodo,
-  deleteAllTodos,
-  deleteTodo,
-  listTodos,
-  TodoItem,
-  updateTodo,
-} from "../services/todoStore";
 import { callMcpTool } from "../mcp/mcpClient";
 
 type ChatIntent = "general" | "create_todo" | "list_todos" | "complete_todo" | "delete_todo" | "update_todo";
 type Source = "static" | "llm" | "fallback";
+
+type TodoItem = {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type ChatResponse = {
   assistantReply: string;
@@ -53,6 +52,8 @@ type TodoMcpResult = {
   matchedTitle?: string;
   replacementText?: string;
   count?: number;
+  todo?: TodoItem;
+  todos?: TodoItem[];
 };
 
 const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
@@ -63,7 +64,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
   const classification = await classifyChatMessage(message);
   const toolCalls: ChatResponse["toolCalls"] = [];
   const toolsUsed = ["classifyIntent"];
-  const todosSnapshotBefore = await listTodos();
+  const todosSnapshotBefore = await getTodosSnapshot();
 
   if (classification.intent === "create_todo") {
     const title = classification.todoTitle || extractTodoTitle(message);
@@ -78,11 +79,19 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       });
     }
 
-    const mcpResult = await callTodoSkill("createTodo", {
-      title,
-      currentTodos: todosSnapshotBefore,
-    });
-    const todo = await createTodo(mcpResult.title || title);
+    const mcpResult = await callTodoSkill("createTodo", { title });
+    const todo = mcpResult.todo;
+    if (!todo) {
+      return buildGeneralResponse({
+        message,
+        trace,
+        classification,
+        toolCalls,
+        toolsUsed,
+        todos: mcpResult.todos || todosSnapshotBefore,
+      });
+    }
+
     trace.push("Created todo item");
     toolCalls.push({
       name: "createTodo",
@@ -93,7 +102,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       assistantReply: `Added todo: ${todo.title}`,
       intent: classification.intent,
       toolCalls,
-      todos: await listTodos(),
+      todos: mcpResult.todos || [todo],
       agentTrace: [...trace, "Returned todo confirmation"],
       metadata: {
         toolsUsed: [...toolsUsed, "createTodo"],
@@ -107,8 +116,8 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
   }
 
   if (classification.intent === "list_todos") {
-    const todos = await listTodos();
-    const mcpResult = await callTodoSkill("listTodos", { currentTodos: todos });
+    const mcpResult = await callTodoSkill("listTodos", {});
+    const todos = mcpResult.todos || [];
     trace.push("Loaded todo list");
     toolCalls.push({
       name: "listTodos",
@@ -135,11 +144,8 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
   if (classification.intent === "complete_todo") {
     const identifier = classification.todoTarget || extractTodoTarget(message);
     if (identifier) {
-      const mcpResult = await callTodoSkill("completeTodo", {
-        target: identifier,
-        currentTodos: todosSnapshotBefore,
-      });
-      const updated = await completeTodo(mcpResult.matchedId || identifier);
+      const mcpResult = await callTodoSkill("completeTodo", { target: identifier });
+      const updated = mcpResult.todo;
       if (updated) {
         trace.push("Marked todo completed");
         toolCalls.push({
@@ -151,7 +157,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
           assistantReply: `Marked complete: ${updated.title}`,
           intent: classification.intent,
           toolCalls,
-          todos: await listTodos(),
+          todos: mcpResult.todos || [],
           agentTrace: [...trace, "Returned completion confirmation"],
           metadata: {
             toolsUsed: [...toolsUsed, "completeTodo"],
@@ -169,27 +175,22 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
   if (classification.intent === "delete_todo") {
     const identifier = classification.todoTarget || extractTodoTarget(message);
     if (identifier) {
-      const mcpResult = await callTodoSkill("deleteTodo", {
-        target: identifier,
-        currentTodos: todosSnapshotBefore,
-      });
-
+      const mcpResult = await callTodoSkill("deleteTodo", { target: identifier });
       if (isDeleteAllTarget(identifier)) {
-        const deletedTodos = await deleteAllTodos();
         trace.push("Deleted todo items");
         toolCalls.push({
           name: "deleteTodo",
           source: mcpResult.source,
-          summary: `Deleted ${deletedTodos.length} todo${deletedTodos.length === 1 ? "" : "s"}`,
+          summary: mcpResult.summary,
         });
         return {
           assistantReply:
-            deletedTodos.length > 0
-              ? `Deleted ${deletedTodos.length} todo${deletedTodos.length === 1 ? "" : "s"}.`
+            (mcpResult.count || 0) > 0
+              ? mcpResult.summary
               : "There were no todos to delete.",
           intent: classification.intent,
           toolCalls,
-          todos: [],
+          todos: mcpResult.todos || [],
           agentTrace: [...trace, "Returned delete confirmation"],
           metadata: {
             toolsUsed: [...toolsUsed, "deleteTodo"],
@@ -202,7 +203,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
         };
       }
 
-      const deleted = await deleteTodo(mcpResult.matchedId || identifier);
+      const deleted = mcpResult.todo;
       if (deleted) {
         trace.push("Deleted todo item");
         toolCalls.push({
@@ -214,7 +215,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
           assistantReply: `Deleted todo: ${deleted.title}`,
           intent: classification.intent,
           toolCalls,
-          todos: await listTodos(),
+          todos: mcpResult.todos || [],
           agentTrace: [...trace, "Returned delete confirmation"],
           metadata: {
             toolsUsed: [...toolsUsed, "deleteTodo"],
@@ -236,12 +237,8 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       const mcpResult = await callTodoSkill("updateTodo", {
         target: identifier,
         replacementText: replacement,
-        currentTodos: todosSnapshotBefore,
       });
-      const updated = await updateTodo(
-        mcpResult.matchedId || identifier,
-        mcpResult.replacementText || replacement,
-      );
+      const updated = mcpResult.todo;
       if (updated) {
         trace.push("Updated todo item");
         toolCalls.push({
@@ -253,7 +250,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
           assistantReply: `Updated todo: ${updated.title}`,
           intent: classification.intent,
           toolCalls,
-          todos: await listTodos(),
+          todos: mcpResult.todos || [],
           agentTrace: [...trace, "Returned update confirmation"],
           metadata: {
             toolsUsed: [...toolsUsed, "updateTodo"],
@@ -293,8 +290,14 @@ async function callTodoSkill(toolName: string, payload: unknown): Promise<TodoMc
       source: "fallback",
       confidence: 0.3,
       summary: `Used local fallback for ${toolName}.`,
+      todos: [],
     };
   }
+}
+
+async function getTodosSnapshot(): Promise<TodoItem[]> {
+  const result = await callTodoSkill("listTodos", {});
+  return result.todos || [];
 }
 
 async function buildGeneralResponse({

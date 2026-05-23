@@ -22,9 +22,8 @@ The tools are hybrid:
 2. Use NVIDIA NIM when the static confidence is not strong enough.
 3. Fall back gracefully if NVIDIA or the model response fails.
 
-The todo tools are stateless helper tools for the Chat agent. They prepare,
-normalize, and match todo operations, while the backend remains responsible for
-storing todo data.
+The todo tools are MongoDB-backed CRUD tools for the Chat agent. They create,
+list, complete, delete, and update todos directly from this `reply-mcp` service.
 
 ## Local Setup
 
@@ -43,6 +42,9 @@ NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 MCP_SHARED_SECRET=
+MONGODB_URI=
+MONGODB_DB_NAME=replymate_ai
+MONGODB_TODOS_COLLECTION=todos
 ```
 
 ## Render Deployment
@@ -57,6 +59,9 @@ MCP_SHARED_SECRET=
    - `NVIDIA_MODEL`
    - `NVIDIA_BASE_URL`
    - `MCP_SHARED_SECRET`
+   - `MONGODB_URI`
+   - `MONGODB_DB_NAME`
+   - `MONGODB_TODOS_COLLECTION`
 6. Deploy the service.
 7. Copy the deployed URL.
 8. Set that URL in the backend `MCP_SERVER_URL`.
@@ -65,5 +70,6 @@ MCP_SHARED_SECRET=
 ## Security
 
 - Do not expose NVIDIA keys to the mobile app.
+- Do not expose MongoDB credentials to the mobile app.
 - Keep `MCP_SHARED_SECRET` private.
 - The backend should be the only caller of this service.

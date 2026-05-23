@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import test from "node:test";
 import { handleChatMessageRequest } from "../src/routes/chatRoutes";
 
 test("POST /api/chat/message creates a todo from a natural language command", async () => {
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));
+  const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
-  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
-  process.env.MCP_SERVER_URL = "";
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
 
   try {
     const response = await invokeChatMessage({ message: "Add a todo to call John tomorrow" });
@@ -23,17 +21,17 @@ test("POST /api/chat/message creates a todo from a natural language command", as
     assert.equal((data.todos as Array<unknown>).length, 1);
     assert.ok(Array.isArray(data.toolCalls));
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.TODO_STORE_PATH;
+    globalThis.fetch = originalFetch;
     restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
   }
 });
 
 test("POST /api/chat/message lists todos from the todo skill", async () => {
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));
+  const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
-  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
-  process.env.MCP_SERVER_URL = "";
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
 
   try {
     await invokeChatMessage({ message: "Add a todo to call John tomorrow" });
@@ -47,17 +45,17 @@ test("POST /api/chat/message lists todos from the todo skill", async () => {
     assert.equal((data.todos as Array<unknown>).length, 1);
     assert.ok(Array.isArray(data.agentTrace));
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.TODO_STORE_PATH;
+    globalThis.fetch = originalFetch;
     restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
   }
 });
 
 test("POST /api/chat/message deletes all todos when asked to delete the todos", async () => {
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));
+  const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
-  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
-  process.env.MCP_SERVER_URL = "";
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
 
   try {
     await invokeChatMessage({ message: "Add a todo to call John tomorrow" });
@@ -77,24 +75,26 @@ test("POST /api/chat/message deletes all todos when asked to delete the todos", 
     assert.match(String(listData.assistantReply), /do not have any todos/i);
     assert.equal((listData.todos as Array<unknown>).length, 0);
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.TODO_STORE_PATH;
+    globalThis.fetch = originalFetch;
     restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
   }
 });
 
 test("POST /api/chat/message falls back to NVIDIA for general questions", async () => {
   const originalFetch = globalThis.fetch;
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "replymate-chat-"));
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
-  process.env.TODO_STORE_PATH = path.join(tempDir, "todos.json");
-  process.env.MCP_SERVER_URL = "";
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
   process.env.NVIDIA_API_KEY = "test-key";
   process.env.NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
   process.env.NVIDIA_BASE_URL = "http://mock-nvidia";
 
   globalThis.fetch = async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes("/tools/")) {
+      return mockMcp.fetch(input);
+    }
+
     if (url.includes("/chat/completions")) {
       return jsonResponse({
         choices: [
@@ -123,8 +123,6 @@ test("POST /api/chat/message falls back to NVIDIA for general questions", async 
     assert.equal((data.toolCalls as Array<unknown>).length, 0);
   } finally {
     globalThis.fetch = originalFetch;
-    rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.TODO_STORE_PATH;
     restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
     delete process.env.NVIDIA_API_KEY;
     delete process.env.NVIDIA_MODEL;
@@ -155,6 +153,85 @@ function jsonResponse(payload: unknown): Response {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function createMockMcp(): { fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> } {
+  const todos: Array<{
+    id: string;
+    title: string;
+    completed: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }> = [];
+
+  return {
+    async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+      const url = String(input);
+      const payload = init?.body ? JSON.parse(String(init.body)) as Record<string, string> : {};
+
+      if (url.includes("/tools/listTodos")) {
+        return jsonResponse({
+          source: "static",
+          confidence: 0.98,
+          summary: `Found ${todos.length} todos.`,
+          todos,
+          count: todos.length,
+        });
+      }
+
+      if (url.includes("/tools/createTodo")) {
+        const now = new Date().toISOString();
+        const todo = {
+          id: `todo-${todos.length + 1}`,
+          title: payload.title,
+          completed: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+        todos.unshift(todo);
+        return jsonResponse({
+          source: "static",
+          confidence: 0.96,
+          summary: `Created todo: ${todo.title}`,
+          todo,
+          todos,
+          count: todos.length,
+        });
+      }
+
+      if (url.includes("/tools/deleteTodo")) {
+        if (payload.target?.toLowerCase().includes("todos")) {
+          const count = todos.length;
+          todos.splice(0, todos.length);
+          return jsonResponse({
+            source: "static",
+            confidence: 0.88,
+            summary: `Deleted ${count} todo${count === 1 ? "" : "s"}.`,
+            todos,
+            count,
+          });
+        }
+
+        const index = todos.findIndex((todo) => todo.title.toLowerCase().includes(String(payload.target).toLowerCase()));
+        const [todo] = index >= 0 ? todos.splice(index, 1) : [];
+        return jsonResponse({
+          source: todo ? "static" : "fallback",
+          confidence: todo ? 0.9 : 0.3,
+          summary: todo ? `Deleted todo: ${todo.title}` : "Could not match the todo to delete.",
+          todo,
+          todos,
+          count: todos.length,
+        });
+      }
+
+      return jsonResponse({
+        source: "fallback",
+        confidence: 0.3,
+        summary: "Unknown mock MCP tool.",
+        todos,
+      });
+    },
+  };
 }
 
 function restoreEnv(key: string, value: string | undefined): void {

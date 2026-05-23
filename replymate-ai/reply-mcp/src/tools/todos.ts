@@ -1,43 +1,42 @@
 import { z } from "zod";
+import {
+  completeTodo,
+  createTodo,
+  deleteAllTodos,
+  deleteTodo,
+  listTodos,
+  TodoItem,
+  updateTodo,
+} from "../services/todoStore.js";
 
 const sourceSchema = z.enum(["static", "llm", "fallback"]);
-
-const todoSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  completed: z.boolean(),
-});
 
 const createTodoInputSchema = z.object({
   title: z.string().min(1),
 });
 
-const listTodoInputSchema = z.object({
-  currentTodos: z.array(todoSchema).default([]),
-});
+const listTodoInputSchema = z.object({}).passthrough();
 
 const targetTodoInputSchema = z.object({
   target: z.string().min(1),
-  currentTodos: z.array(todoSchema).default([]),
 });
 
 const updateTodoInputSchema = targetTodoInputSchema.extend({
   replacementText: z.string().min(1),
 });
 
-const todoToolOutputSchema = z.object({
-  source: sourceSchema,
-  confidence: z.number(),
-  summary: z.string(),
-  title: z.string().optional(),
-  matchedId: z.string().optional(),
-  matchedTitle: z.string().optional(),
-  replacementText: z.string().optional(),
-  count: z.number().optional(),
-});
-
-type TodoToolOutput = z.infer<typeof todoToolOutputSchema>;
-type TodoItem = z.infer<typeof todoSchema>;
+type TodoToolOutput = {
+  source: z.infer<typeof sourceSchema>;
+  confidence: number;
+  summary: string;
+  todo?: TodoItem;
+  todos: TodoItem[];
+  title?: string;
+  matchedId?: string;
+  matchedTitle?: string;
+  replacementText?: string;
+  count?: number;
+};
 
 export async function createTodoTool(input: unknown): Promise<TodoToolOutput> {
   const parsed = createTodoInputSchema.safeParse(input);
@@ -50,34 +49,93 @@ export async function createTodoTool(input: unknown): Promise<TodoToolOutput> {
     return fallback("Todo title was empty.");
   }
 
+  const todo = await createTodo(title);
+  const todos = await listTodos();
+
   return {
     source: "static",
     confidence: 0.96,
-    summary: `Prepared todo creation: ${title}`,
-    title,
+    summary: `Created todo: ${todo.title}`,
+    todo,
+    todos,
+    title: todo.title,
+    count: todos.length,
   };
 }
 
 export async function listTodosTool(input: unknown): Promise<TodoToolOutput> {
   const parsed = listTodoInputSchema.safeParse(input);
   if (!parsed.success) {
-    return fallback("Could not read the current todo list.");
+    return fallback("Could not read the list request.");
   }
 
+  const todos = await listTodos();
   return {
     source: "static",
     confidence: 0.98,
-    summary: `Prepared todo list with ${parsed.data.currentTodos.length} item(s).`,
-    count: parsed.data.currentTodos.length,
+    summary: `Found ${todos.length} todo${todos.length === 1 ? "" : "s"}.`,
+    todos,
+    count: todos.length,
   };
 }
 
 export async function completeTodoTool(input: unknown): Promise<TodoToolOutput> {
-  return matchTargetTodo(input, "Prepared todo completion");
+  const parsed = targetTodoInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fallback("Could not read the target todo.");
+  }
+
+  const todo = await completeTodo(parsed.data.target);
+  if (!todo) {
+    return fallback("Could not match the todo to complete.");
+  }
+
+  const todos = await listTodos();
+  return {
+    source: "static",
+    confidence: 0.9,
+    summary: `Completed todo: ${todo.title}`,
+    todo,
+    todos,
+    matchedId: todo.id,
+    matchedTitle: todo.title,
+    count: todos.length,
+  };
 }
 
 export async function deleteTodoTool(input: unknown): Promise<TodoToolOutput> {
-  return matchTargetTodo(input, "Prepared todo deletion");
+  const parsed = targetTodoInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fallback("Could not read the target todo.");
+  }
+
+  if (isAllTodosTarget(parsed.data.target)) {
+    const deletedTodos = await deleteAllTodos();
+    return {
+      source: "static",
+      confidence: 0.88,
+      summary: `Deleted ${deletedTodos.length} todo${deletedTodos.length === 1 ? "" : "s"}.`,
+      todos: [],
+      count: deletedTodos.length,
+    };
+  }
+
+  const todo = await deleteTodo(parsed.data.target);
+  if (!todo) {
+    return fallback("Could not match the todo to delete.");
+  }
+
+  const todos = await listTodos();
+  return {
+    source: "static",
+    confidence: 0.9,
+    summary: `Deleted todo: ${todo.title}`,
+    todo,
+    todos,
+    matchedId: todo.id,
+    matchedTitle: todo.title,
+    count: todos.length,
+  };
 }
 
 export async function updateTodoTool(input: unknown): Promise<TodoToolOutput> {
@@ -86,64 +144,28 @@ export async function updateTodoTool(input: unknown): Promise<TodoToolOutput> {
     return fallback("Could not read the update request.");
   }
 
-  const match = findTodo(parsed.data.currentTodos, parsed.data.target);
   const replacementText = normalizeTitle(parsed.data.replacementText);
+  if (!replacementText) {
+    return fallback("Replacement todo text was empty.");
+  }
 
-  if (!match || !replacementText) {
+  const todo = await updateTodo(parsed.data.target, replacementText);
+  if (!todo) {
     return fallback("Could not match the todo to update.");
   }
 
+  const todos = await listTodos();
   return {
     source: "static",
     confidence: 0.9,
-    summary: `Prepared todo update: ${match.title}`,
-    matchedId: match.id,
-    matchedTitle: match.title,
-    replacementText,
+    summary: `Updated todo: ${todo.title}`,
+    todo,
+    todos,
+    matchedId: todo.id,
+    matchedTitle: todo.title,
+    replacementText: todo.title,
+    count: todos.length,
   };
-}
-
-function matchTargetTodo(input: unknown, summaryPrefix: string): TodoToolOutput {
-  const parsed = targetTodoInputSchema.safeParse(input);
-  if (!parsed.success) {
-    return fallback("Could not read the target todo.");
-  }
-
-  if (isAllTodosTarget(parsed.data.target)) {
-    return {
-      source: "static",
-      confidence: 0.88,
-      summary: "Prepared deletion of all todos.",
-      count: parsed.data.currentTodos.length,
-    };
-  }
-
-  const match = findTodo(parsed.data.currentTodos, parsed.data.target);
-  if (!match) {
-    return fallback("Could not match the target todo.");
-  }
-
-  return {
-    source: "static",
-    confidence: 0.9,
-    summary: `${summaryPrefix}: ${match.title}`,
-    matchedId: match.id,
-    matchedTitle: match.title,
-  };
-}
-
-function findTodo(todos: TodoItem[], target: string): TodoItem | null {
-  const query = target.trim().toLowerCase();
-  if (!query) {
-    return null;
-  }
-
-  return (
-    todos.find((todo) => todo.id.toLowerCase() === query) ||
-    todos.find((todo) => todo.title.trim().toLowerCase() === query) ||
-    todos.find((todo) => todo.title.toLowerCase().includes(query)) ||
-    null
-  );
 }
 
 function normalizeTitle(value: string): string {
@@ -170,10 +192,11 @@ function isAllTodosTarget(value: string): boolean {
   ].includes(normalized);
 }
 
-function fallback(summary: string): TodoToolOutput {
+async function fallback(summary: string): Promise<TodoToolOutput> {
   return {
     source: "fallback",
     confidence: 0.3,
     summary,
+    todos: await listTodos().catch(() => []),
   };
 }
