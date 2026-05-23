@@ -4,6 +4,8 @@ import { callMcpTool } from "../mcp/mcpClient";
 
 type ChatIntent = "general" | "create_todo" | "list_todos" | "complete_todo" | "delete_todo" | "update_todo";
 type Source = "static" | "llm" | "fallback";
+type TodoListFilter = "all" | "open" | "completed";
+type TodoToolName = "createTodo" | "listTodos" | "completeTodo" | "deleteTodo" | "updateTodo";
 
 type TodoItem = {
   id: string;
@@ -33,16 +35,6 @@ export type ChatResponse = {
   };
 };
 
-type ClassificationResult = {
-  intent: ChatIntent;
-  confidence: number;
-  reason: string;
-  source: Source;
-  todoTitle?: string;
-  todoTarget?: string;
-  replacementText?: string;
-};
-
 type TodoMcpResult = {
   source: Source;
   confidence: number;
@@ -57,295 +49,381 @@ type TodoMcpResult = {
   matchedTodos?: TodoItem[];
 };
 
-type TodoListFilter = "all" | "open" | "completed";
+type AgentToolDefinition = {
+  name: TodoToolName;
+  skill: "Todo Manager";
+  usesDb: boolean;
+  description: string;
+  schema: Record<string, unknown>;
+};
+
+type AgentToolCall = {
+  type: "tool_call";
+  toolName: TodoToolName;
+  arguments: Record<string, unknown>;
+  reason?: string;
+};
+
+type AgentFinal = {
+  type: "final";
+  assistantReply: string;
+};
+
+type AgentAction = AgentToolCall | AgentFinal;
+
+type AgentMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
 
 const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
 const defaultModel = "meta/llama-3.1-8b-instruct";
-const chatIntents: ChatIntent[] = [
-  "general",
-  "create_todo",
-  "list_todos",
-  "complete_todo",
-  "delete_todo",
-  "update_todo",
+const maxAgentTurns = 5;
+
+const todoTools: AgentToolDefinition[] = [
+  {
+    name: "createTodo",
+    skill: "Todo Manager",
+    usesDb: true,
+    description: "Create one todo in MongoDB. Use for reminders, tasks to remember, or things the user wants saved.",
+    schema: {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string", description: "The todo text only." },
+      },
+    },
+  },
+  {
+    name: "listTodos",
+    skill: "Todo Manager",
+    usesDb: true,
+    description: "List todos from MongoDB. Use when the user asks to show, list, view, or check todos.",
+    schema: {
+      type: "object",
+      properties: {
+        filter: { type: "string", enum: ["all", "open", "completed"], default: "all" },
+      },
+    },
+  },
+  {
+    name: "completeTodo",
+    skill: "Todo Manager",
+    usesDb: true,
+    description:
+      "Mark one or more todos complete in MongoDB. Use numbered references exactly as the user says, such as '2', '2nd', or '1 and 3'.",
+    schema: {
+      type: "object",
+      required: ["target"],
+      properties: {
+        target: { type: "string", description: "Todo id, title fragment, number, ordinal, or multi-number target." },
+      },
+    },
+  },
+  {
+    name: "deleteTodo",
+    skill: "Todo Manager",
+    usesDb: true,
+    description:
+      "Delete one, many, or all todos from MongoDB. Use numbered references exactly as the user says, or 'todos' for all todos.",
+    schema: {
+      type: "object",
+      required: ["target"],
+      properties: {
+        target: { type: "string", description: "Todo id, title fragment, number, ordinal, multi-number target, or all target." },
+      },
+    },
+  },
+  {
+    name: "updateTodo",
+    skill: "Todo Manager",
+    usesDb: true,
+    description: "Update one todo in MongoDB.",
+    schema: {
+      type: "object",
+      required: ["target", "replacementText"],
+      properties: {
+        target: { type: "string", description: "Todo id, title fragment, number, or ordinal." },
+        replacementText: { type: "string", description: "The new todo text." },
+      },
+    },
+  },
 ];
 
 export async function handleChatMessage(message: string): Promise<ChatResponse> {
-  const trace = ["Checked chat message", "Classified intent"];
-  const classification = enforceTodoIntent(message, await classifyChatMessage(message));
+  if (!hasNvidiaApiKey()) {
+    return runStaticFallback(message, "fallback");
+  }
+
+  try {
+    return await runAgentLoop(message);
+  } catch (error) {
+    console.error("[chat] agent loop fallback", error);
+    return runStaticFallback(message, "fallback");
+  }
+}
+
+async function runAgentLoop(message: string): Promise<ChatResponse> {
+  const trace = ["Checked chat message"];
   const toolCalls: ChatResponse["toolCalls"] = [];
-  const toolsUsed = ["classifyIntent"];
-  const todosSnapshotBefore = await getTodosSnapshot();
-
-  if (classification.intent === "create_todo") {
-    const title = classification.todoTitle || extractTodoTitle(message);
-    if (!title) {
-      return buildGeneralResponse({
-        message,
-        trace,
-        classification,
-        toolCalls,
-        toolsUsed,
-        todos: todosSnapshotBefore,
-      });
-    }
-
-    const mcpResult = await callTodoSkill("createTodo", { title });
-    const todo = mcpResult.todo;
-    if (!todo) {
-      return buildGeneralResponse({
-        message,
-        trace,
-        classification,
-        toolCalls,
-        toolsUsed,
-        todos: mcpResult.todos || todosSnapshotBefore,
-      });
-    }
-
-    trace.push("Created todo item");
-    toolCalls.push({
-      name: "createTodo",
-      source: mcpResult.source,
-      summary: `Created todo: ${todo.title}`,
-    });
-    return {
-      assistantReply: `Added todo: ${todo.title}`,
-      intent: classification.intent,
-      toolCalls,
-      todos: mcpResult.todos || [todo],
-      agentTrace: [...trace, "Returned todo confirmation"],
-      metadata: {
-        toolsUsed: [...toolsUsed, "createTodo"],
-        toolSources: {
-          classifyIntent: classification.source,
-          todoSkill: mcpResult.source,
-          answerGeneration: "static",
+  const observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }> = [];
+  const initialTodos = await getTodosSnapshot();
+  const messages: AgentMessage[] = [
+    {
+      role: "system",
+      content:
+        "You are ReplyMate AI Chat running an industry-style ReAct/tool-calling loop. You may either call exactly one allowed tool or return a final answer. Never claim a tool action succeeded unless you received a tool_result observation. Return only valid JSON. Do not include private chain-of-thought.",
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        userMessage: message,
+        skills: [
+          {
+            name: "Todo Manager",
+            description: "Manage user todos through protected MCP tools. Todo tools read/write MongoDB.",
+          },
+          {
+            name: "Answer Generator",
+            description: "Answer general questions directly when no tool is needed.",
+          },
+        ],
+        availableTools: todoTools,
+        currentTodos: initialTodos.map((todo, index) => ({
+          number: index + 1,
+          id: todo.id,
+          title: todo.title,
+          completed: todo.completed,
+        })),
+        instructions: [
+          "If the user asks to create, list, complete, delete, or update todos, return a tool_call.",
+          "If the user references a numbered todo, pass that number or ordinal in the tool arguments.",
+          "After a tool_result observation, either call another tool if needed or return final.",
+          "For final answers after todo tools, summarize the actual tool_result only.",
+          "For normal non-tool questions, return final directly.",
+        ],
+        responseSchemas: {
+          toolCall: {
+            type: "tool_call",
+            toolName: "createTodo | listTodos | completeTodo | deleteTodo | updateTodo",
+            arguments: "object matching the selected tool schema",
+            reason: "short user-safe reason",
+          },
+          final: {
+            type: "final",
+            assistantReply: "string",
+          },
         },
-      },
-    };
-  }
+      }),
+    },
+  ];
 
-  if (classification.intent === "list_todos") {
-    const listFilter = getTodoListFilter(message);
-    const mcpResult = await callTodoSkill("listTodos", { filter: listFilter });
-    const todos = mcpResult.todos || [];
-    trace.push("Loaded todo list");
-    toolCalls.push({
-      name: "listTodos",
-      source: mcpResult.source,
-      summary: mcpResult.summary || `Found ${todos.length} todo${todos.length === 1 ? "" : "s"}`,
-    });
-    return {
-      assistantReply: formatFilteredTodoListReply(todos, listFilter),
-      intent: classification.intent,
-      toolCalls,
-      todos,
-      agentTrace: [...trace, "Returned todo list"],
-      metadata: {
-        toolsUsed: [...toolsUsed, "listTodos"],
-        toolSources: {
-          classifyIntent: classification.source,
-          todoSkill: mcpResult.source,
-          answerGeneration: "static",
-        },
-      },
-    };
-  }
+  for (let turn = 0; turn < maxAgentTurns; turn += 1) {
+    const action = await callAgentModel(messages);
 
-  if (classification.intent === "complete_todo") {
-    const identifier = classification.todoTarget || extractTodoTarget(message);
-    if (identifier) {
-      const mcpResult = await callTodoSkill("completeTodo", { target: identifier });
-      const updated = mcpResult.todo;
-      if (updated) {
-        const completedCount = mcpResult.matchedTodos?.length || 1;
-        trace.push("Marked todo completed");
-        toolCalls.push({
-          name: "completeTodo",
-          source: mcpResult.source,
-          summary: mcpResult.summary || `Completed todo: ${updated.title}`,
-        });
-        return {
-          assistantReply:
-            completedCount > 1
-              ? mcpResult.summary || `Marked ${completedCount} todos complete.`
-              : `Marked complete: ${updated.title}`,
-          intent: classification.intent,
-          toolCalls,
-          todos: mcpResult.todos || [],
-          agentTrace: [...trace, "Returned completion confirmation"],
-          metadata: {
-            toolsUsed: [...toolsUsed, "completeTodo"],
-            toolSources: {
-              classifyIntent: classification.source,
-              todoSkill: mcpResult.source,
-              answerGeneration: "static",
-            },
-          },
-        };
-      }
-    }
-  }
-
-  if (classification.intent === "delete_todo") {
-    const identifier = classification.todoTarget || extractTodoTarget(message);
-    if (identifier) {
-      const mcpResult = await callTodoSkill("deleteTodo", { target: identifier });
-      if (isDeleteAllTarget(identifier)) {
-        trace.push("Deleted todo items");
-        toolCalls.push({
-          name: "deleteTodo",
-          source: mcpResult.source,
-          summary: mcpResult.summary,
-        });
-        return {
-          assistantReply:
-            (mcpResult.count || 0) > 0
-              ? mcpResult.summary
-              : "There were no todos to delete.",
-          intent: classification.intent,
-          toolCalls,
-          todos: mcpResult.todos || [],
-          agentTrace: [...trace, "Returned delete confirmation"],
-          metadata: {
-            toolsUsed: [...toolsUsed, "deleteTodo"],
-            toolSources: {
-              classifyIntent: classification.source,
-              todoSkill: mcpResult.source,
-              answerGeneration: "static",
-            },
-          },
-        };
-      }
-
-      const deleted = mcpResult.todo;
-      if (deleted) {
-        const deletedCount = mcpResult.matchedTodos?.length || 1;
-        trace.push("Deleted todo item");
-        toolCalls.push({
-          name: "deleteTodo",
-          source: mcpResult.source,
-          summary: mcpResult.summary || `Deleted todo: ${deleted.title}`,
-        });
-        return {
-          assistantReply:
-            deletedCount > 1
-              ? mcpResult.summary || `Deleted ${deletedCount} todos.`
-              : `Deleted todo: ${deleted.title}`,
-          intent: classification.intent,
-          toolCalls,
-          todos: mcpResult.todos || [],
-          agentTrace: [...trace, "Returned delete confirmation"],
-          metadata: {
-            toolsUsed: [...toolsUsed, "deleteTodo"],
-            toolSources: {
-              classifyIntent: classification.source,
-              todoSkill: mcpResult.source,
-              answerGeneration: "static",
-            },
-          },
-        };
-      }
-    }
-  }
-
-  if (classification.intent === "update_todo") {
-    const identifier = classification.todoTarget || extractTodoTarget(message);
-    const replacement = classification.replacementText || extractReplacementText(message);
-    if (identifier && replacement) {
-      const mcpResult = await callTodoSkill("updateTodo", {
-        target: identifier,
-        replacementText: replacement,
+    if (action.type === "final") {
+      trace.push(observations.length ? "Generated final answer" : "Answered directly");
+      return buildAgentResponse({
+        assistantReply: action.assistantReply,
+        intent: inferIntentFromToolCalls(toolCalls),
+        toolCalls,
+        todos: latestTodos(observations, initialTodos),
+        trace,
+        answerSource: "llm",
       });
-      const updated = mcpResult.todo;
-      if (updated) {
-        trace.push("Updated todo item");
-        toolCalls.push({
-          name: "updateTodo",
-          source: mcpResult.source,
-          summary: `Updated todo to: ${updated.title}`,
-        });
-        return {
-          assistantReply: `Updated todo: ${updated.title}`,
-          intent: classification.intent,
-          toolCalls,
-          todos: mcpResult.todos || [],
-          agentTrace: [...trace, "Returned update confirmation"],
-          metadata: {
-            toolsUsed: [...toolsUsed, "updateTodo"],
-            toolSources: {
-              classifyIntent: classification.source,
-              todoSkill: mcpResult.source,
-              answerGeneration: "static",
-            },
-          },
-        };
-      }
     }
+
+    const validationError = validateToolCall(action);
+    if (validationError) {
+      messages.push({
+        role: "assistant",
+        content: JSON.stringify(action),
+      });
+      messages.push({
+        role: "user",
+        content: JSON.stringify({
+          type: "tool_result",
+          toolName: action.toolName,
+          error: validationError,
+        }),
+      });
+      trace.push("Rejected invalid tool call");
+      continue;
+    }
+
+    trace.push(shortTraceForTool(action.toolName));
+    const result = await executeTodoTool(action.toolName, action.arguments);
+    observations.push({ toolName: action.toolName, result });
+    toolCalls.push({
+      name: action.toolName,
+      source: result.source,
+      summary: result.summary,
+    });
+
+    messages.push({
+      role: "assistant",
+      content: JSON.stringify(action),
+    });
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        type: "tool_result",
+        toolName: action.toolName,
+        result: sanitizeToolResult(result),
+        instruction: "Use this observation to decide the next tool call or final answer.",
+      }),
+    });
   }
 
-  return buildGeneralResponse({
-    message,
-    trace,
-    classification,
+  trace.push("Stopped at loop limit");
+  return buildAgentResponse({
+    assistantReply: finalReplyFromLastObservation(observations) || "I ran out of agent steps before finishing. Please try again.",
+    intent: inferIntentFromToolCalls(toolCalls),
     toolCalls,
-    toolsUsed,
-    todos: todosSnapshotBefore,
+    todos: latestTodos(observations, initialTodos),
+    trace,
+    answerSource: "fallback",
   });
 }
 
-function enforceTodoIntent(message: string, classification: ClassificationResult): ClassificationResult {
-  const normalized = message.toLowerCase();
-
-  if (
-    (normalized.includes("delete") || normalized.includes("remove")) &&
-    (normalized.includes("todo") || normalized.includes("task"))
-  ) {
-    return {
-      ...classification,
-      intent: "delete_todo",
-      confidence: Math.max(classification.confidence, 0.92),
-      source: "static",
-      todoTarget: extractTodoTarget(message),
-    };
+async function callAgentModel(messages: AgentMessage[]): Promise<AgentAction> {
+  const apiKey = process.env.NVIDIA_API_KEY?.trim();
+  const model = process.env.NVIDIA_MODEL || defaultModel;
+  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
+  if (!apiKey) {
+    throw new Error("NVIDIA_API_KEY is not configured.");
   }
 
-  if (
-    (normalized.includes("show") ||
-      normalized.includes("list") ||
-      normalized.includes("what") ||
-      normalized.includes("my")) &&
-    (normalized.includes("todo") || normalized.includes("task"))
-  ) {
-    return {
-      ...classification,
-      intent: "list_todos",
-      confidence: Math.max(classification.confidence, 0.9),
-      source: "static",
-    };
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        max_tokens: 500,
+        response_format: { type: "json_object" },
+        messages: messages.map((item) => ({
+          role: item.role,
+          content: item.content,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`NVIDIA API error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content;
+    const action = parseAgentAction(content);
+    if (action) {
+      return action;
+    }
+
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        type: "format_error",
+        instruction: "Return only valid JSON matching either the toolCall or final schema.",
+      }),
+    });
   }
 
-  if (
-    (normalized.includes("mark") ||
-      normalized.includes("complete") ||
-      normalized.includes("finish") ||
-      normalized.includes("done")) &&
-    (normalized.includes("todo") || normalized.includes("task"))
-  ) {
-    return {
-      ...classification,
-      intent: "complete_todo",
-      confidence: Math.max(classification.confidence, 0.9),
-      source: "static",
-      todoTarget: extractTodoTarget(message),
-    };
-  }
-
-  return classification;
+  throw new Error("Agent model returned invalid JSON.");
 }
 
-async function callTodoSkill(toolName: string, payload: unknown): Promise<TodoMcpResult> {
+function parseAgentAction(content: string | undefined): AgentAction | null {
+  if (!content) {
+    return null;
+  }
+
+  const parsed = safeParseJson<Partial<AgentAction>>(content);
+  if (!parsed || typeof parsed.type !== "string") {
+    return null;
+  }
+
+  if (parsed.type === "final" && typeof parsed.assistantReply === "string") {
+    return {
+      type: "final",
+      assistantReply: parsed.assistantReply,
+    };
+  }
+
+  if (
+    parsed.type === "tool_call" &&
+    typeof parsed.toolName === "string" &&
+    isTodoToolName(parsed.toolName) &&
+    parsed.arguments &&
+    typeof parsed.arguments === "object" &&
+    !Array.isArray(parsed.arguments)
+  ) {
+    return {
+      type: "tool_call",
+      toolName: parsed.toolName,
+      arguments: parsed.arguments as Record<string, unknown>,
+      reason: typeof parsed.reason === "string" ? parsed.reason : undefined,
+    };
+  }
+
+  return null;
+}
+
+function validateToolCall(action: AgentToolCall): string | null {
+  if (!isTodoToolName(action.toolName)) {
+    return `Tool ${action.toolName} is not allowed.`;
+  }
+
+  if (action.toolName === "createTodo" && typeof action.arguments.title !== "string") {
+    return "createTodo requires a string title.";
+  }
+
+  if (["completeTodo", "deleteTodo"].includes(action.toolName) && typeof action.arguments.target !== "string") {
+    return `${action.toolName} requires a string target.`;
+  }
+
+  if (
+    action.toolName === "updateTodo" &&
+    (typeof action.arguments.target !== "string" || typeof action.arguments.replacementText !== "string")
+  ) {
+    return "updateTodo requires string target and replacementText.";
+  }
+
+  const filter = action.arguments.filter;
+  if (action.toolName === "listTodos" && filter !== undefined && !["all", "open", "completed"].includes(String(filter))) {
+    return "listTodos filter must be all, open, or completed.";
+  }
+
+  return null;
+}
+
+async function executeTodoTool(toolName: TodoToolName, args: Record<string, unknown>): Promise<TodoMcpResult> {
+  if (toolName === "createTodo") {
+    return callTodoSkill("createTodo", { title: String(args.title).trim() });
+  }
+
+  if (toolName === "listTodos") {
+    return callTodoSkill("listTodos", { filter: normalizeListFilter(args.filter) });
+  }
+
+  if (toolName === "completeTodo") {
+    return callTodoSkill("completeTodo", { target: String(args.target).trim() });
+  }
+
+  if (toolName === "deleteTodo") {
+    return callTodoSkill("deleteTodo", { target: String(args.target).trim() });
+  }
+
+  return callTodoSkill("updateTodo", {
+    target: String(args.target).trim(),
+    replacementText: String(args.replacementText).trim(),
+  });
+}
+
+async function callTodoSkill(toolName: TodoToolName, payload: unknown): Promise<TodoMcpResult> {
   try {
     return await callMcpTool<TodoMcpResult>(toolName, payload, {
       timeoutMs: 5000,
@@ -359,135 +437,269 @@ async function callTodoSkill(toolName: string, payload: unknown): Promise<TodoMc
     return {
       source: "fallback",
       confidence: 0.3,
-      summary: `Used local fallback for ${toolName}.`,
+      summary: `Could not execute ${toolName}.`,
       todos: [],
     };
   }
 }
 
 async function getTodosSnapshot(): Promise<TodoItem[]> {
-  const result = await callTodoSkill("listTodos", {});
+  const result = await callTodoSkill("listTodos", { filter: "all" });
   return result.todos || [];
 }
 
-async function buildGeneralResponse({
-  message,
-  trace,
-  classification,
+function buildAgentResponse({
+  assistantReply,
+  intent,
   toolCalls,
-  toolsUsed,
   todos,
+  trace,
+  answerSource,
 }: {
-  message: string;
-  trace: string[];
-  classification: ClassificationResult;
+  assistantReply: string;
+  intent: ChatIntent;
   toolCalls: ChatResponse["toolCalls"];
-  toolsUsed: string[];
   todos: TodoItem[];
-}): Promise<ChatResponse> {
-  trace.push("Answered directly");
-
-  if (!hasNvidiaApiKey()) {
-    return {
-      assistantReply: fallbackGeneralReply(message, todos),
-      intent: "general",
-      toolCalls,
-      todos,
-      agentTrace: [...trace, "Used fallback response"],
-      metadata: {
-        toolsUsed,
-        toolSources: {
-          classifyIntent: classification.source,
-          todoSkill: "fallback",
-          answerGeneration: "fallback",
-        },
+  trace: string[];
+  answerSource: Source;
+}): ChatResponse {
+  const lastToolSource = toolCalls.at(-1)?.source || "fallback";
+  return {
+    assistantReply,
+    intent,
+    toolCalls,
+    todos,
+    agentTrace: [...trace, "Returned response"],
+    metadata: {
+      toolsUsed: ["agentLoop", ...toolCalls.map((tool) => tool.name)],
+      toolSources: {
+        classifyIntent: "llm",
+        todoSkill: toolCalls.length ? lastToolSource : "fallback",
+        answerGeneration: answerSource,
       },
-    };
-  }
-
-  try {
-    const assistantReply = await generateGeneralReply(message, todos);
-    return {
-      assistantReply,
-      intent: "general",
-      toolCalls,
-      todos,
-      agentTrace: [...trace, "Generated AI response"],
-      metadata: {
-        toolsUsed,
-        toolSources: {
-          classifyIntent: classification.source,
-          todoSkill: "fallback",
-          answerGeneration: "llm",
-        },
-      },
-    };
-  } catch (error) {
-    console.error("[chat] general reply generation failed", error);
-    return {
-      assistantReply: fallbackGeneralReply(message, todos),
-      intent: "general",
-      toolCalls,
-      todos,
-      agentTrace: [...trace, "Used fallback response"],
-      metadata: {
-        toolsUsed,
-        toolSources: {
-          classifyIntent: classification.source,
-          todoSkill: "fallback",
-          answerGeneration: "fallback",
-        },
-      },
-    };
-  }
+    },
+  };
 }
 
-async function classifyChatMessage(message: string): Promise<ClassificationResult> {
-  const staticMatch = classifyWithRules(message);
-  if (staticMatch.confidence >= 0.8 || !hasNvidiaApiKey()) {
-    return staticMatch;
+async function runStaticFallback(message: string, source: Source): Promise<ChatResponse> {
+  const intent = classifyWithRules(message);
+  const trace = ["Checked chat message", "Used fallback router"];
+  const toolCalls: ChatResponse["toolCalls"] = [];
+  const initialTodos = await getTodosSnapshot();
+
+  if (intent.intent === "create_todo") {
+    const result = await callTodoSkill("createTodo", { title: intent.todoTitle || extractTodoTitle(message) });
+    return buildFallbackToolResponse(message, intent.intent, result, "createTodo", trace, toolCalls, source);
   }
 
-  try {
-    const llmResult = await classifyWithNvidia(message);
-    return llmResult ?? staticMatch;
-  } catch (error) {
-    console.error("[chat] classification fallback", error);
-    return { ...staticMatch, source: "fallback" };
+  if (intent.intent === "list_todos") {
+    const result = await callTodoSkill("listTodos", { filter: getTodoListFilter(message) });
+    return buildFallbackToolResponse(message, intent.intent, result, "listTodos", trace, toolCalls, source);
   }
+
+  if (intent.intent === "complete_todo") {
+    const result = await callTodoSkill("completeTodo", { target: intent.todoTarget || extractTodoTarget(message) });
+    return buildFallbackToolResponse(message, intent.intent, result, "completeTodo", trace, toolCalls, source);
+  }
+
+  if (intent.intent === "delete_todo") {
+    const result = await callTodoSkill("deleteTodo", { target: intent.todoTarget || extractTodoTarget(message) });
+    return buildFallbackToolResponse(message, intent.intent, result, "deleteTodo", trace, toolCalls, source);
+  }
+
+  if (intent.intent === "update_todo") {
+    const result = await callTodoSkill("updateTodo", {
+      target: intent.todoTarget || extractTodoTarget(message),
+      replacementText: intent.replacementText || extractReplacementText(message),
+    });
+    return buildFallbackToolResponse(message, intent.intent, result, "updateTodo", trace, toolCalls, source);
+  }
+
+  return {
+    assistantReply: fallbackGeneralReply(message, initialTodos),
+    intent: "general",
+    toolCalls,
+    todos: initialTodos,
+    agentTrace: [...trace, "Returned response"],
+    metadata: {
+      toolsUsed: ["fallbackRouter"],
+      toolSources: {
+        classifyIntent: source,
+        todoSkill: "fallback",
+        answerGeneration: "fallback",
+      },
+    },
+  };
 }
+
+function buildFallbackToolResponse(
+  message: string,
+  intent: ChatIntent,
+  result: TodoMcpResult,
+  toolName: TodoToolName,
+  trace: string[],
+  toolCalls: ChatResponse["toolCalls"],
+  classifySource: Source,
+): ChatResponse {
+  toolCalls.push({
+    name: toolName,
+    source: result.source,
+    summary: result.summary,
+  });
+
+  return {
+    assistantReply: fallbackReplyForTool(toolName, result, message),
+    intent,
+    toolCalls,
+    todos: result.todos || [],
+    agentTrace: [...trace, shortTraceForTool(toolName), "Returned response"],
+    metadata: {
+      toolsUsed: ["fallbackRouter", toolName],
+      toolSources: {
+        classifyIntent: classifySource,
+        todoSkill: result.source,
+        answerGeneration: "fallback",
+      },
+    },
+  };
+}
+
+function fallbackReplyForTool(toolName: TodoToolName, result: TodoMcpResult, message: string): string {
+  if (toolName === "listTodos") {
+    return formatFilteredTodoListReply(result.todos || [], getTodoListFilter(message));
+  }
+
+  if (result.summary) {
+    return result.summary;
+  }
+
+  return finalReplyFromResult(toolName, result);
+}
+
+function finalReplyFromLastObservation(observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }>): string {
+  const last = observations.at(-1);
+  return last ? finalReplyFromResult(last.toolName, last.result) : "";
+}
+
+function finalReplyFromResult(toolName: TodoToolName, result: TodoMcpResult): string {
+  if (toolName === "createTodo" && result.todo) {
+    return `Added todo: ${result.todo.title}`;
+  }
+
+  if (toolName === "listTodos") {
+    return formatFilteredTodoListReply(result.todos || [], "all");
+  }
+
+  if (toolName === "completeTodo" && result.todo) {
+    return result.summary || `Marked complete: ${result.todo.title}`;
+  }
+
+  if (toolName === "deleteTodo") {
+    return result.summary || "Deleted todo.";
+  }
+
+  if (toolName === "updateTodo" && result.todo) {
+    return `Updated todo: ${result.todo.title}`;
+  }
+
+  return result.summary || "I finished the requested action.";
+}
+
+function latestTodos(
+  observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }>,
+  fallbackTodos: TodoItem[],
+): TodoItem[] {
+  for (const observation of [...observations].reverse()) {
+    if (observation.result.todos) {
+      return observation.result.todos;
+    }
+  }
+
+  return fallbackTodos;
+}
+
+function inferIntentFromToolCalls(toolCalls: ChatResponse["toolCalls"]): ChatIntent {
+  const firstTool = toolCalls[0]?.name;
+  if (firstTool === "createTodo") {
+    return "create_todo";
+  }
+
+  if (firstTool === "listTodos") {
+    return "list_todos";
+  }
+
+  if (firstTool === "completeTodo") {
+    return "complete_todo";
+  }
+
+  if (firstTool === "deleteTodo") {
+    return "delete_todo";
+  }
+
+  if (firstTool === "updateTodo") {
+    return "update_todo";
+  }
+
+  return "general";
+}
+
+function sanitizeToolResult(result: TodoMcpResult): Record<string, unknown> {
+  return {
+    source: result.source,
+    confidence: result.confidence,
+    summary: result.summary,
+    todo: result.todo,
+    todos: result.todos?.slice(0, 20).map((todo, index) => ({
+      number: index + 1,
+      id: todo.id,
+      title: todo.title,
+      completed: todo.completed,
+    })),
+    count: result.count,
+    matchedTodos: result.matchedTodos?.map((todo) => ({
+      id: todo.id,
+      title: todo.title,
+      completed: todo.completed,
+    })),
+  };
+}
+
+function normalizeListFilter(value: unknown): TodoListFilter {
+  return value === "open" || value === "completed" || value === "all" ? value : "all";
+}
+
+function validateToolName(value: string): value is TodoToolName {
+  return todoTools.some((tool) => tool.name === value);
+}
+
+function isTodoToolName(value: string): value is TodoToolName {
+  return validateToolName(value);
+}
+
+function shortTraceForTool(toolName: TodoToolName): string {
+  const labels: Record<TodoToolName, string> = {
+    createTodo: "Created todo item",
+    listTodos: "Loaded todo list",
+    completeTodo: "Marked todo completed",
+    deleteTodo: "Deleted todo item",
+    updateTodo: "Updated todo item",
+  };
+
+  return labels[toolName];
+}
+
+type ClassificationResult = {
+  intent: ChatIntent;
+  confidence: number;
+  reason: string;
+  source: Source;
+  todoTitle?: string;
+  todoTarget?: string;
+  replacementText?: string;
+};
 
 function classifyWithRules(message: string): ClassificationResult {
   const normalized = message.toLowerCase();
-
-  if (
-    (normalized.includes("delete") || normalized.includes("remove")) &&
-    (normalized.includes("todo") || normalized.includes("task"))
-  ) {
-    return {
-      intent: "delete_todo",
-      confidence: 0.92,
-      reason: "Delete request detected.",
-      source: "static",
-      todoTarget: extractTodoTarget(message),
-    };
-  }
-
-  if (
-    (normalized.includes("mark") ||
-      normalized.includes("complete") ||
-      normalized.includes("finish") ||
-      normalized.includes("done")) &&
-    (normalized.includes("todo") || normalized.includes("task"))
-  ) {
-    return {
-      intent: "complete_todo",
-      confidence: 0.9,
-      reason: "Completion request detected.",
-      source: "static",
-      todoTarget: extractTodoTarget(message),
-    };
-  }
 
   if (isListTodoRequest(normalized)) {
     return {
@@ -547,222 +759,16 @@ function classifyWithRules(message: string): ClassificationResult {
   };
 }
 
-async function classifyWithNvidia(message: string): Promise<ClassificationResult | null> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
-    return null;
-  }
-
-  const prompt = JSON.stringify({
-    task:
-      "Route the user's chat message. If the user is asking to create, list, complete, delete, or update todos, choose the matching todo intent so the backend can call the todo MCP tool. Only choose general for normal questions that do not require a todo tool.",
-    allowedIntents: chatIntents,
-    rules: [
-      "Return only valid JSON.",
-      "No markdown.",
-      "Use short user-safe reasons.",
-      "For create_todo, extract the todoTitle as the task text only.",
-      "For complete_todo/delete_todo/update_todo, extract todoTarget as the number, ordinal, id, or title fragment.",
-      "For update_todo, also extract replacementText as the new todo text.",
-      "Natural reminder language like 'don't let me forget', 'I need to remember', or 'remind me' should usually be create_todo.",
-      "Numbered references like '2', 'second', '2nd', or '1 and 3' should remain in todoTarget.",
-    ],
-    examples: [
-      {
-        message: "please make sure I don't forget to submit the visa form",
-        output: {
-          intent: "create_todo",
-          confidence: 0.86,
-          reason: "Reminder-style todo request.",
-          todoTitle: "submit the visa form",
-        },
-      },
-      {
-        message: "what do I still need to do?",
-        output: {
-          intent: "list_todos",
-          confidence: 0.84,
-          reason: "User is asking for their todo list.",
-        },
-      },
-      {
-        message: "mark 2 and 4 done",
-        output: {
-          intent: "complete_todo",
-          confidence: 0.9,
-          reason: "User wants numbered todos completed.",
-          todoTarget: "2 and 4",
-        },
-      },
-      {
-        message: "change the second one to call John after lunch",
-        output: {
-          intent: "update_todo",
-          confidence: 0.88,
-          reason: "User wants to update a numbered todo.",
-          todoTarget: "second",
-          replacementText: "call John after lunch",
-        },
-      },
-    ],
-    message,
-    outputSchema: {
-      intent: "general | create_todo | list_todos | complete_todo | delete_todo | update_todo",
-      confidence: 0.0,
-      reason: "short string",
-      todoTitle: "string | undefined",
-      todoTarget: "string | undefined",
-      replacementText: "string | undefined",
-    },
-  });
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      max_tokens: 300,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: "Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`NVIDIA API error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    return null;
-  }
-
-  const parsed = safeParseJson<Partial<ClassificationResult>>(content);
-  if (!parsed || typeof parsed.intent !== "string" || !isChatIntent(parsed.intent)) {
-    return null;
-  }
-
-  const intent = parsed.intent;
-  return {
-    intent,
-    confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
-    reason: typeof parsed.reason === "string" ? parsed.reason : "LLM classification.",
-    source: "llm",
-    todoTitle:
-      typeof parsed.todoTitle === "string"
-        ? parsed.todoTitle
-        : intent === "create_todo"
-          ? extractTodoTitle(message)
-          : undefined,
-    todoTarget:
-      typeof parsed.todoTarget === "string"
-        ? parsed.todoTarget
-        : ["complete_todo", "delete_todo", "update_todo"].includes(intent)
-          ? extractTodoTarget(message)
-          : undefined,
-    replacementText:
-      typeof parsed.replacementText === "string"
-        ? parsed.replacementText
-        : intent === "update_todo"
-          ? extractReplacementText(message)
-          : undefined,
-  };
-}
-
-function isChatIntent(value: string): value is ChatIntent {
-  return chatIntents.includes(value as ChatIntent);
-}
-
-async function generateGeneralReply(message: string, todos: TodoItem[]): Promise<string> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
-    return fallbackGeneralReply(message, todos);
-  }
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.5,
-      max_tokens: 350,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are ReplyMate AI Chat. Answer general questions helpfully and concisely. Return only valid JSON with assistantReply.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            message,
-            currentTodos: todos.slice(0, 10).map((todo) => ({
-              id: todo.id,
-              title: todo.title,
-              completed: todo.completed,
-            })),
-            outputSchema: {
-              assistantReply: "string",
-            },
-          }),
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`NVIDIA API error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("Model response did not include chat content.");
-  }
-
-  const parsed = safeParseJson<{ assistantReply?: string }>(content);
-  if (!parsed?.assistantReply) {
-    throw new Error("Model response did not contain a chat reply.");
-  }
-
-  return parsed.assistantReply;
-}
-
 function fallbackGeneralReply(message: string, todos: TodoItem[]): string {
   if (isTodoRelatedQuestion(message)) {
     if (!todos.length) {
       return "You do not have any todos yet. Try: Add a todo to call John tomorrow.";
     }
 
-    return formatTodoListReply(todos);
+    return formatFilteredTodoListReply(todos, "all");
   }
 
   return "I can help with general questions and todo commands like add, list, complete, update, or delete.";
-}
-
-function formatTodoListReply(todos: TodoItem[]): string {
-  return formatFilteredTodoListReply(todos, "all");
 }
 
 function formatFilteredTodoListReply(todos: TodoItem[], filter: TodoListFilter): string {
@@ -791,6 +797,13 @@ function formatFilteredTodoListReply(todos: TodoItem[], filter: TodoListFilter):
 function extractTodoTitle(message: string): string {
   const cleaned = message
     .replace(/^(add|create|make|new|remind me to|remember to)\s+(a\s+)?(todo|task)\s+(to\s+)?/i, "")
+    .replace(/^please\s+/i, "")
+    .replace(/^make sure (i|you)?\s*(do not|don't|dont)\s+forget\s+(to\s+)?/i, "")
+    .replace(/^make sure\s+(to\s+)?/i, "")
+    .replace(/^(i\s+)?(do not|don't|dont)\s+forget\s+(to\s+)?/i, "")
+    .replace(/^don't let me forget\s+(to\s+)?/i, "")
+    .replace(/^dont let me forget\s+(to\s+)?/i, "")
+    .replace(/^i need to remember\s+(to\s+)?/i, "")
     .replace(/^(todo|task)\s*:\s*/i, "")
     .trim();
 
@@ -832,26 +845,6 @@ function cleanTodoTarget(value: string): string {
   );
 }
 
-function isDeleteAllTarget(value: string): boolean {
-  const normalized = value
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return [
-    "all todos",
-    "all todo",
-    "all tasks",
-    "the todos",
-    "the tasks",
-    "todos",
-    "tasks",
-    "them all",
-    "everything",
-  ].includes(normalized);
-}
-
 function extractReplacementText(message: string): string {
   const match = message.match(/(?:to|as)\s+(.+)$/i);
   return match?.[1]?.trim() || "";
@@ -866,7 +859,22 @@ function isCreateTodoRequest(message: string): boolean {
     message.startsWith("todo ") ||
     message.startsWith("task ") ||
     message.includes("remember to") ||
-    message.includes("remind me to")
+    message.includes("remind me to") ||
+    isReminderCreateTodoRequest(message)
+  );
+}
+
+function isReminderCreateTodoRequest(message: string): boolean {
+  return (
+    message.includes("don't forget to") ||
+    message.includes("dont forget to") ||
+    message.includes("do not forget to") ||
+    message.includes("don't let me forget") ||
+    message.includes("dont let me forget") ||
+    message.includes("make sure i don't forget") ||
+    message.includes("make sure i dont forget") ||
+    message.includes("make sure i do not forget") ||
+    message.includes("i need to remember")
   );
 }
 
@@ -874,6 +882,7 @@ function isListTodoRequest(message: string): boolean {
   return (
     message.includes("list todos") ||
     message.includes("show todos") ||
+    message.includes("show all todos") ||
     message.includes("show completed todos") ||
     message.includes("completed todos") ||
     message.includes("done todos") ||
