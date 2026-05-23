@@ -167,6 +167,35 @@ test("POST /api/chat/message applies numbered todo commands to stored records", 
   }
 });
 
+test("POST /api/chat/message returns final LLM synthesis for multi-tool loops", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
+
+  try {
+    await invokeChatMessage({ message: "Add a todo to buy milk" });
+
+    const response = await invokeChatMessage({
+      message: "Remove todo 1 and create one more todo to call home",
+    });
+    const data = response.body as Record<string, unknown>;
+
+    assert.equal(data.intent, "delete_todo");
+    assert.deepEqual(
+      (data.toolCalls as Array<Record<string, unknown>>).map((tool) => tool.name),
+      ["deleteTodo", "createTodo"],
+    );
+    assert.match(String(data.assistantReply), /Deleted todo/i);
+    assert.match(String(data.assistantReply), /Created todo/i);
+    assert.match(String(data.assistantReply), /call home/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
 test("POST /api/chat/message lets the LLM router trigger todo tools", async () => {
   const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
@@ -432,10 +461,16 @@ function createMockMcp(): { fetch: (input: RequestInfo | URL, init?: RequestInit
 function classifyMockChatCompletion(body: BodyInit | null | undefined): Record<string, unknown> {
   const request = body ? JSON.parse(String(body)) as { messages?: Array<{ content?: string }> } : {};
   const prompt = request.messages?.at(-1)?.content || "";
+  const originalPrompt = request.messages
+    ?.map((message) => safeJsonParse<{ userMessage?: string }>(message.content || ""))
+    .find((message) => message?.userMessage);
   const parsedPrompt = safeJsonParse<{
+    finalSynthesis?: boolean;
     userMessage?: string;
     type?: string;
     toolName?: string;
+    allToolResultsSoFar?: Array<{ toolName: string }>;
+    toolResults?: Array<{ toolName: string; result?: { summary?: string } }>;
     result?: {
       summary?: string;
       todo?: { title?: string };
@@ -443,7 +478,55 @@ function classifyMockChatCompletion(body: BodyInit | null | undefined): Record<s
     };
   }>(prompt);
 
+  if (parsedPrompt?.finalSynthesis) {
+    const lastToolResult = parsedPrompt.toolResults?.at(-1);
+    if (lastToolResult?.toolName === "listTodos") {
+      const todos = (lastToolResult.result as { todos?: Array<{ title?: string; completed?: boolean }> } | undefined)?.todos || [];
+      if (!todos.length) {
+        return {
+          type: "final",
+          assistantReply: "You do not have any todos yet.",
+        };
+      }
+
+      const lines = todos.map((todo, index) => {
+        const status = todo.completed ? "done" : "open";
+        return `${index + 1}. ${todo.title} (${status})`;
+      });
+      return {
+        type: "final",
+        assistantReply: `Here are your todos:\n${lines.join("\n")}`,
+      };
+    }
+
+    return {
+      type: "final",
+      assistantReply:
+        parsedPrompt.toolResults
+          ?.map((toolResult) => toolResult.result?.summary)
+          .filter(Boolean)
+          .join(" Then ") || "Done.",
+    };
+  }
+
   if (parsedPrompt?.type === "tool_result") {
+    const originalMessage = (originalPrompt?.userMessage || "").toLowerCase();
+    const toolNames = parsedPrompt.allToolResultsSoFar?.map((tool) => tool.toolName) || [];
+    if (
+      parsedPrompt.toolName === "deleteTodo" &&
+      originalMessage.includes("create") &&
+      !toolNames.includes("createTodo")
+    ) {
+      return {
+        type: "tool_call",
+        toolName: "createTodo",
+        arguments: {
+          title: originalMessage.match(/(?:todo to|to)\s+(.+)$/)?.[1] || "call home",
+        },
+        reason: "User also asked to create a todo.",
+      };
+    }
+
     if (parsedPrompt.toolName === "listTodos") {
       const todos = parsedPrompt.result?.todos || [];
       const lines = todos.map((todo, index) => {
@@ -462,7 +545,7 @@ function classifyMockChatCompletion(body: BodyInit | null | undefined): Record<s
     };
   }
 
-  const message = (parsedPrompt?.userMessage || "").toLowerCase();
+  const message = (parsedPrompt?.userMessage || originalPrompt?.userMessage || "").toLowerCase();
 
   if (message.includes("show") && (message.includes("todo") || message.includes("task"))) {
     return {

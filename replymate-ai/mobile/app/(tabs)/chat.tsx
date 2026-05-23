@@ -11,15 +11,17 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { colors, spacing } from "../../constants/theme";
 import { getBackendUrl } from "../../storage/appStorage";
+import { saveAgentDetails } from "../../storage/agentDetailsStore";
 import { ChatMessageResponse, sendChatMessageFromApi } from "../../services/api";
 
 type ChatBubble = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  userMessage?: string;
   toolCalls?: ChatMessageResponse["toolCalls"];
   todos?: ChatMessageResponse["todos"];
   agentTrace?: string[];
@@ -92,15 +94,25 @@ export default function ChatScreen() {
         message: nextMessage,
       });
 
+      const assistantId = `${Date.now()}-assistant`;
       const assistantBubble: ChatBubble = {
-        id: `${Date.now()}-assistant`,
+        id: assistantId,
         role: "assistant",
         content: result.assistantReply,
+        userMessage: nextMessage,
         toolCalls: result.toolCalls,
         todos: result.todos,
         agentTrace: result.agentTrace,
         metadata: result.metadata,
       };
+
+      saveAgentDetails({
+        id: assistantId,
+        userMessage: nextMessage,
+        assistantReply: result.assistantReply,
+        response: result,
+        createdAt: new Date().toISOString(),
+      });
 
       setMessages((current) => [...current, assistantBubble]);
     } catch (caught) {
@@ -164,33 +176,20 @@ export default function ChatScreen() {
                 <Text style={styles.bubbleText}>{item.content}</Text>
 
                 {item.role === "assistant" && item.metadata && item.id !== "welcome" ? (
-                  <>
-                    <View style={styles.flowBlock}>
-                      <Text style={styles.flowTitle}>Agent flow</Text>
-                      <View style={styles.flowLine}>
-                        {getAgentFlow(item).map((step, index, steps) => (
-                          <View key={`${item.id}-${step}-${index}`} style={styles.flowStep}>
-                            <View style={styles.flowDot} />
-                            <Text numberOfLines={1} style={styles.flowText}>
-                              {shortAgentStep(step)}
-                            </Text>
-                            {index < steps.length - 1 ? <View style={styles.flowConnector} /> : null}
-                          </View>
-                        ))}
-                      </View>
+                  <Pressable
+                    onPress={() =>
+                      router.push(`/agent-details?id=${encodeURIComponent(item.id)}` as never)
+                    }
+                    style={styles.detailsLink}
+                  >
+                    <View>
+                      <Text style={styles.detailsLinkTitle}>View agent loop</Text>
+                      <Text style={styles.detailsLinkSubtitle}>
+                        LLM, tools, MCP results, and final response
+                      </Text>
                     </View>
-
-                    <View style={styles.pillRow}>
-                      {getSkillPills(item).map((pill) => (
-                        <View key={`${item.id}-${pill.label}`} style={styles.metaPill}>
-                          <Text style={styles.metaPillKind}>{pill.kind}</Text>
-                          <Text style={styles.metaPillText}>{pill.label}</Text>
-                          {pill.usesDb ? <Text style={styles.metaPillDb}>DB</Text> : null}
-                          <Text style={styles.metaPillSource}>{pill.source}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </>
+                    <Ionicons name="chevron-forward" color={colors.primary} size={18} />
+                  </Pressable>
                 ) : null}
               </View>
             ))}
@@ -228,100 +227,6 @@ export default function ChatScreen() {
       </View>
     </KeyboardAvoidingView>
   );
-}
-
-function getSkillPills(item: ChatBubble): Array<{
-  kind: "Skill" | "Tool";
-  label: string;
-  source: "static" | "llm" | "fallback";
-  usesDb?: boolean;
-}> {
-  if (!item.metadata) {
-    return [];
-  }
-
-  const pills: Array<{
-    kind: "Skill" | "Tool";
-    label: string;
-    source: "static" | "llm" | "fallback";
-    usesDb?: boolean;
-  }> = [
-    {
-      kind: "Skill",
-      label: "Intent Router",
-      source: item.metadata.toolSources.classifyIntent,
-    },
-  ];
-
-  if (item.toolCalls?.length) {
-    item.toolCalls.forEach((tool) => {
-      pills.push({
-        kind: "Tool",
-        label: formatToolName(tool.name),
-        source: tool.source,
-        usesDb: isDatabaseTool(tool.name),
-      });
-    });
-  }
-
-  pills.push({
-    kind: "Skill",
-    label: "Answer Generator",
-    source: item.metadata.toolSources.answerGeneration,
-  });
-
-  return pills;
-}
-
-function getAgentFlow(item: ChatBubble): string[] {
-  const trace = item.agentTrace?.length ? item.agentTrace : [];
-  const safeTrace = trace.filter((step) => step !== "Ready for chat");
-
-  if (safeTrace.length) {
-    return safeTrace;
-  }
-
-  return ["Checked message", "Selected skill", "Generated response"];
-}
-
-function shortAgentStep(step: string): string {
-  const labels: Record<string, string> = {
-    "Checked chat message": "Check",
-    "Classified intent": "Route",
-    "Created todo item": "Create",
-    "Loaded todo list": "List",
-    "Marked todo completed": "Complete",
-    "Deleted todo item": "Delete",
-    "Deleted todo items": "Delete",
-    "Updated todo item": "Update",
-    "Returned todo confirmation": "Reply",
-    "Returned todo list": "Reply",
-    "Returned completion confirmation": "Reply",
-    "Returned delete confirmation": "Reply",
-    "Returned update confirmation": "Reply",
-    "Answered directly": "Answer",
-    "Generated AI response": "Generate",
-    "Used fallback response": "Fallback",
-    "Request failed": "Failed",
-  };
-
-  return labels[step] || step;
-}
-
-function formatToolName(name: string): string {
-  const labels: Record<string, string> = {
-    createTodo: "Create Todo",
-    listTodos: "List Todos",
-    completeTodo: "Complete Todo",
-    deleteTodo: "Delete Todo",
-    updateTodo: "Update Todo",
-  };
-
-  return labels[name] || name;
-}
-
-function isDatabaseTool(name: string): boolean {
-  return ["createTodo", "listTodos", "completeTodo", "deleteTodo", "updateTodo"].includes(name);
 }
 
 const styles = StyleSheet.create({
@@ -425,90 +330,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  flowBlock: {
-    gap: 4,
-    paddingTop: 2,
-  },
-  flowTitle: {
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  flowLine: {
+  detailsLink: {
     alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "nowrap",
-  },
-  flowStep: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  flowDot: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    height: 5,
-    marginRight: 4,
-    width: 5,
-  },
-  flowText: {
-    color: colors.muted,
-    fontSize: 9,
-    fontWeight: "800",
-    maxWidth: 52,
-    textTransform: "uppercase",
-  },
-  flowConnector: {
-    backgroundColor: "rgba(69, 245, 198, 0.22)",
-    height: 1,
-    marginHorizontal: 5,
-    width: 14,
-  },
-  pillRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    paddingTop: 2,
-  },
-  metaPill: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderColor: "rgba(69, 245, 198, 0.20)",
+    backgroundColor: "rgba(69, 245, 198, 0.06)",
+    borderColor: "rgba(69, 245, 198, 0.18)",
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  metaPillKind: {
+  detailsLinkTitle: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
   },
-  metaPillText: {
-    color: colors.text,
+  detailsLinkSubtitle: {
+    color: colors.muted,
     fontSize: 9,
-    fontWeight: "800",
-  },
-  metaPillDb: {
-    backgroundColor: "rgba(69, 245, 198, 0.12)",
-    borderColor: "rgba(69, 245, 198, 0.24)",
-    borderRadius: 999,
-    borderWidth: 1,
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: "900",
-    overflow: "hidden",
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  metaPillSource: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: "900",
-    textTransform: "uppercase",
+    fontWeight: "700",
+    marginTop: 2,
   },
   error: {
     backgroundColor: colors.dangerSoft,

@@ -223,8 +223,11 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
 
     if (action.type === "final") {
       trace.push(observations.length ? "Generated final answer" : "Answered directly");
+      const assistantReply = observations.length
+        ? await synthesizeFinalAnswer(message, observations, action.assistantReply)
+        : action.assistantReply;
       return buildAgentResponse({
-        assistantReply: action.assistantReply,
+        assistantReply,
         intent: inferIntentFromToolCalls(toolCalls),
         toolCalls,
         todos: latestTodos(observations, initialTodos),
@@ -270,7 +273,12 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
         type: "tool_result",
         toolName: action.toolName,
         result: sanitizeToolResult(result),
-        instruction: "Use this observation to decide the next tool call or final answer.",
+        allToolResultsSoFar: observations.map((observation) => ({
+          toolName: observation.toolName,
+          result: sanitizeToolResult(observation.result),
+        })),
+        instruction:
+          "Use all tool results so far to decide the next tool call or final answer. If final, mention every completed tool action.",
       }),
     });
   }
@@ -334,6 +342,64 @@ async function callAgentModel(messages: AgentMessage[]): Promise<AgentAction> {
   }
 
   throw new Error("Agent model returned invalid JSON.");
+}
+
+async function synthesizeFinalAnswer(
+  userMessage: string,
+  observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }>,
+  draftReply: string,
+): Promise<string> {
+  const apiKey = process.env.NVIDIA_API_KEY?.trim();
+  const model = process.env.NVIDIA_MODEL || defaultModel;
+  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
+  if (!apiKey) {
+    return draftReply;
+  }
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: 350,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only valid JSON with assistantReply. Create the final user-facing answer from all tool observations. Mention every successful tool action. Do not invent actions that are not in observations.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            finalSynthesis: true,
+            userMessage,
+            draftReply,
+            toolResults: observations.map((observation) => ({
+              toolName: observation.toolName,
+              result: sanitizeToolResult(observation.result),
+            })),
+            outputSchema: {
+              assistantReply: "string",
+            },
+          }),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`NVIDIA final synthesis error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data.choices?.[0]?.message?.content;
+  const parsed = safeParseJson<{ assistantReply?: string }>(content || "");
+  return parsed?.assistantReply || draftReply;
 }
 
 function parseAgentAction(content: string | undefined): AgentAction | null {
