@@ -123,6 +123,28 @@ test("todo tools perform stored todo operations", async () => {
     assert.equal(deleted.todos.length, 0);
 
     await createTodoTool({ title: "send the report" });
+    await createTodoTool({ title: "go shopping tomorrow" });
+    const ordinalComplete = await completeTodoTool({ target: "2nd" });
+    assert.equal(ordinalComplete.source, "static");
+    assert.equal(ordinalComplete.todo?.completed, true);
+
+    const completed = await listTodosTool({ filter: "completed" });
+    assert.equal(completed.count, 1);
+    assert.equal(completed.todos[0]?.completed, true);
+
+    const open = await listTodosTool({ filter: "open" });
+    assert.equal(open.count, 1);
+    assert.equal(open.todos[0]?.completed, false);
+
+    await createTodoTool({ title: "pay bills" });
+    const multiDelete = await deleteTodoTool({ target: "1 and 3" });
+    assert.equal(multiDelete.source, "static");
+    assert.equal(multiDelete.matchedTodos?.length, 2);
+    assert.match(multiDelete.summary, /Deleted 2 todos/i);
+
+    const afterMultiDelete = await listTodosTool({});
+    assert.equal(afterMultiDelete.count, 1);
+
     const deleteAll = await deleteTodoTool({ target: "the todos" });
     assert.equal(deleteAll.source, "static");
     assert.equal(deleteAll.count, 1);

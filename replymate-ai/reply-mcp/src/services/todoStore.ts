@@ -46,6 +46,19 @@ export async function listTodos(): Promise<TodoItem[]> {
   return readFileTodos();
 }
 
+export async function listTodosByStatus(status: "all" | "open" | "completed"): Promise<TodoItem[]> {
+  const todos = await listTodos();
+  if (status === "completed") {
+    return todos.filter((todo) => todo.completed);
+  }
+
+  if (status === "open") {
+    return todos.filter((todo) => !todo.completed);
+  }
+
+  return todos;
+}
+
 export async function createTodo(title: string): Promise<TodoItem> {
   const now = new Date().toISOString();
   const todo: TodoItem = {
@@ -68,36 +81,47 @@ export async function createTodo(title: string): Promise<TodoItem> {
 }
 
 export async function completeTodo(identifier: string): Promise<TodoItem | null> {
-  const todo = await findTodo(identifier);
-  if (!todo) {
-    return null;
+  const [todo] = await completeTodos(identifier);
+  return todo || null;
+}
+
+export async function completeTodos(identifier: string): Promise<TodoItem[]> {
+  const todos = await findTodos(identifier);
+  if (!todos.length) {
+    return [];
   }
 
-  const updated = {
+  const updatedTodos = todos.map((todo) => ({
     ...todo,
     completed: true,
     updatedAt: new Date().toISOString(),
-  };
+  }));
 
-  await replaceTodo(updated);
-  return updated;
+  await replaceTodos(updatedTodos);
+  return updatedTodos;
 }
 
 export async function deleteTodo(identifier: string): Promise<TodoItem | null> {
-  const todo = await findTodo(identifier);
-  if (!todo) {
-    return null;
+  const [todo] = await deleteTodos(identifier);
+  return todo || null;
+}
+
+export async function deleteTodos(identifier: string): Promise<TodoItem[]> {
+  const todosToDelete = await findTodos(identifier);
+  if (!todosToDelete.length) {
+    return [];
   }
 
   if (!shouldUseFileStore()) {
     const collection = await getCollection();
-    await collection.deleteOne({ id: todo.id });
-    return todo;
+    await collection.deleteMany({ id: { $in: todosToDelete.map((todo) => todo.id) } });
+    return todosToDelete;
   }
 
   const todos = await readFileTodos();
-  await writeFileTodos(todos.filter((item) => item.id !== todo.id));
-  return todo;
+  const idsToDelete = new Set(todosToDelete.map((todo) => todo.id));
+  await writeFileTodos(todos.filter((item) => !idsToDelete.has(item.id)));
+  return todosToDelete;
 }
 
 export async function deleteAllTodos(): Promise<TodoItem[]> {
@@ -130,41 +154,125 @@ export async function updateTodo(identifier: string, title: string): Promise<Tod
 }
 
 async function findTodo(identifier: string): Promise<TodoItem | null> {
+  const [todo] = await findTodos(identifier);
+  return todo || null;
+}
+
+async function findTodos(identifier: string): Promise<TodoItem[]> {
   const query = identifier.trim();
   if (!query) {
-    return null;
+    return [];
+  }
+
+  const ordinalIndexes = parseOrdinalIndexes(query);
+  if (ordinalIndexes.length) {
+    const todos = await listTodos();
+    return uniqueTodos(
+      ordinalIndexes
+        .map((index) => (index === Number.MAX_SAFE_INTEGER ? todos[todos.length - 1] : todos[index]))
+        .filter((todo): todo is TodoItem => Boolean(todo)),
+    );
   }
 
   if (!shouldUseFileStore()) {
     const collection = await getCollection();
-    return collection.findOne({
+    const todo = await collection.findOne({
       $or: [
         { id: query },
         { title: query },
         { title: { $regex: escapeRegExp(query), $options: "i" } },
       ],
     });
+    return todo ? [todo] : [];
   }
 
   const lowered = query.toLowerCase();
   const todos = await readFileTodos();
-  return (
+  const todo =
     todos.find((todo) => todo.id.toLowerCase() === lowered) ||
     todos.find((todo) => todo.title.trim().toLowerCase() === lowered) ||
     todos.find((todo) => todo.title.toLowerCase().includes(lowered)) ||
-    null
-  );
+    null;
+  return todo ? [todo] : [];
+}
+
+function parseOrdinalIndexes(value: string): number[] {
+  const normalized = value.toLowerCase().trim();
+  const tokens = normalized.match(/\b(?:#?\d+(?:st|nd|rd|th)?|first|second|third|fourth|fifth|last)\b/g) || [];
+  if (tokens.length > 1) {
+    return uniqueIndexes(tokens.flatMap((token) => parseOrdinalIndex(token) ?? []));
+  }
+
+  const singleIndex = parseOrdinalIndex(normalized);
+  return singleIndex === null ? [] : [singleIndex];
+}
+
+function parseOrdinalIndex(value: string): number | null {
+  const normalized = value.toLowerCase().trim();
+  const directNumber = normalized.match(/^#?(\d+)$/);
+  if (directNumber?.[1]) {
+    return Math.max(0, Number(directNumber[1]) - 1);
+  }
+
+  const ordinal = normalized.match(/^(\d+)(st|nd|rd|th)$/);
+  if (ordinal?.[1]) {
+    return Math.max(0, Number(ordinal[1]) - 1);
+  }
+
+  const words: Record<string, number> = {
+    first: 0,
+    second: 1,
+    third: 2,
+    fourth: 3,
+    fifth: 4,
+    last: -1,
+  };
+
+  if (normalized in words) {
+    if (normalized === "last") {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    return words[normalized];
+  }
+
+  return null;
+}
+
+function uniqueIndexes(indexes: number[]): number[] {
+  return [...new Set(indexes)];
+}
+
+function uniqueTodos(todos: TodoItem[]): TodoItem[] {
+  const seen = new Set<string>();
+  return todos.filter((todo) => {
+    if (seen.has(todo.id)) {
+      return false;
+    }
+
+    seen.add(todo.id);
+    return true;
+  });
 }
 
 async function replaceTodo(todo: TodoItem): Promise<void> {
+  await replaceTodos([todo]);
+}
+
+async function replaceTodos(todosToReplace: TodoItem[]): Promise<void> {
+  if (!todosToReplace.length) {
+    return;
+  }
+
   if (!shouldUseFileStore()) {
     const collection = await getCollection();
-    await collection.replaceOne({ id: todo.id }, todo);
+    await Promise.all(todosToReplace.map((todo) => collection.replaceOne({ id: todo.id }, todo)));
     return;
   }
 
   const todos = await readFileTodos();
-  await writeFileTodos(todos.map((item) => (item.id === todo.id ? todo : item)));
+  const replacements = new Map(todosToReplace.map((todo) => [todo.id, todo]));
+  await writeFileTodos(todos.map((item) => replacements.get(item.id) || item));
 }
 
 async function readFileTodos(): Promise<TodoItem[]> {

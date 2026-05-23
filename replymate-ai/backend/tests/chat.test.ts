@@ -80,6 +80,62 @@ test("POST /api/chat/message deletes all todos when asked to delete the todos", 
   }
 });
 
+test("POST /api/chat/message completes ordinal todos and lists completed todos", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
+
+  try {
+    await invokeChatMessage({ message: "Add a todo to remind me to go to theater" });
+    await invokeChatMessage({ message: "Add a todo to go out for shopping tomorrow" });
+
+    const completeResponse = await invokeChatMessage({ message: "Mark the 2nd todo complete" });
+    const completeData = completeResponse.body as Record<string, unknown>;
+    assert.equal(completeResponse.statusCode, 200);
+    assert.equal(completeData.intent, "complete_todo");
+    assert.match(String(completeData.assistantReply), /Marked complete/i);
+
+    const listResponse = await invokeChatMessage({ message: "Show completed todos" });
+    const listData = listResponse.body as Record<string, unknown>;
+    assert.equal(listData.intent, "list_todos");
+    assert.match(String(listData.assistantReply), /completed todos/i);
+    assert.equal((listData.todos as Array<unknown>).length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("POST /api/chat/message applies numbered todo commands to stored records", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  globalThis.fetch = mockMcp.fetch;
+
+  try {
+    await invokeChatMessage({ message: "Add a todo to first item" });
+    await invokeChatMessage({ message: "Add a todo to second item" });
+    await invokeChatMessage({ message: "Add a todo to third item" });
+
+    const updateResponse = await invokeChatMessage({ message: "Update 2 to updated second item" });
+    const updateData = updateResponse.body as Record<string, unknown>;
+    assert.equal(updateData.intent, "update_todo");
+    assert.match(String(updateData.assistantReply), /updated second item/i);
+
+    const deleteResponse = await invokeChatMessage({ message: "Delete 1 and 3" });
+    const deleteData = deleteResponse.body as Record<string, unknown>;
+    assert.equal(deleteData.intent, "delete_todo");
+    assert.match(String(deleteData.assistantReply), /Deleted 2 todos/i);
+    assert.equal((deleteData.todos as Array<unknown>).length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
 test("POST /api/chat/message falls back to NVIDIA for general questions", async () => {
   const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;
@@ -170,12 +226,18 @@ function createMockMcp(): { fetch: (input: RequestInfo | URL, init?: RequestInit
       const payload = init?.body ? JSON.parse(String(init.body)) as Record<string, string> : {};
 
       if (url.includes("/tools/listTodos")) {
+        const filteredTodos =
+          payload.filter === "completed"
+            ? todos.filter((todo) => todo.completed)
+            : payload.filter === "open"
+              ? todos.filter((todo) => !todo.completed)
+              : todos;
         return jsonResponse({
           source: "static",
           confidence: 0.98,
-          summary: `Found ${todos.length} todos.`,
-          todos,
-          count: todos.length,
+          summary: `Found ${filteredTodos.length} todos.`,
+          todos: filteredTodos,
+          count: filteredTodos.length,
         });
       }
 
@@ -212,12 +274,65 @@ function createMockMcp(): { fetch: (input: RequestInfo | URL, init?: RequestInit
           });
         }
 
-        const index = todos.findIndex((todo) => todo.title.toLowerCase().includes(String(payload.target).toLowerCase()));
-        const [todo] = index >= 0 ? todos.splice(index, 1) : [];
+        const indexes = resolveMockTargetIndexes(String(payload.target), todos);
+        const deletedTodos = indexes
+          .sort((a, b) => b - a)
+          .map((index) => todos.splice(index, 1)[0])
+          .filter(Boolean);
+        const [todo] = deletedTodos;
         return jsonResponse({
           source: todo ? "static" : "fallback",
           confidence: todo ? 0.9 : 0.3,
-          summary: todo ? `Deleted todo: ${todo.title}` : "Could not match the todo to delete.",
+          summary:
+            deletedTodos.length > 1
+              ? `Deleted ${deletedTodos.length} todos: ${deletedTodos.map((item) => item.title).join(", ")}`
+              : todo
+                ? `Deleted todo: ${todo.title}`
+                : "Could not match the todo to delete.",
+          todo,
+          matchedTodos: deletedTodos,
+          todos,
+          count: todos.length,
+        });
+      }
+
+      if (url.includes("/tools/completeTodo")) {
+        const indexes = resolveMockTargetIndexes(String(payload.target), todos);
+        const completedTodos = indexes.map((index) => todos[index]).filter(Boolean);
+        completedTodos.forEach((todo) => {
+          todo.completed = true;
+          todo.updatedAt = new Date().toISOString();
+        });
+        const [todo] = completedTodos;
+
+        return jsonResponse({
+          source: todo ? "static" : "fallback",
+          confidence: todo ? 0.9 : 0.3,
+          summary:
+            completedTodos.length > 1
+              ? `Completed ${completedTodos.length} todos: ${completedTodos.map((item) => item.title).join(", ")}`
+              : todo
+                ? `Completed todo: ${todo.title}`
+                : "Could not match the todo to complete.",
+          todo,
+          matchedTodos: completedTodos,
+          todos,
+          count: todos.length,
+        });
+      }
+
+      if (url.includes("/tools/updateTodo")) {
+        const indexes = resolveMockTargetIndexes(String(payload.target), todos);
+        const todo = todos[indexes[0]];
+        if (todo) {
+          todo.title = String(payload.replacementText);
+          todo.updatedAt = new Date().toISOString();
+        }
+
+        return jsonResponse({
+          source: todo ? "static" : "fallback",
+          confidence: todo ? 0.9 : 0.3,
+          summary: todo ? `Updated todo: ${todo.title}` : "Could not match the todo to update.",
           todo,
           todos,
           count: todos.length,
@@ -232,6 +347,21 @@ function createMockMcp(): { fetch: (input: RequestInfo | URL, init?: RequestInit
       });
     },
   };
+}
+
+function resolveMockTargetIndexes(
+  target: string,
+  todos: Array<{ title: string }>,
+): number[] {
+  const numberMatches = target.match(/\b\d+(?:st|nd|rd|th)?\b/g);
+  if (numberMatches?.length) {
+    return [...new Set(numberMatches.map((value) => Number.parseInt(value, 10) - 1))].filter(
+      (index) => index >= 0 && index < todos.length,
+    );
+  }
+
+  const index = todos.findIndex((todo) => todo.title.toLowerCase().includes(target.toLowerCase()));
+  return index >= 0 ? [index] : [];
 }
 
 function restoreEnv(key: string, value: string | undefined): void {

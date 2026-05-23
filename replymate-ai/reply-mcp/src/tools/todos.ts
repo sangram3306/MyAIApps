@@ -1,10 +1,11 @@
 import { z } from "zod";
 import {
-  completeTodo,
+  completeTodos,
   createTodo,
   deleteAllTodos,
-  deleteTodo,
+  deleteTodos,
   listTodos,
+  listTodosByStatus,
   TodoItem,
   updateTodo,
 } from "../services/todoStore.js";
@@ -15,7 +16,9 @@ const createTodoInputSchema = z.object({
   title: z.string().min(1),
 });
 
-const listTodoInputSchema = z.object({}).passthrough();
+const listTodoInputSchema = z.object({
+  filter: z.enum(["all", "open", "completed"]).optional().default("all"),
+}).passthrough();
 
 const targetTodoInputSchema = z.object({
   target: z.string().min(1),
@@ -34,6 +37,7 @@ type TodoToolOutput = {
   title?: string;
   matchedId?: string;
   matchedTitle?: string;
+  matchedTodos?: TodoItem[];
   replacementText?: string;
   count?: number;
 };
@@ -69,11 +73,12 @@ export async function listTodosTool(input: unknown): Promise<TodoToolOutput> {
     return fallback("Could not read the list request.");
   }
 
-  const todos = await listTodos();
+  const todos = await listTodosByStatus(parsed.data.filter);
+  const label = parsed.data.filter === "all" ? "todo" : `${parsed.data.filter} todo`;
   return {
     source: "static",
     confidence: 0.98,
-    summary: `Found ${todos.length} todo${todos.length === 1 ? "" : "s"}.`,
+    summary: `Found ${todos.length} ${label}${todos.length === 1 ? "" : "s"}.`,
     todos,
     count: todos.length,
   };
@@ -85,18 +90,20 @@ export async function completeTodoTool(input: unknown): Promise<TodoToolOutput> 
     return fallback("Could not read the target todo.");
   }
 
-  const todo = await completeTodo(parsed.data.target);
-  if (!todo) {
+  const completedTodos = await completeTodos(parsed.data.target);
+  if (!completedTodos.length) {
     return fallback("Could not match the todo to complete.");
   }
 
   const todos = await listTodos();
+  const [todo] = completedTodos;
   return {
     source: "static",
     confidence: 0.9,
-    summary: `Completed todo: ${todo.title}`,
+    summary: formatAffectedSummary("Completed", completedTodos),
     todo,
     todos,
+    matchedTodos: completedTodos,
     matchedId: todo.id,
     matchedTitle: todo.title,
     count: todos.length,
@@ -120,18 +127,20 @@ export async function deleteTodoTool(input: unknown): Promise<TodoToolOutput> {
     };
   }
 
-  const todo = await deleteTodo(parsed.data.target);
-  if (!todo) {
+  const deletedTodos = await deleteTodos(parsed.data.target);
+  if (!deletedTodos.length) {
     return fallback("Could not match the todo to delete.");
   }
 
   const todos = await listTodos();
+  const [todo] = deletedTodos;
   return {
     source: "static",
     confidence: 0.9,
-    summary: `Deleted todo: ${todo.title}`,
+    summary: formatAffectedSummary("Deleted", deletedTodos),
     todo,
     todos,
+    matchedTodos: deletedTodos,
     matchedId: todo.id,
     matchedTitle: todo.title,
     count: todos.length,
@@ -190,6 +199,15 @@ function isAllTodosTarget(value: string): boolean {
     "them all",
     "everything",
   ].includes(normalized);
+}
+
+function formatAffectedSummary(action: string, todos: TodoItem[]): string {
+  if (todos.length === 1) {
+    return `${action} todo: ${todos[0].title}`;
+  }
+
+  const titles = todos.map((todo) => todo.title).join(", ");
+  return `${action} ${todos.length} todos: ${titles}`;
 }
 
 async function fallback(summary: string): Promise<TodoToolOutput> {

@@ -54,14 +54,17 @@ type TodoMcpResult = {
   count?: number;
   todo?: TodoItem;
   todos?: TodoItem[];
+  matchedTodos?: TodoItem[];
 };
+
+type TodoListFilter = "all" | "open" | "completed";
 
 const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
 const defaultModel = "meta/llama-3.1-8b-instruct";
 
 export async function handleChatMessage(message: string): Promise<ChatResponse> {
   const trace = ["Checked chat message", "Classified intent"];
-  const classification = await classifyChatMessage(message);
+  const classification = enforceTodoIntent(message, await classifyChatMessage(message));
   const toolCalls: ChatResponse["toolCalls"] = [];
   const toolsUsed = ["classifyIntent"];
   const todosSnapshotBefore = await getTodosSnapshot();
@@ -116,7 +119,8 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
   }
 
   if (classification.intent === "list_todos") {
-    const mcpResult = await callTodoSkill("listTodos", {});
+    const listFilter = getTodoListFilter(message);
+    const mcpResult = await callTodoSkill("listTodos", { filter: listFilter });
     const todos = mcpResult.todos || [];
     trace.push("Loaded todo list");
     toolCalls.push({
@@ -125,7 +129,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       summary: mcpResult.summary || `Found ${todos.length} todo${todos.length === 1 ? "" : "s"}`,
     });
     return {
-      assistantReply: formatTodoListReply(todos),
+      assistantReply: formatFilteredTodoListReply(todos, listFilter),
       intent: classification.intent,
       toolCalls,
       todos,
@@ -147,14 +151,18 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       const mcpResult = await callTodoSkill("completeTodo", { target: identifier });
       const updated = mcpResult.todo;
       if (updated) {
+        const completedCount = mcpResult.matchedTodos?.length || 1;
         trace.push("Marked todo completed");
         toolCalls.push({
           name: "completeTodo",
           source: mcpResult.source,
-          summary: `Completed todo: ${updated.title}`,
+          summary: mcpResult.summary || `Completed todo: ${updated.title}`,
         });
         return {
-          assistantReply: `Marked complete: ${updated.title}`,
+          assistantReply:
+            completedCount > 1
+              ? mcpResult.summary || `Marked ${completedCount} todos complete.`
+              : `Marked complete: ${updated.title}`,
           intent: classification.intent,
           toolCalls,
           todos: mcpResult.todos || [],
@@ -205,14 +213,18 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
 
       const deleted = mcpResult.todo;
       if (deleted) {
+        const deletedCount = mcpResult.matchedTodos?.length || 1;
         trace.push("Deleted todo item");
         toolCalls.push({
           name: "deleteTodo",
           source: mcpResult.source,
-          summary: `Deleted todo: ${deleted.title}`,
+          summary: mcpResult.summary || `Deleted todo: ${deleted.title}`,
         });
         return {
-          assistantReply: `Deleted todo: ${deleted.title}`,
+          assistantReply:
+            deletedCount > 1
+              ? mcpResult.summary || `Deleted ${deletedCount} todos.`
+              : `Deleted todo: ${deleted.title}`,
           intent: classification.intent,
           toolCalls,
           todos: mcpResult.todos || [],
@@ -273,6 +285,56 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
     toolsUsed,
     todos: todosSnapshotBefore,
   });
+}
+
+function enforceTodoIntent(message: string, classification: ClassificationResult): ClassificationResult {
+  const normalized = message.toLowerCase();
+
+  if (
+    (normalized.includes("delete") || normalized.includes("remove")) &&
+    (normalized.includes("todo") || normalized.includes("task"))
+  ) {
+    return {
+      ...classification,
+      intent: "delete_todo",
+      confidence: Math.max(classification.confidence, 0.92),
+      source: "static",
+      todoTarget: extractTodoTarget(message),
+    };
+  }
+
+  if (
+    (normalized.includes("show") ||
+      normalized.includes("list") ||
+      normalized.includes("what") ||
+      normalized.includes("my")) &&
+    (normalized.includes("todo") || normalized.includes("task"))
+  ) {
+    return {
+      ...classification,
+      intent: "list_todos",
+      confidence: Math.max(classification.confidence, 0.9),
+      source: "static",
+    };
+  }
+
+  if (
+    (normalized.includes("mark") ||
+      normalized.includes("complete") ||
+      normalized.includes("finish") ||
+      normalized.includes("done")) &&
+    (normalized.includes("todo") || normalized.includes("task"))
+  ) {
+    return {
+      ...classification,
+      intent: "complete_todo",
+      confidence: Math.max(classification.confidence, 0.9),
+      source: "static",
+      todoTarget: extractTodoTarget(message),
+    };
+  }
+
+  return classification;
 }
 
 async function callTodoSkill(toolName: string, payload: unknown): Promise<TodoMcpResult> {
@@ -389,6 +451,35 @@ async function classifyChatMessage(message: string): Promise<ClassificationResul
 
 function classifyWithRules(message: string): ClassificationResult {
   const normalized = message.toLowerCase();
+
+  if (
+    (normalized.includes("delete") || normalized.includes("remove")) &&
+    (normalized.includes("todo") || normalized.includes("task"))
+  ) {
+    return {
+      intent: "delete_todo",
+      confidence: 0.92,
+      reason: "Delete request detected.",
+      source: "static",
+      todoTarget: extractTodoTarget(message),
+    };
+  }
+
+  if (
+    (normalized.includes("mark") ||
+      normalized.includes("complete") ||
+      normalized.includes("finish") ||
+      normalized.includes("done")) &&
+    (normalized.includes("todo") || normalized.includes("task"))
+  ) {
+    return {
+      intent: "complete_todo",
+      confidence: 0.9,
+      reason: "Completion request detected.",
+      source: "static",
+      todoTarget: extractTodoTarget(message),
+    };
+  }
 
   if (isListTodoRequest(normalized)) {
     return {
@@ -601,7 +692,19 @@ function fallbackGeneralReply(message: string, todos: TodoItem[]): string {
 }
 
 function formatTodoListReply(todos: TodoItem[]): string {
+  return formatFilteredTodoListReply(todos, "all");
+}
+
+function formatFilteredTodoListReply(todos: TodoItem[], filter: TodoListFilter): string {
   if (!todos.length) {
+    if (filter === "completed") {
+      return "You do not have any completed todos yet.";
+    }
+
+    if (filter === "open") {
+      return "You do not have any open todos.";
+    }
+
     return "You do not have any todos yet.";
   }
 
@@ -610,7 +713,9 @@ function formatTodoListReply(todos: TodoItem[]): string {
     return `${index + 1}. ${todo.title} (${status})`;
   });
 
-  return `Here are your todos:\n${lines.join("\n")}`;
+  const label =
+    filter === "completed" ? "completed todos" : filter === "open" ? "open todos" : "todos";
+  return `Here are your ${label}:\n${lines.join("\n")}`;
 }
 
 function extractTodoTitle(message: string): string {
@@ -623,12 +728,38 @@ function extractTodoTitle(message: string): string {
 }
 
 function extractTodoTarget(message: string): string {
-  const match = message.match(/(?:complete|mark|delete|remove|update|rename|change)\s+(?:the\s+)?(.+?)(?:\s+todo)?$/i);
-  if (match?.[1]) {
-    return match[1].trim();
+  const updateMatch = message.match(/(?:update|rename|change)\s+(?:the\s+)?(.+?)\s+(?:to|as)\s+.+$/i);
+  if (updateMatch?.[1]) {
+    return cleanTodoTarget(updateMatch[1]);
   }
 
-  return message.trim();
+  const ordinalMatch = message.match(/\b(\d+(?:st|nd|rd|th)?|first|second|third|fourth|fifth|last)\b/i);
+  if (ordinalMatch?.[1] && /todo|task/i.test(message)) {
+    return ordinalMatch[1].trim();
+  }
+
+  const match = message.match(/(?:complete|mark|delete|remove|update|rename|change)\s+(?:the\s+)?(.+?)(?:\s+todo)?$/i);
+  if (match?.[1]) {
+    return cleanTodoTarget(match[1]);
+  }
+
+  return cleanTodoTarget(message);
+}
+
+function cleanTodoTarget(value: string): string {
+  const originalTarget = value.trim();
+  const cleaned = originalTarget
+    .replace(/\b(todo|todos|task|tasks|complete|completed|done|as|mark|the)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (
+    cleaned ||
+    originalTarget
+      .replace(/^(delete|remove|complete|mark)\s+/i, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 function isDeleteAllTarget(value: string): boolean {
@@ -673,6 +804,12 @@ function isListTodoRequest(message: string): boolean {
   return (
     message.includes("list todos") ||
     message.includes("show todos") ||
+    message.includes("show completed todos") ||
+    message.includes("completed todos") ||
+    message.includes("done todos") ||
+    message.includes("open todos") ||
+    message.includes("incomplete todos") ||
+    message.includes("pending todos") ||
     message.includes("my todos") ||
     message.includes("what todos") ||
     message.includes("show my tasks") ||
@@ -684,6 +821,8 @@ function isCompleteTodoRequest(message: string): boolean {
   return (
     message.includes("mark done") ||
     message.includes("complete todo") ||
+    (message.startsWith("mark ") && message.includes("complete")) ||
+    (message.startsWith("mark ") && message.includes("done")) ||
     message.includes("mark as done") ||
     message.startsWith("complete ") ||
     message.startsWith("done ") ||
@@ -694,7 +833,13 @@ function isCompleteTodoRequest(message: string): boolean {
 function isDeleteTodoRequest(message: string): boolean {
   return (
     message.includes("delete todo") ||
+    message.includes("delete the todo") ||
+    message.includes("delete all todo") ||
+    message.includes("delete all task") ||
     message.includes("remove todo") ||
+    message.includes("remove the todo") ||
+    message.includes("remove all todo") ||
+    message.includes("remove all task") ||
     message.startsWith("delete ") ||
     message.startsWith("remove ")
   );
@@ -712,4 +857,25 @@ function isUpdateTodoRequest(message: string): boolean {
 
 function isTodoRelatedQuestion(message: string): boolean {
   return message.includes("todo") || message.includes("task");
+}
+
+function getTodoListFilter(message: string): TodoListFilter {
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("completed") ||
+    normalized.includes("done todo") ||
+    normalized.includes("finished")
+  ) {
+    return "completed";
+  }
+
+  if (
+    normalized.includes("open") ||
+    normalized.includes("incomplete") ||
+    normalized.includes("pending")
+  ) {
+    return "open";
+  }
+
+  return "all";
 }

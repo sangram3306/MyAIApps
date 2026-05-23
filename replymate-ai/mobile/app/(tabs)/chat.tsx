@@ -166,7 +166,7 @@ export default function ChatScreen() {
                 {item.role === "assistant" && item.metadata && item.id !== "welcome" ? (
                   <>
                     <View style={styles.flowBlock}>
-                      <Text style={styles.flowTitle}>Agent loop</Text>
+                      <Text style={styles.flowTitle}>Agent flow</Text>
                       <View style={styles.flowLine}>
                         {getAgentFlow(item).map((step, index, steps) => (
                           <View key={`${item.id}-${step}-${index}`} style={styles.flowStep}>
@@ -185,6 +185,7 @@ export default function ChatScreen() {
                         <View key={`${item.id}-${pill.label}`} style={styles.metaPill}>
                           <Text style={styles.metaPillKind}>{pill.kind}</Text>
                           <Text style={styles.metaPillText}>{pill.label}</Text>
+                          {pill.usesDb ? <Text style={styles.metaPillDb}>DB</Text> : null}
                           <Text style={styles.metaPillSource}>{pill.source}</Text>
                         </View>
                       ))}
@@ -233,6 +234,7 @@ function getSkillPills(item: ChatBubble): Array<{
   kind: "Skill" | "Tool";
   label: string;
   source: "static" | "llm" | "fallback";
+  usesDb?: boolean;
 }> {
   if (!item.metadata) {
     return [];
@@ -242,6 +244,7 @@ function getSkillPills(item: ChatBubble): Array<{
     kind: "Skill" | "Tool";
     label: string;
     source: "static" | "llm" | "fallback";
+    usesDb?: boolean;
   }> = [
     {
       kind: "Skill",
@@ -256,6 +259,7 @@ function getSkillPills(item: ChatBubble): Array<{
         kind: "Tool",
         label: formatToolName(tool.name),
         source: tool.source,
+        usesDb: isDatabaseTool(tool.name),
       });
     });
   }
@@ -306,14 +310,18 @@ function shortAgentStep(step: string): string {
 
 function formatToolName(name: string): string {
   const labels: Record<string, string> = {
-    createTodo: "Todo Skill: Create",
-    listTodos: "Todo Skill: List",
-    completeTodo: "Todo Skill: Complete",
-    deleteTodo: "Todo Skill: Delete",
-    updateTodo: "Todo Skill: Update",
+    createTodo: "Create Todo",
+    listTodos: "List Todos",
+    completeTodo: "Complete Todo",
+    deleteTodo: "Delete Todo",
+    updateTodo: "Update Todo",
   };
 
   return labels[name] || name;
+}
+
+function isDatabaseTool(name: string): boolean {
+  return ["createTodo", "listTodos", "completeTodo", "deleteTodo", "updateTodo"].includes(name);
 }
 
 const styles = StyleSheet.create({
@@ -464,8 +472,8 @@ const styles = StyleSheet.create({
   },
   metaPill: {
     alignItems: "center",
-    backgroundColor: "rgba(69, 245, 198, 0.06)",
-    borderColor: "rgba(69, 245, 198, 0.16)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: "rgba(69, 245, 198, 0.20)",
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
@@ -481,11 +489,23 @@ const styles = StyleSheet.create({
   },
   metaPillText: {
     color: colors.text,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
   },
+  metaPillDb: {
+    backgroundColor: "rgba(69, 245, 198, 0.12)",
+    borderColor: "rgba(69, 245, 198, 0.24)",
+    borderRadius: 999,
+    borderWidth: 1,
+    color: colors.primary,
+    fontSize: 8,
+    fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
   metaPillSource: {
-    color: colors.muted,
+    color: colors.primary,
     fontSize: 9,
     fontWeight: "900",
     textTransform: "uppercase",
