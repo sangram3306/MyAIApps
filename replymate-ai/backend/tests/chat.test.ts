@@ -136,6 +136,67 @@ test("POST /api/chat/message applies numbered todo commands to stored records", 
   }
 });
 
+test("POST /api/chat/message lets the LLM router trigger todo tools", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  const originalNvidiaApiKey = process.env.NVIDIA_API_KEY;
+  const originalNvidiaModel = process.env.NVIDIA_MODEL;
+  const originalNvidiaBaseUrl = process.env.NVIDIA_BASE_URL;
+  const mockMcp = createMockMcp();
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+  process.env.NVIDIA_API_KEY = "test-key";
+  process.env.NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
+  process.env.NVIDIA_BASE_URL = "http://mock-nvidia";
+
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes("/tools/")) {
+      return mockMcp.fetch(input, init);
+    }
+
+    if (url.includes("/chat/completions")) {
+      return jsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                intent: "create_todo",
+                confidence: 0.88,
+                reason: "Reminder-style todo request.",
+                todoTitle: "submit the visa form",
+              }),
+            },
+          },
+        ],
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${url}`);
+  };
+
+  try {
+    const response = await invokeChatMessage({
+      message: "please make sure I don't forget to submit the visa form",
+    });
+    const data = response.body as Record<string, unknown>;
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(data.intent, "create_todo");
+    assert.match(String(data.assistantReply), /submit the visa form/i);
+    assert.deepEqual(
+      (data.toolCalls as Array<Record<string, unknown>>).map((tool) => tool.name),
+      ["createTodo"],
+    );
+    assert.equal((data.metadata as { toolSources: { classifyIntent: string } }).toolSources.classifyIntent, "llm");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+    restoreEnv("NVIDIA_API_KEY", originalNvidiaApiKey);
+    restoreEnv("NVIDIA_MODEL", originalNvidiaModel);
+    restoreEnv("NVIDIA_BASE_URL", originalNvidiaBaseUrl);
+  }
+});
+
 test("POST /api/chat/message falls back to NVIDIA for general questions", async () => {
   const originalFetch = globalThis.fetch;
   const originalMcpServerUrl = process.env.MCP_SERVER_URL;

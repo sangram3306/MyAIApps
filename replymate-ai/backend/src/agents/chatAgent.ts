@@ -61,6 +61,14 @@ type TodoListFilter = "all" | "open" | "completed";
 
 const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
 const defaultModel = "meta/llama-3.1-8b-instruct";
+const chatIntents: ChatIntent[] = [
+  "general",
+  "create_todo",
+  "list_todos",
+  "complete_todo",
+  "delete_todo",
+  "update_todo",
+];
 
 export async function handleChatMessage(message: string): Promise<ChatResponse> {
   const trace = ["Checked chat message", "Classified intent"];
@@ -548,14 +556,56 @@ async function classifyWithNvidia(message: string): Promise<ClassificationResult
   }
 
   const prompt = JSON.stringify({
-    task: "Classify the chat message into a chat intent for the ReplyMate AI chat assistant.",
-    allowedIntents: ["general", "create_todo", "list_todos", "complete_todo", "delete_todo", "update_todo"],
+    task:
+      "Route the user's chat message. If the user is asking to create, list, complete, delete, or update todos, choose the matching todo intent so the backend can call the todo MCP tool. Only choose general for normal questions that do not require a todo tool.",
+    allowedIntents: chatIntents,
     rules: [
       "Return only valid JSON.",
       "No markdown.",
       "Use short user-safe reasons.",
-      "If a todo title is present, extract it.",
-      "If an identifier or target todo is present, extract it.",
+      "For create_todo, extract the todoTitle as the task text only.",
+      "For complete_todo/delete_todo/update_todo, extract todoTarget as the number, ordinal, id, or title fragment.",
+      "For update_todo, also extract replacementText as the new todo text.",
+      "Natural reminder language like 'don't let me forget', 'I need to remember', or 'remind me' should usually be create_todo.",
+      "Numbered references like '2', 'second', '2nd', or '1 and 3' should remain in todoTarget.",
+    ],
+    examples: [
+      {
+        message: "please make sure I don't forget to submit the visa form",
+        output: {
+          intent: "create_todo",
+          confidence: 0.86,
+          reason: "Reminder-style todo request.",
+          todoTitle: "submit the visa form",
+        },
+      },
+      {
+        message: "what do I still need to do?",
+        output: {
+          intent: "list_todos",
+          confidence: 0.84,
+          reason: "User is asking for their todo list.",
+        },
+      },
+      {
+        message: "mark 2 and 4 done",
+        output: {
+          intent: "complete_todo",
+          confidence: 0.9,
+          reason: "User wants numbered todos completed.",
+          todoTarget: "2 and 4",
+        },
+      },
+      {
+        message: "change the second one to call John after lunch",
+        output: {
+          intent: "update_todo",
+          confidence: 0.88,
+          reason: "User wants to update a numbered todo.",
+          todoTarget: "second",
+          replacementText: "call John after lunch",
+        },
+      },
     ],
     message,
     outputSchema: {
@@ -603,19 +653,39 @@ async function classifyWithNvidia(message: string): Promise<ClassificationResult
   }
 
   const parsed = safeParseJson<Partial<ClassificationResult>>(content);
-  if (!parsed || typeof parsed.intent !== "string") {
+  if (!parsed || typeof parsed.intent !== "string" || !isChatIntent(parsed.intent)) {
     return null;
   }
 
+  const intent = parsed.intent;
   return {
-    intent: parsed.intent as ChatIntent,
+    intent,
     confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
     reason: typeof parsed.reason === "string" ? parsed.reason : "LLM classification.",
     source: "llm",
-    todoTitle: typeof parsed.todoTitle === "string" ? parsed.todoTitle : undefined,
-    todoTarget: typeof parsed.todoTarget === "string" ? parsed.todoTarget : undefined,
-    replacementText: typeof parsed.replacementText === "string" ? parsed.replacementText : undefined,
+    todoTitle:
+      typeof parsed.todoTitle === "string"
+        ? parsed.todoTitle
+        : intent === "create_todo"
+          ? extractTodoTitle(message)
+          : undefined,
+    todoTarget:
+      typeof parsed.todoTarget === "string"
+        ? parsed.todoTarget
+        : ["complete_todo", "delete_todo", "update_todo"].includes(intent)
+          ? extractTodoTarget(message)
+          : undefined,
+    replacementText:
+      typeof parsed.replacementText === "string"
+        ? parsed.replacementText
+        : intent === "update_todo"
+          ? extractReplacementText(message)
+          : undefined,
   };
+}
+
+function isChatIntent(value: string): value is ChatIntent {
+  return chatIntents.includes(value as ChatIntent);
 }
 
 async function generateGeneralReply(message: string, todos: TodoItem[]): Promise<string> {
