@@ -14,6 +14,12 @@ import {
   listTodosTool,
   updateTodoTool,
 } from "./tools/todos.js";
+import {
+  createExpenseTool,
+  deleteExpenseTool,
+  expenseSummaryTool,
+  listExpensesTool,
+} from "./tools/expenses.js";
 
 dotenv.config();
 
@@ -112,6 +118,22 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "updateTodo") {
       return res.json(await updateTodoTool(payload));
+    }
+
+    if (toolName === "createExpense") {
+      return res.json(await createExpenseTool(payload));
+    }
+
+    if (toolName === "listExpenses") {
+      return res.json(await listExpensesTool(payload));
+    }
+
+    if (toolName === "expenseSummary") {
+      return res.json(await expenseSummaryTool(payload));
+    }
+
+    if (toolName === "deleteExpense") {
+      return res.json(await deleteExpenseTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

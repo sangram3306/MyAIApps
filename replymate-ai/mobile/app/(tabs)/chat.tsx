@@ -183,9 +183,9 @@ export default function ChatScreen() {
                     style={styles.detailsLink}
                   >
                     <View>
-                      <Text style={styles.detailsLinkTitle}>View agent loop</Text>
+                      <Text style={styles.detailsLinkTitle}>View Execution Flow</Text>
                       <Text style={styles.detailsLinkSubtitle}>
-                        LLM, tools, MCP results, and final response
+                        LLM decisions, tool calls, MCP results, and final answer
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" color={colors.primary} size={18} />

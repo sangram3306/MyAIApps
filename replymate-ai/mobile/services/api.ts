@@ -129,17 +129,58 @@ export type ChatTodoItem = {
   updatedAt: string;
 };
 
+export type ChatAgentEvent = {
+  id: string;
+  title: string;
+  type: "llm" | "tool" | "mcp" | "final";
+  request: unknown;
+  response: unknown;
+};
+
 export type ChatMessageResponse = {
   assistantReply: string;
   intent: string;
   toolCalls: ChatToolCall[];
   todos: ChatTodoItem[];
   agentTrace: string[];
+  agentEvents?: ChatAgentEvent[];
   metadata: {
     toolsUsed: string[];
     toolSources: {
       classifyIntent: "static" | "llm" | "fallback";
       todoSkill: "static" | "llm" | "fallback";
+      answerGeneration: "static" | "llm" | "fallback";
+    };
+  };
+};
+
+export type ExpenseItem = {
+  id: string;
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExpenseToolCall = {
+  name: string;
+  source: "static" | "llm" | "fallback";
+  summary: string;
+};
+
+export type ExpenseMessageResponse = {
+  assistantReply: string;
+  toolCalls: ExpenseToolCall[];
+  expenses: ExpenseItem[];
+  total?: number;
+  byCategory?: Array<{ category: string; total: number; count: number }>;
+  agentTrace: string[];
+  metadata: {
+    toolsUsed: string[];
+    toolSources: {
+      expenseSkill: "static" | "llm" | "fallback";
       answerGeneration: "static" | "llm" | "fallback";
     };
   };
@@ -218,4 +259,38 @@ export async function sendChatMessageFromApi(params: {
   }
 
   return data as ChatMessageResponse;
+}
+
+export async function sendExpenseMessageFromApi(params: {
+  backendUrl: string;
+  message: string;
+}): Promise<ExpenseMessageResponse> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/message`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: params.message,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<ExpenseMessageResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Backend could not process expenses.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    !Array.isArray(data?.toolCalls) ||
+    !Array.isArray(data?.expenses) ||
+    !Array.isArray(data?.agentTrace)
+  ) {
+    throw new Error("Backend returned an unexpected response.");
+  }
+
+  return data as ExpenseMessageResponse;
 }

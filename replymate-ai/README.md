@@ -1,6 +1,6 @@
 # ReplyMate AI
 
-ReplyMate AI is an additive mobile and backend upgrade that keeps the existing reply generation flow working while adding a new **Smart Reply Coach** feature.
+ReplyMate AI is an additive mobile and backend upgrade that keeps the existing reply generation flow working while adding **Smart Reply Coach**, **AI Chat**, and **Expense Tracker With AI Insights**.
 
 The existing app still generates replies the same way it did before. The new coach mode adds a structured analysis pipeline with:
 
@@ -8,6 +8,7 @@ The existing app still generates replies the same way it did before. The new coa
 - a new backend endpoint at `POST /api/coach/analyze`
 - a separately deployable `reply-mcp/` service
 - static-first hybrid tools with NVIDIA fallback
+- Mongo-backed MCP tools for todos and expenses
 
 ## Architecture
 
@@ -18,6 +19,16 @@ Mobile app
   -> reply-mcp HTTP tool server
   -> static rules first
   -> NVIDIA NIM fallback when needed
+```
+
+Expense Tracker follows the same separation:
+
+```text
+Mobile Expenses tab
+  -> Existing backend
+  -> Expense agent / LLM tool loop
+  -> reply-mcp expense tools
+  -> MongoDB Atlas expenses collection
 ```
 
 ## Project Structure
@@ -57,6 +68,19 @@ It returns:
 
 Only the simplified steps are shown to the user. No private chain-of-thought, raw prompts, or internal reasoning is exposed.
 
+## Expense Tracker With AI Insights
+
+Expense Tracker is a separate mobile tab for logging spending and asking spending questions in natural language.
+
+Examples:
+
+- `I spent 45 on groceries`
+- `Show this month's spending`
+- `Summarize food expenses`
+- `Delete expense 2`
+
+The backend sends the user message to NVIDIA as an agent router. The LLM decides whether to call MCP tools such as `createExpense`, `listExpenses`, `expenseSummary`, or `deleteExpense`. Those tools run in `reply-mcp/` and read/write MongoDB directly.
+
 ## Backend API
 
 ### Existing reply endpoints
@@ -77,6 +101,50 @@ Request:
 {
   "message": "Can you review this today?",
   "relationshipContext": "Client"
+}
+```
+
+### Expense endpoint
+
+`POST /api/expenses/message`
+
+Request:
+
+```json
+{
+  "message": "I spent 45 on groceries today"
+}
+```
+
+Response:
+
+```json
+{
+  "assistantReply": "Logged 45 for groceries. Your latest expense list now includes groceries.",
+  "toolCalls": [
+    {
+      "name": "createExpense",
+      "source": "static",
+      "summary": "Logged 45 for groceries in groceries."
+    }
+  ],
+  "expenses": [],
+  "total": 45,
+  "byCategory": [
+    {
+      "category": "groceries",
+      "total": 45,
+      "count": 1
+    }
+  ],
+  "agentTrace": ["Checked expense message", "Logged expense", "Generated expense insight"],
+  "metadata": {
+    "toolsUsed": ["expenseAgent", "createExpense"],
+    "toolSources": {
+      "expenseSkill": "static",
+      "answerGeneration": "llm"
+    }
+  }
 }
 ```
 
@@ -134,6 +202,15 @@ Supported tool names:
 - `relationshipRules`
 - `riskAssessment`
 - `qualityCheck`
+- `createTodo`
+- `listTodos`
+- `completeTodo`
+- `deleteTodo`
+- `updateTodo`
+- `createExpense`
+- `listExpenses`
+- `expenseSummary`
+- `deleteExpense`
 
 The backend is the only caller. Mobile never talks to reply-mcp directly.
 
@@ -175,6 +252,10 @@ NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 MCP_SHARED_SECRET=
+MONGODB_URI=
+MONGODB_DB_NAME=replymate_ai
+MONGODB_TODOS_COLLECTION=todos
+MONGODB_EXPENSES_COLLECTION=expenses
 ```
 
 ### 3. Mobile
@@ -207,6 +288,10 @@ The mobile app keeps using the existing backend URL flow. It does not store NVID
    - `NVIDIA_MODEL`
    - `NVIDIA_BASE_URL`
    - `MCP_SHARED_SECRET`
+   - `MONGODB_URI`
+   - `MONGODB_DB_NAME`
+   - `MONGODB_TODOS_COLLECTION`
+   - `MONGODB_EXPENSES_COLLECTION`
 6. Deploy the service.
 7. Copy the deployed URL into `MCP_SERVER_URL` on the backend.
 8. Redeploy the backend.

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, spacing } from "../constants/theme";
-import { ChatToolCall } from "../services/api";
+import { ChatAgentEvent, ChatToolCall } from "../services/api";
 import { getAgentDetails } from "../storage/agentDetailsStore";
 
 type LoopStep = {
@@ -31,7 +31,12 @@ export default function AgentDetailsScreen() {
     );
   }
 
-  const steps = buildLoopSteps(record.userMessage, record.assistantReply, record.response.toolCalls);
+  const steps = buildLoopSteps(
+    record.userMessage,
+    record.assistantReply,
+    record.response.toolCalls,
+    record.response.agentEvents || [],
+  );
   const pills = buildPills(record.response.toolCalls, record.response.metadata.toolSources);
 
   return (
@@ -43,7 +48,7 @@ export default function AgentDetailsScreen() {
           <Text style={styles.backText}>Chat</Text>
         </Pressable>
         <Text style={styles.eyebrow}>Agent Diagnostics</Text>
-        <Text style={styles.title}>ReAct Tool Loop</Text>
+        <Text style={styles.title}>AI Workflow</Text>
         <Text style={styles.subtitle}>
           User message enters the LLM, the LLM requests tools, MCP returns observations, then the LLM writes the final answer.
         </Text>
@@ -57,8 +62,10 @@ export default function AgentDetailsScreen() {
 
         <View style={styles.loopCard}>
           <Text style={styles.sectionTitle}>Exact Agent Loop</Text>
-          {steps.map((step, index) => (
-            <View key={`${step.title}-${index}`} style={styles.stepRow}>
+          {steps.map((step, index) => {
+            const stepKey = `${step.title}-${index}`;
+            return (
+            <View key={stepKey} style={styles.stepRow}>
               <View style={[styles.stepIcon, styles[`${step.kind}Icon`]]}>
                 <Text style={styles.stepNumber}>{index + 1}</Text>
               </View>
@@ -69,7 +76,8 @@ export default function AgentDetailsScreen() {
               </View>
               {index < steps.length - 1 ? <View style={styles.stepLine} /> : null}
             </View>
-          ))}
+            );
+          })}
         </View>
 
         <View style={styles.card}>
@@ -95,7 +103,16 @@ export default function AgentDetailsScreen() {
   );
 }
 
-function buildLoopSteps(userMessage: string, assistantReply: string, toolCalls: ChatToolCall[]): LoopStep[] {
+function buildLoopSteps(
+  userMessage: string,
+  assistantReply: string,
+  toolCalls: ChatToolCall[],
+  agentEvents: ChatAgentEvent[],
+): LoopStep[] {
+  if (agentEvents.length) {
+    return buildEventLoopSteps(userMessage, assistantReply, agentEvents);
+  }
+
   const steps: LoopStep[] = [
     {
       title: "User -> LLM",
@@ -142,6 +159,102 @@ function buildLoopSteps(userMessage: string, assistantReply: string, toolCalls: 
   });
 
   return steps;
+}
+
+function buildEventLoopSteps(
+  userMessage: string,
+  assistantReply: string,
+  agentEvents: ChatAgentEvent[],
+): LoopStep[] {
+  const steps: LoopStep[] = [
+    {
+      title: "User -> LLM",
+      subtitle: "Prompt enters agent",
+      detail: userMessage,
+      kind: "user",
+    },
+  ];
+
+  agentEvents.forEach((event) => {
+    if (event.type === "llm") {
+      steps.push({
+        title: "LLM Decision",
+        subtitle: event.title,
+        detail: summarizeEventResponse(event.response),
+        kind: "llm",
+      });
+      return;
+    }
+
+    if (event.type === "tool") {
+      steps.push({
+        title: "Backend Tool Call",
+        subtitle: event.title,
+        detail: summarizeEventResponse(event.request),
+        kind: "tool",
+      });
+      return;
+    }
+
+    if (event.type === "mcp") {
+      steps.push({
+        title: "MCP Tool Result",
+        subtitle: event.title,
+        detail: summarizeEventResponse(event.response),
+        kind: "mcp",
+      });
+      steps.push({
+        title: "MCP Result -> LLM",
+        subtitle: "Observation returned",
+        detail: "The sanitized tool result was sent back to the LLM.",
+        kind: "llm",
+      });
+      return;
+    }
+
+    steps.push({
+      title: "LLM -> Final Response",
+      subtitle: event.title,
+      detail: assistantReply,
+      kind: "final",
+    });
+  });
+
+  if (!agentEvents.some((event) => event.type === "final")) {
+    steps.push({
+      title: "LLM -> Final Response",
+      subtitle: "Answer Generator",
+      detail: assistantReply,
+      kind: "final",
+    });
+  }
+
+  return steps;
+}
+
+function summarizeEventResponse(value: unknown): string {
+  if (!value || typeof value !== "object") {
+    return String(value || "No response payload.");
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.summary === "string") {
+    return record.summary;
+  }
+
+  if (typeof record.assistantReply === "string") {
+    return record.assistantReply;
+  }
+
+  if (typeof record.toolName === "string") {
+    return `Selected ${record.toolName}.`;
+  }
+
+  if (typeof record.status === "string") {
+    return record.status;
+  }
+
+  return "Open request/response to inspect the payload.";
 }
 
 function buildPills(

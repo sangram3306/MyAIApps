@@ -25,6 +25,7 @@ export type ChatResponse = {
   }>;
   todos: TodoItem[];
   agentTrace: string[];
+  agentEvents: AgentEvent[];
   metadata: {
     toolsUsed: string[];
     toolSources: {
@@ -33,6 +34,14 @@ export type ChatResponse = {
       answerGeneration: Source;
     };
   };
+};
+
+type AgentEvent = {
+  id: string;
+  title: string;
+  type: "llm" | "tool" | "mcp" | "final";
+  request: unknown;
+  response: unknown;
 };
 
 type TodoMcpResult = {
@@ -74,6 +83,12 @@ type AgentAction = AgentToolCall | AgentFinal;
 type AgentMessage = {
   role: "system" | "user" | "assistant";
   content: string;
+};
+
+type AgentModelResult = {
+  action: AgentAction;
+  request: unknown;
+  response: unknown;
 };
 
 const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
@@ -166,6 +181,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
 async function runAgentLoop(message: string): Promise<ChatResponse> {
   const trace = ["Checked chat message"];
   const toolCalls: ChatResponse["toolCalls"] = [];
+  const agentEvents: AgentEvent[] = [];
   const observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }> = [];
   const initialTodos = await getTodosSnapshot();
   const messages: AgentMessage[] = [
@@ -219,12 +235,20 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
   ];
 
   for (let turn = 0; turn < maxAgentTurns; turn += 1) {
-    const action = await callAgentModel(messages);
+    const modelResult = await callAgentModel(messages);
+    const action = modelResult.action;
+    agentEvents.push({
+      id: `llm-${turn + 1}`,
+      title: turn === 0 ? "LLM selected next action" : "LLM reviewed tool observation",
+      type: action.type === "final" ? "final" : "llm",
+      request: modelResult.request,
+      response: modelResult.response,
+    });
 
     if (action.type === "final") {
       trace.push(observations.length ? "Generated final answer" : "Answered directly");
       const assistantReply = observations.length
-        ? await synthesizeFinalAnswer(message, observations, action.assistantReply)
+        ? await synthesizeFinalAnswer(message, observations, action.assistantReply, agentEvents)
         : action.assistantReply;
       return buildAgentResponse({
         assistantReply,
@@ -232,6 +256,7 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
         toolCalls,
         todos: latestTodos(observations, initialTodos),
         trace,
+        agentEvents,
         answerSource: "llm",
       });
     }
@@ -255,7 +280,30 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
     }
 
     trace.push(shortTraceForTool(action.toolName));
+    agentEvents.push({
+      id: `tool-request-${agentEvents.length + 1}`,
+      title: `Backend prepared ${action.toolName}`,
+      type: "tool",
+      request: {
+        toolName: action.toolName,
+        arguments: action.arguments,
+        validation: "allowed",
+      },
+      response: {
+        status: "executing_mcp_tool",
+      },
+    });
     const result = await executeTodoTool(action.toolName, action.arguments);
+    agentEvents.push({
+      id: `mcp-result-${agentEvents.length + 1}`,
+      title: `MCP returned ${action.toolName} result`,
+      type: "mcp",
+      request: {
+        toolName: action.toolName,
+        arguments: action.arguments,
+      },
+      response: sanitizeToolResult(result),
+    });
     observations.push({ toolName: action.toolName, result });
     toolCalls.push({
       name: action.toolName,
@@ -290,11 +338,12 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
     toolCalls,
     todos: latestTodos(observations, initialTodos),
     trace,
+    agentEvents,
     answerSource: "fallback",
   });
 }
 
-async function callAgentModel(messages: AgentMessage[]): Promise<AgentAction> {
+async function callAgentModel(messages: AgentMessage[]): Promise<AgentModelResult> {
   const apiKey = process.env.NVIDIA_API_KEY?.trim();
   const model = process.env.NVIDIA_MODEL || defaultModel;
   const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
@@ -303,22 +352,23 @@ async function callAgentModel(messages: AgentMessage[]): Promise<AgentAction> {
   }
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const requestBody = {
+      model,
+      temperature: 0.2,
+      max_tokens: 500,
+      response_format: { type: "json_object" },
+      messages: messages.map((item) => ({
+        role: item.role,
+        content: item.content,
+      })),
+    };
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 500,
-        response_format: { type: "json_object" },
-        messages: messages.map((item) => ({
-          role: item.role,
-          content: item.content,
-        })),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -329,7 +379,19 @@ async function callAgentModel(messages: AgentMessage[]): Promise<AgentAction> {
     const content = data.choices?.[0]?.message?.content;
     const action = parseAgentAction(content);
     if (action) {
-      return action;
+      return {
+        action,
+        request: {
+          url: `${baseUrl}/chat/completions`,
+          method: "POST",
+          body: sanitizeLlmRequestBody(requestBody),
+          note: "Authorization header is intentionally hidden.",
+        },
+        response: {
+          rawContent: content,
+          parsed: action,
+        },
+      };
     }
 
     messages.push({
@@ -348,6 +410,7 @@ async function synthesizeFinalAnswer(
   userMessage: string,
   observations: Array<{ toolName: TodoToolName; result: TodoMcpResult }>,
   draftReply: string,
+  agentEvents: AgentEvent[],
 ): Promise<string> {
   const apiKey = process.env.NVIDIA_API_KEY?.trim();
   const model = process.env.NVIDIA_MODEL || defaultModel;
@@ -356,40 +419,44 @@ async function synthesizeFinalAnswer(
     return draftReply;
   }
 
+  const synthesisRequest = {
+    finalSynthesis: true,
+    userMessage,
+    draftReply,
+    toolResults: observations.map((observation) => ({
+      toolName: observation.toolName,
+      result: sanitizeToolResult(observation.result),
+    })),
+    outputSchema: {
+      assistantReply: "string",
+    },
+  };
+
+  const requestBody = {
+    model,
+    temperature: 0.2,
+    max_tokens: 350,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "Return only valid JSON with assistantReply. Create the final user-facing answer from all tool observations. Mention every successful tool action. Do not invent actions that are not in observations.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify(synthesisRequest),
+      },
+    ],
+  };
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      max_tokens: 350,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Return only valid JSON with assistantReply. Create the final user-facing answer from all tool observations. Mention every successful tool action. Do not invent actions that are not in observations.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            finalSynthesis: true,
-            userMessage,
-            draftReply,
-            toolResults: observations.map((observation) => ({
-              toolName: observation.toolName,
-              result: sanitizeToolResult(observation.result),
-            })),
-            outputSchema: {
-              assistantReply: "string",
-            },
-          }),
-        },
-      ],
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -399,7 +466,23 @@ async function synthesizeFinalAnswer(
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = data.choices?.[0]?.message?.content;
   const parsed = safeParseJson<{ assistantReply?: string }>(content || "");
-  return parsed?.assistantReply || draftReply;
+  const assistantReply = parsed?.assistantReply || draftReply;
+  agentEvents.push({
+    id: `final-${agentEvents.length + 1}`,
+    title: "LLM generated final answer",
+    type: "final",
+    request: {
+      url: `${baseUrl}/chat/completions`,
+      method: "POST",
+      body: sanitizeLlmRequestBody(requestBody),
+      note: "Authorization header is intentionally hidden.",
+    },
+    response: {
+      rawContent: content,
+      assistantReply,
+    },
+  });
+  return assistantReply;
 }
 
 function parseAgentAction(content: string | undefined): AgentAction | null {
@@ -520,6 +603,7 @@ function buildAgentResponse({
   toolCalls,
   todos,
   trace,
+  agentEvents,
   answerSource,
 }: {
   assistantReply: string;
@@ -527,6 +611,7 @@ function buildAgentResponse({
   toolCalls: ChatResponse["toolCalls"];
   todos: TodoItem[];
   trace: string[];
+  agentEvents: AgentEvent[];
   answerSource: Source;
 }): ChatResponse {
   const lastToolSource = toolCalls.at(-1)?.source || "fallback";
@@ -536,6 +621,7 @@ function buildAgentResponse({
     toolCalls,
     todos,
     agentTrace: [...trace, "Returned response"],
+    agentEvents,
     metadata: {
       toolsUsed: ["agentLoop", ...toolCalls.map((tool) => tool.name)],
       toolSources: {
@@ -587,6 +673,7 @@ async function runStaticFallback(message: string, source: Source): Promise<ChatR
     toolCalls,
     todos: initialTodos,
     agentTrace: [...trace, "Returned response"],
+    agentEvents: [],
     metadata: {
       toolsUsed: ["fallbackRouter"],
       toolSources: {
@@ -619,6 +706,15 @@ function buildFallbackToolResponse(
     toolCalls,
     todos: result.todos || [],
     agentTrace: [...trace, shortTraceForTool(toolName), "Returned response"],
+    agentEvents: [
+      {
+        id: "fallback-tool",
+        title: `Fallback executed ${toolName}`,
+        type: "tool",
+        request: { toolName },
+        response: sanitizeToolResult(result),
+      },
+    ],
     metadata: {
       toolsUsed: ["fallbackRouter", toolName],
       toolSources: {
@@ -727,6 +823,28 @@ function sanitizeToolResult(result: TodoMcpResult): Record<string, unknown> {
       title: todo.title,
       completed: todo.completed,
     })),
+  };
+}
+
+function sanitizeLlmRequestBody(requestBody: {
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  response_format: { type: string };
+  messages: Array<{ role: string; content: string }>;
+}): Record<string, unknown> {
+  return {
+    ...requestBody,
+    messages: requestBody.messages.map((message) => {
+      if (message.role === "system") {
+        return {
+          role: message.role,
+          content: "[system prompt hidden]",
+        };
+      }
+
+      return message;
+    }),
   };
 }
 

@@ -16,6 +16,12 @@ import {
   listTodosTool,
   updateTodoTool,
 } from "../src/tools/todos.js";
+import {
+  createExpenseTool,
+  deleteExpenseTool,
+  expenseSummaryTool,
+  listExpensesTool,
+} from "../src/tools/expenses.js";
 
 test("classifyIntent static match", async () => {
   const result = await classifyIntent({ message: "Sorry, my bad for the delay." });
@@ -152,6 +158,52 @@ test("todo tools perform stored todo operations", async () => {
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
     restoreEnv("TODO_STORE_PATH", originalStorePath);
+  }
+});
+
+test("expense tools perform stored expense operations", async () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "reply-mcp-expenses-"));
+  const originalStorePath = process.env.EXPENSE_STORE_PATH;
+  process.env.EXPENSE_STORE_PATH = path.join(tempDir, "expenses.json");
+
+  try {
+    const dinner = await createExpenseTool({
+      amount: 42.5,
+      category: "food",
+      description: "dinner",
+      date: "2026-05-24",
+    });
+    assert.equal(dinner.source, "static");
+    assert.equal(dinner.expense?.description, "dinner");
+
+    const fuel = await createExpenseTool({
+      amount: 30,
+      category: "transport",
+      description: "fuel",
+      date: "2026-05-24",
+    });
+    assert.equal(fuel.source, "static");
+
+    const list = await listExpensesTool({ period: "all" });
+    assert.equal(list.source, "static");
+    assert.equal(list.count, 2);
+    assert.equal(list.total, 72.5);
+
+    const summary = await expenseSummaryTool({ period: "all" });
+    assert.equal(summary.source, "static");
+    assert.equal(summary.total, 72.5);
+    assert.equal(summary.byCategory?.length, 2);
+
+    const deleted = await deleteExpenseTool({ target: "2" });
+    assert.equal(deleted.source, "static");
+    assert.equal(deleted.expense?.description, "dinner");
+
+    const afterDelete = await listExpensesTool({ period: "all" });
+    assert.equal(afterDelete.count, 1);
+    assert.equal(afterDelete.expenses[0]?.description, "fuel");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+    restoreEnv("EXPENSE_STORE_PATH", originalStorePath);
   }
 });
 
