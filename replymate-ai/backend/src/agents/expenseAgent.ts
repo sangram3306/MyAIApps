@@ -109,6 +109,15 @@ export async function handleExpenseMessage(message: string): Promise<ExpenseResp
     return fallbackExpenseResponse(message);
   }
 
+  try {
+    return await runExpenseAgentLoop(message);
+  } catch (error) {
+    console.error("[expenses] agent loop fallback", error);
+    return fallbackExpenseResponse(message);
+  }
+}
+
+async function runExpenseAgentLoop(message: string): Promise<ExpenseResponse> {
   const trace = ["Checked expense message"];
   const toolCalls: ExpenseResponse["toolCalls"] = [];
   const observations: Array<{ toolName: ExpenseToolName; result: ExpenseToolResult }> = [];
@@ -117,7 +126,7 @@ export async function handleExpenseMessage(message: string): Promise<ExpenseResp
     {
       role: "system",
       content:
-        "You are an Expense Tracker agent. Use tool calls to log expenses, list expenses, delete expenses, and summarize spending. Return only valid JSON. Do not claim an expense was saved unless a tool_result confirms it.",
+        "You are an Expense Tracker agent running an industry-style tool loop. You may call exactly one allowed tool or return a final answer. Return only valid JSON. Do not claim an expense was saved unless a tool_result confirms it. Do not include private chain-of-thought.",
     },
     {
       role: "user",
@@ -225,30 +234,53 @@ async function callExpenseModel(messages: AgentMessage[]): Promise<AgentAction> 
     throw new Error("NVIDIA_API_KEY is not configured.");
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        max_tokens: 500,
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`NVIDIA API error: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`NVIDIA API error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content;
+    const action = parseExpenseAction(content);
+    if (action) {
+      return action;
+    }
+
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        type: "format_error",
+        instruction: "Return only valid JSON matching either the toolCall or final schema.",
+      }),
+    });
   }
 
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
-  const parsed = safeParseJson<Partial<AgentAction>>(content || "");
-  if (!parsed?.type) {
-    throw new Error("Expense model returned invalid JSON.");
+  throw new Error("Expense model returned invalid JSON.");
+}
+
+function parseExpenseAction(content: string | undefined): AgentAction | null {
+  if (!content) {
+    return null;
+  }
+
+  const parsed = safeParseJson<Partial<AgentAction>>(content);
+  if (!parsed || typeof parsed.type !== "string") {
+    return null;
   }
 
   if (parsed.type === "final" && typeof parsed.assistantReply === "string") {
@@ -274,7 +306,7 @@ async function callExpenseModel(messages: AgentMessage[]): Promise<AgentAction> 
     };
   }
 
-  throw new Error("Expense model returned unsupported action.");
+  return null;
 }
 
 async function synthesizeExpenseFinal(
@@ -289,41 +321,44 @@ async function synthesizeExpenseFinal(
     return draftReply;
   }
 
+  const requestBody = {
+    model,
+    temperature: 0.2,
+    max_tokens: 350,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "Return only valid JSON with assistantReply. Mention every successful expense tool action and include useful spending insight if totals/categories are available. Do not invent actions that are not in observations.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          userMessage,
+          draftReply,
+          toolResults: observations.map((observation) => ({
+            toolName: observation.toolName,
+            result: sanitizeExpenseResult(observation.result),
+          })),
+          outputSchema: { assistantReply: "string" },
+        }),
+      },
+    ],
+  };
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      max_tokens: 350,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Return only valid JSON with assistantReply. Mention every expense tool action and include useful spending insight if totals/categories are available.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            userMessage,
-            draftReply,
-            toolResults: observations.map((observation) => ({
-              toolName: observation.toolName,
-              result: sanitizeExpenseResult(observation.result),
-            })),
-            outputSchema: { assistantReply: "string" },
-          }),
-        },
-      ],
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
-    throw new Error(`NVIDIA API error: ${response.status}`);
+    console.error("[expenses] final synthesis failed", { status: response.status });
+    return draftReply;
   }
 
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -379,6 +414,27 @@ function buildExpenseResponse(
 }
 
 async function fallbackExpenseResponse(message: string): Promise<ExpenseResponse> {
+  const trace = ["Checked expense message", "Used fallback expense router"];
+  const toolCalls: ExpenseResponse["toolCalls"] = [];
+  const fallbackAction = classifyExpenseFallback(message);
+
+  if (fallbackAction) {
+    const result = await callExpenseTool(fallbackAction.toolName, fallbackAction.arguments);
+    toolCalls.push({
+      name: fallbackAction.toolName,
+      source: result.source,
+      summary: result.summary,
+    });
+    return buildExpenseResponse(
+      fallbackReplyForExpenseTool(fallbackAction.toolName, result),
+      toolCalls,
+      [{ toolName: fallbackAction.toolName, result }],
+      [],
+      [...trace, traceForExpenseTool(fallbackAction.toolName)],
+      "fallback",
+    );
+  }
+
   const expenses = await callExpenseTool("listExpenses", { period: "month", limit: 20 });
   return {
     assistantReply:
@@ -391,7 +447,7 @@ async function fallbackExpenseResponse(message: string): Promise<ExpenseResponse
     metadata: {
       toolsUsed: ["expenseAgent"],
       toolSources: {
-        expenseSkill: message ? "fallback" : "fallback",
+        expenseSkill: "fallback",
         answerGeneration: "fallback",
       },
     },
@@ -399,8 +455,14 @@ async function fallbackExpenseResponse(message: string): Promise<ExpenseResponse
 }
 
 function validateExpenseToolCall(action: Extract<AgentAction, { type: "tool_call" }>): string | null {
-  if (action.toolName === "createExpense" && typeof action.arguments.amount !== "number") {
-    return "createExpense requires numeric amount.";
+  if (action.toolName === "createExpense") {
+    if (typeof action.arguments.amount !== "number") {
+      return "createExpense requires numeric amount.";
+    }
+
+    if (typeof action.arguments.category !== "string" || typeof action.arguments.description !== "string") {
+      return "createExpense requires string category and description.";
+    }
   }
 
   if (action.toolName === "deleteExpense" && typeof action.arguments.target !== "string") {
@@ -408,6 +470,129 @@ function validateExpenseToolCall(action: Extract<AgentAction, { type: "tool_call
   }
 
   return null;
+}
+
+function classifyExpenseFallback(message: string): Extract<AgentAction, { type: "tool_call" }> | null {
+  const lowered = message.toLowerCase().trim();
+  const createMatch = lowered.match(
+    /(?:spent|paid|bought|purchase(?:d)?|log(?:ged)?|add(?:ed)?)\s+(?:aed|rs\.?|inr|usd|\$)?\s*(\d+(?:\.\d{1,2})?)\s+(?:on|for|at)?\s*(.+)/i,
+  );
+
+  if (createMatch?.[1]) {
+    const amount = Number(createMatch[1]);
+    const description = cleanupExpenseDescription(createMatch[2] || "expense");
+    return {
+      type: "tool_call",
+      toolName: "createExpense",
+      arguments: {
+        amount,
+        category: inferExpenseCategory(description),
+        description,
+      },
+    };
+  }
+
+  if (/(show|list|view|all).*(expense|spending|spent)|expense|spending/.test(lowered) && !/(summary|summarize|total|insight)/.test(lowered)) {
+    return {
+      type: "tool_call",
+      toolName: "listExpenses",
+      arguments: {
+        period: lowered.includes("today") ? "today" : lowered.includes("week") ? "week" : lowered.includes("month") ? "month" : "all",
+        limit: 20,
+      },
+    };
+  }
+
+  if (/(summary|summarize|total|insight|breakdown).*(expense|spending|spent)|how much/.test(lowered)) {
+    return {
+      type: "tool_call",
+      toolName: "expenseSummary",
+      arguments: {
+        period: lowered.includes("today") ? "today" : lowered.includes("week") ? "week" : lowered.includes("all") ? "all" : "month",
+      },
+    };
+  }
+
+  if (/(delete|remove).*(expense|spending|spent|\d+)/.test(lowered)) {
+    const target = lowered.match(/\b\d+(?:st|nd|rd|th)?\b/)?.[0] || lowered;
+    return {
+      type: "tool_call",
+      toolName: "deleteExpense",
+      arguments: { target },
+    };
+  }
+
+  return null;
+}
+
+function fallbackReplyForExpenseTool(toolName: ExpenseToolName, result: ExpenseToolResult): string {
+  if (result.source === "fallback") {
+    return result.summary || "I could not complete that expense action right now.";
+  }
+
+  if (toolName === "listExpenses") {
+    if (!result.expenses.length) {
+      return "I could not find any expenses yet.";
+    }
+
+    return `Here are your expenses:\n${result.expenses
+      .slice(0, 10)
+      .map((expense, index) => `${index + 1}. ${expense.description} - ${formatAmount(expense.amount)} (${expense.category})`)
+      .join("\n")}`;
+  }
+
+  if (toolName === "expenseSummary") {
+    const categories = result.byCategory
+      ?.slice(0, 4)
+      .map((item) => `${item.category}: ${formatAmount(item.total)}`)
+      .join(", ");
+    return categories
+      ? `Your total spending is ${formatAmount(result.total || 0)}. Top categories: ${categories}.`
+      : result.summary;
+  }
+
+  return result.summary;
+}
+
+function cleanupExpenseDescription(value: string): string {
+  return value
+    .replace(/\b(today|yesterday|tomorrow|this month|this week)\b/gi, "")
+    .replace(/[.?!]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase() || "expense";
+}
+
+function inferExpenseCategory(description: string): string {
+  const lowered = description.toLowerCase();
+  if (/(grocery|groceries|food|lunch|dinner|breakfast|coffee|restaurant|snack)/.test(lowered)) {
+    return "food";
+  }
+
+  if (/(fuel|petrol|uber|taxi|bus|train|metro|parking)/.test(lowered)) {
+    return "transport";
+  }
+
+  if (/(movie|cinema|game|netflix|show|concert)/.test(lowered)) {
+    return "entertainment";
+  }
+
+  if (/(rent|electricity|water|internet|phone|bill)/.test(lowered)) {
+    return "bills";
+  }
+
+  if (/(medicine|doctor|hospital|pharmacy)/.test(lowered)) {
+    return "health";
+  }
+
+  return "other";
+}
+
+function formatAmount(value: number): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  });
 }
 
 function sanitizeExpenseResult(result: ExpenseToolResult): Record<string, unknown> {
