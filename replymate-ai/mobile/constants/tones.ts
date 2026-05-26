@@ -7,6 +7,7 @@ export type Tone =
   | "friendly"
   | "casual"
   | "funny"
+  | "snarky"
   | "confident"
   | "apologetic"
   | "romantic"
@@ -27,6 +28,7 @@ export const replyTones: Array<{ label: string; value: Tone }> = [
   { label: "Professional", value: "professional" },
   { label: "Friendly", value: "friendly" },
   { label: "Funny", value: "funny" },
+  { label: "Snarky", value: "snarky" },
   { label: "Romantic", value: "romantic" },
   { label: "Apologetic", value: "apologetic" },
   { label: "Sarcastic", value: "sarcastic" },
@@ -40,6 +42,7 @@ export const rewriteStyles: Array<{ label: string; value: Tone }> = [
   { label: "Professional", value: "professional" },
   { label: "Friendly", value: "friendly" },
   { label: "Casual", value: "casual" },
+  { label: "Snarky", value: "snarky" },
   { label: "Formal", value: "formal" },
   { label: "Confident", value: "confident" },
   { label: "Persuasive", value: "persuasive" },

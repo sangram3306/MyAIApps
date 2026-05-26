@@ -38,6 +38,7 @@ function getTonePrompt(tone?: string): string {
   const labels: Record<string, string> = {
     simple_english: "simple English",
     more_human: "more human and natural",
+    snarky: "snarky - dry, witty, mildly sarcastic, but not mean or insulting",
   };
 
   if (labels[tone]) {

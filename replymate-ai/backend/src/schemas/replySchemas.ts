@@ -9,6 +9,7 @@ const toneValues = [
   "friendly",
   "casual",
   "funny",
+  "snarky",
   "confident",
   "apologetic",
   "romantic",
