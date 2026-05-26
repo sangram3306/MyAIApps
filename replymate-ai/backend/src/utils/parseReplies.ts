@@ -4,9 +4,10 @@ export function parseRepliesFromModel(content: string): string[] {
 
   if (jsonCandidate) {
     try {
-      const parsed = JSON.parse(jsonCandidate) as { replies?: unknown };
-      if (Array.isArray(parsed.replies)) {
-        return normalizeReplies(parsed.replies);
+      const parsed = JSON.parse(jsonCandidate) as unknown;
+      const replies = extractRepliesFromJson(parsed);
+      if (replies.length) {
+        return replies;
       }
     } catch {
       // Continue to plain-text fallback below.
@@ -19,6 +20,32 @@ export function parseRepliesFromModel(content: string): string[] {
     .filter(Boolean);
 
   return normalizeReplies(lines);
+}
+
+function extractRepliesFromJson(parsed: unknown): string[] {
+  if (Array.isArray(parsed)) {
+    return normalizeReplies(parsed);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return [];
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const arrayKeys = ["replies", "replySuggestions", "suggestions", "responses", "messages", "rewrites", "corrections"];
+
+  for (const key of arrayKeys) {
+    if (Array.isArray(record[key])) {
+      return normalizeReplies(record[key]);
+    }
+  }
+
+  const numberedReplies = Object.entries(record)
+    .filter(([key]) => /^reply\d+$/i.test(key) || /^suggestion\d+$/i.test(key) || /^option\d+$/i.test(key))
+    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+    .map(([, value]) => value);
+
+  return normalizeReplies(numberedReplies);
 }
 
 function extractJsonObject(text: string): string | null {

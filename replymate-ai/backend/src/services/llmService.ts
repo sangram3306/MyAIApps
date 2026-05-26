@@ -39,6 +39,14 @@ const defaultNvidiaBaseUrl = "https://integrate.api.nvidia.com/v1";
 const defaultNvidiaModel = "meta/llama-3.1-8b-instruct";
 const defaultDeepSeekBaseUrl = "https://api.deepseek.com";
 const defaultDeepSeekModel = "deepseek-chat";
+const deepSeekModelAliases: Record<string, string> = {
+  "deepseek-v3": "deepseek-chat",
+  "deepseek-v4-flash": "deepseek-chat",
+  "deepseek-v4-pro": "deepseek-chat",
+  "deepseek v3": "deepseek-chat",
+  "deepseek v4 flash": "deepseek-chat",
+  "deepseek v4 pro": "deepseek-chat",
+};
 
 const requestContext = new AsyncLocalStorage<LlmRequestContext>();
 
@@ -133,12 +141,13 @@ function getProviderConfig(): ProviderConfig {
     "nvidia";
 
   if (provider === "deepseek") {
+    const requestedModel = context?.model || process.env.DEEPSEEK_MODEL || defaultDeepSeekModel;
     return {
       provider,
       displayName: "DeepSeek",
       apiKey: process.env.DEEPSEEK_API_KEY?.trim() || "",
       baseUrl: process.env.DEEPSEEK_BASE_URL?.trim() || defaultDeepSeekBaseUrl,
-      model: context?.model || process.env.DEEPSEEK_MODEL || defaultDeepSeekModel,
+      model: normalizeProviderModel(provider, requestedModel),
     };
   }
 
@@ -169,4 +178,17 @@ function getProviderConfig(): ProviderConfig {
     baseUrl: process.env.NVIDIA_BASE_URL || defaultNvidiaBaseUrl,
     model: context?.model || process.env.NVIDIA_MODEL || defaultNvidiaModel,
   };
+}
+
+function normalizeProviderModel(provider: LlmProvider, model: string): string {
+  const trimmed = model.trim();
+  if (!trimmed) {
+    return provider === "deepseek" ? defaultDeepSeekModel : model;
+  }
+
+  if (provider !== "deepseek") {
+    return trimmed;
+  }
+
+  return deepSeekModelAliases[trimmed.toLowerCase()] || trimmed;
 }

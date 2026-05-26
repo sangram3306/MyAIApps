@@ -187,8 +187,8 @@ async function generateWithNvidia({
 
   const replies = parseRepliesFromModel(content);
 
-  if (replies.length !== 5) {
-    throw new Error("Model response did not contain exactly 5 valid replies.");
+  if (replies.length < 1) {
+    throw new Error("Model response did not contain valid replies.");
   }
 
   return replies;
