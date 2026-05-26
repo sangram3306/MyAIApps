@@ -1,6 +1,6 @@
-import { hasNvidiaApiKey } from "../utils/env";
 import { safeParseJson } from "../utils/safeJson";
 import { callMcpTool } from "../mcp/mcpClient";
+import { callChatCompletion, hasConfiguredLlmApiKey } from "../services/llmService";
 
 type ChatIntent = "general" | "create_todo" | "list_todos" | "complete_todo" | "delete_todo" | "update_todo";
 type Source = "static" | "llm" | "fallback";
@@ -91,8 +91,6 @@ type AgentModelResult = {
   response: unknown;
 };
 
-const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
-const defaultModel = "meta/llama-3.1-8b-instruct";
 const maxAgentTurns = 5;
 
 const todoTools: AgentToolDefinition[] = [
@@ -166,7 +164,7 @@ const todoTools: AgentToolDefinition[] = [
 ];
 
 export async function handleChatMessage(message: string): Promise<ChatResponse> {
-  if (!hasNvidiaApiKey()) {
+  if (!hasConfiguredLlmApiKey()) {
     return runStaticFallback(message, "fallback");
   }
 
@@ -344,47 +342,31 @@ async function runAgentLoop(message: string): Promise<ChatResponse> {
 }
 
 async function callAgentModel(messages: AgentMessage[]): Promise<AgentModelResult> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
-    throw new Error("NVIDIA_API_KEY is not configured.");
-  }
-
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const requestBody = {
-      model,
       temperature: 0.2,
       max_tokens: 500,
-      response_format: { type: "json_object" },
+      response_format: { type: "json_object" as const },
       messages: messages.map((item) => ({
         role: item.role,
         content: item.content,
       })),
     };
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
+    const completion = await callChatCompletion({
+      temperature: requestBody.temperature,
+      maxTokens: requestBody.max_tokens,
+      responseFormat: requestBody.response_format,
+      messages: requestBody.messages,
     });
-
-    if (!response.ok) {
-      throw new Error(`NVIDIA API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content;
+    const content = completion.content;
     const action = parseAgentAction(content);
     if (action) {
       return {
         action,
         request: {
-          url: `${baseUrl}/chat/completions`,
+          url: `${completion.baseUrl}/chat/completions`,
           method: "POST",
-          body: sanitizeLlmRequestBody(requestBody),
+          body: sanitizeLlmRequestBody({ ...requestBody, model: completion.model }),
           note: "Authorization header is intentionally hidden.",
         },
         response: {
@@ -412,10 +394,7 @@ async function synthesizeFinalAnswer(
   draftReply: string,
   agentEvents: AgentEvent[],
 ): Promise<string> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
+  if (!hasConfiguredLlmApiKey()) {
     return draftReply;
   }
 
@@ -433,38 +412,29 @@ async function synthesizeFinalAnswer(
   };
 
   const requestBody = {
-    model,
     temperature: 0.2,
     max_tokens: 350,
-    response_format: { type: "json_object" },
+    response_format: { type: "json_object" as const },
     messages: [
       {
-        role: "system",
+        role: "system" as const,
         content:
           "Return only valid JSON with assistantReply. Create the final user-facing answer from all tool observations. Mention every successful tool action. Do not invent actions that are not in observations.",
       },
       {
-        role: "user",
+        role: "user" as const,
         content: JSON.stringify(synthesisRequest),
       },
     ],
   };
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
+  const completion = await callChatCompletion({
+    temperature: requestBody.temperature,
+    maxTokens: requestBody.max_tokens,
+    responseFormat: requestBody.response_format,
+    messages: requestBody.messages,
   });
-
-  if (!response.ok) {
-    throw new Error(`NVIDIA final synthesis error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
+  const content = completion.content;
   const parsed = safeParseJson<{ assistantReply?: string }>(content || "");
   const assistantReply = parsed?.assistantReply || draftReply;
   agentEvents.push({
@@ -472,9 +442,9 @@ async function synthesizeFinalAnswer(
     title: "LLM generated final answer",
     type: "final",
     request: {
-      url: `${baseUrl}/chat/completions`,
+      url: `${completion.baseUrl}/chat/completions`,
       method: "POST",
-      body: sanitizeLlmRequestBody(requestBody),
+      body: sanitizeLlmRequestBody({ ...requestBody, model: completion.model }),
       note: "Authorization header is intentionally hidden.",
     },
     response: {

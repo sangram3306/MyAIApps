@@ -24,11 +24,11 @@ export async function handleChatMessageRequest(req: { body: unknown }, res: {
     }
 
     const message = error instanceof Error ? error.message : "Unknown error";
-    const isNvidiaError = message.includes("NVIDIA API error");
+    const isLlmError = message.includes("API error");
 
-    return res.status(isNvidiaError ? 502 : 500).json({
-      error: isNvidiaError
-        ? "NVIDIA API could not answer right now."
+    return res.status(isLlmError ? 502 : 500).json({
+      error: isLlmError
+        ? "The selected AI provider could not answer right now."
         : "Could not process your chat message. Please try again.",
     });
   }

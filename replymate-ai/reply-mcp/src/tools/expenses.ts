@@ -9,6 +9,7 @@ import {
 
 const createExpenseInputSchema = z.object({
   amount: z.number().positive(),
+  currency: z.enum(["AED", "INR"]).optional().default("AED"),
   category: z.string().min(1).default("other"),
   description: z.string().min(1).default("Expense"),
   date: z.string().optional(),
@@ -51,7 +52,7 @@ export async function createExpenseTool(input: unknown): Promise<ExpenseToolOutp
   return {
     source: "static",
     confidence: 0.96,
-    summary: `Logged ${formatAmount(expense.amount)} for ${expense.description} in ${expense.category}.`,
+    summary: `Logged ${formatAmount(expense.amount, expense.currency)} for ${expense.description} in ${expense.category}.`,
     expense,
     expenses: summary.expenses,
     total: summary.total,
@@ -71,7 +72,7 @@ export async function listExpensesTool(input: unknown): Promise<ExpenseToolOutpu
   return {
     source: "static",
     confidence: 0.98,
-    summary: `Found ${expenses.length} expense${expenses.length === 1 ? "" : "s"} totaling ${formatAmount(total)}.`,
+    summary: `Found ${expenses.length} expense${expenses.length === 1 ? "" : "s"} totaling ${formatAmount(total, commonCurrency(expenses))}.`,
     expenses,
     total: Number(total.toFixed(2)),
     count: expenses.length,
@@ -88,7 +89,7 @@ export async function expenseSummaryTool(input: unknown): Promise<ExpenseToolOut
   return {
     source: "static",
     confidence: 0.98,
-    summary: `Total spending is ${formatAmount(summary.total)} across ${summary.count} expense${summary.count === 1 ? "" : "s"}.`,
+    summary: `Total spending is ${formatAmount(summary.total, commonCurrency(summary.expenses))} across ${summary.count} expense${summary.count === 1 ? "" : "s"}.`,
     expenses: summary.expenses,
     total: summary.total,
     count: summary.count,
@@ -111,7 +112,7 @@ export async function deleteExpenseTool(input: unknown): Promise<ExpenseToolOutp
   return {
     source: "static",
     confidence: 0.9,
-    summary: `Deleted ${formatAmount(expense.amount)} for ${expense.description}.`,
+    summary: `Deleted ${formatAmount(expense.amount, expense.currency)} for ${expense.description}.`,
     expense,
     expenses: summary.expenses,
     total: summary.total,
@@ -120,11 +121,17 @@ export async function deleteExpenseTool(input: unknown): Promise<ExpenseToolOutp
   };
 }
 
-function formatAmount(amount: number): string {
-  return amount.toLocaleString("en-US", {
+function formatAmount(amount: number, currency?: "AED" | "INR"): string {
+  const formatted = amount.toLocaleString("en-US", {
     maximumFractionDigits: 2,
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
   });
+  return currency ? `${currency} ${formatted}` : formatted;
+}
+
+function commonCurrency(expenses: ExpenseItem[]): "AED" | "INR" | undefined {
+  const currencies = new Set(expenses.map((expense) => expense.currency || "AED"));
+  return currencies.size === 1 ? [...currencies][0] : undefined;
 }
 
 async function fallback(summary: string): Promise<ExpenseToolOutput> {

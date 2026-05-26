@@ -31,10 +31,10 @@ export async function handleCoachAnalyze(req: { body: unknown }, res: {
     }
 
     const message = error instanceof Error ? error.message : "Unknown error";
-    const isNvidiaError = message.includes("NVIDIA API error") || message.includes("Could not generate");
-    return res.status(isNvidiaError ? 502 : 500).json({
-      error: isNvidiaError
-        ? "NVIDIA API could not generate coaching advice right now."
+    const isLlmError = message.includes("API error") || message.includes("Could not generate");
+    return res.status(isLlmError ? 502 : 500).json({
+      error: isLlmError
+        ? "The selected AI provider could not generate coaching advice right now."
         : "Could not analyze the message. Please try again.",
     });
   }

@@ -1,5 +1,6 @@
 import { Tone } from "../constants/tones";
 import { Role } from "../constants/roles";
+import { getLlmPreference } from "../storage/appStorage";
 
 export async function generateRepliesFromApi(params: {
   backendUrl: string;
@@ -9,9 +10,7 @@ export async function generateRepliesFromApi(params: {
 }): Promise<string[]> {
   const response = await fetch(`${params.backendUrl}/api/replies/generate`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
       tone: params.tone,
@@ -40,9 +39,7 @@ export async function rewriteMessageFromApi(params: {
 }): Promise<string[]> {
   const response = await fetch(`${params.backendUrl}/api/replies/rewrite`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
       tone: params.tone,
@@ -71,9 +68,7 @@ export async function fixGrammarFromApi(params: {
 }): Promise<string[]> {
   const response = await fetch(`${params.backendUrl}/api/replies/grammar`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
       tone: params.tone,
@@ -157,6 +152,7 @@ export type ChatMessageResponse = {
 export type ExpenseItem = {
   id: string;
   amount: number;
+  currency?: "AED" | "INR";
   category: string;
   description: string;
   date: string;
@@ -193,9 +189,7 @@ export async function analyzeCoachFromApi(params: {
 }): Promise<CoachAnalyzeResponse> {
   const response = await fetch(`${params.backendUrl}/api/coach/analyze`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
       relationshipContext: params.relationshipContext,
@@ -232,9 +226,7 @@ export async function sendChatMessageFromApi(params: {
 }): Promise<ChatMessageResponse> {
   const response = await fetch(`${params.backendUrl}/api/chat/message`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
     }),
@@ -267,9 +259,7 @@ export async function sendExpenseMessageFromApi(params: {
 }): Promise<ExpenseMessageResponse> {
   const response = await fetch(`${params.backendUrl}/api/expenses/message`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
     }),
@@ -293,4 +283,51 @@ export async function sendExpenseMessageFromApi(params: {
   }
 
   return data as ExpenseMessageResponse;
+}
+
+export async function createExpenseFromApi(params: {
+  backendUrl: string;
+  amount: number;
+  currency: "AED" | "INR";
+  category: string;
+  description?: string;
+}): Promise<ExpenseMessageResponse> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/create`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      amount: params.amount,
+      currency: params.currency,
+      category: params.category,
+      description: params.description,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<ExpenseMessageResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Backend could not save expense.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    !Array.isArray(data?.toolCalls) ||
+    !Array.isArray(data?.expenses) ||
+    !Array.isArray(data?.agentTrace)
+  ) {
+    throw new Error("Backend returned an unexpected response.");
+  }
+
+  return data as ExpenseMessageResponse;
+}
+
+async function getApiHeaders(): Promise<Record<string, string>> {
+  const preference = await getLlmPreference();
+  return {
+    "Content-Type": "application/json",
+    "X-LLM-Provider": preference.provider,
+    "X-LLM-Model": preference.model,
+  };
 }

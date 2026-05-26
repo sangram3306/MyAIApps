@@ -1,14 +1,31 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEFAULT_BACKEND_URL } from "../constants/api";
+import { defaultLlmPreference, LlmPreference, llmProviders } from "../constants/llm";
 import { FavoriteReply, ReplyHistoryItem } from "./types";
 
 const keys = {
   history: "replymate.history",
   favorites: "replymate.favorites",
+  llmPreference: "replymate.llmPreference",
 };
 
 export async function getBackendUrl(): Promise<string> {
   return DEFAULT_BACKEND_URL;
+}
+
+export async function getLlmPreference(): Promise<LlmPreference> {
+  const preference = await readJson<LlmPreference>(keys.llmPreference, defaultLlmPreference);
+  const provider = llmProviders.find((item) => item.id === preference.provider && item.enabled);
+  const model = provider?.models.find((item) => item.value === preference.model);
+  if (!provider || !model) {
+    return defaultLlmPreference;
+  }
+
+  return preference;
+}
+
+export async function saveLlmPreference(preference: LlmPreference): Promise<void> {
+  await AsyncStorage.setItem(keys.llmPreference, JSON.stringify(preference));
 }
 
 export async function getHistory(): Promise<ReplyHistoryItem[]> {

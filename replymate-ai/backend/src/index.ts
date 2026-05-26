@@ -5,7 +5,9 @@ import chatRouter from "./routes/chatRoutes";
 import coachRouter from "./routes/coachRoutes";
 import expenseRouter from "./routes/expenseRoutes";
 import repliesRouter from "./routes/replies";
-import { hasNvidiaApiKey, logEnvStatus } from "./utils/env";
+import settingsRouter from "./routes/settingsRoutes";
+import { getActiveLlmInfo, normalizeProvider, runWithLlmContext } from "./services/llmService";
+import { logEnvStatus } from "./utils/env";
 
 logEnvStatus();
 
@@ -27,6 +29,12 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const provider = normalizeProvider(req.header("X-LLM-Provider"));
+  const model = req.header("X-LLM-Model")?.trim();
+  return runWithLlmContext({ provider, model: model || undefined }, next);
+});
+
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
@@ -40,11 +48,12 @@ app.use(
 );
 
 app.get("/health", (_req: Request, res: Response) => {
+  const llm = getActiveLlmInfo();
   res.json({
     ok: true,
     service: "ReplyMate AI backend",
-    mockMode: !hasNvidiaApiKey(),
-    nvidiaApiKeyLoaded: hasNvidiaApiKey(),
+    mockMode: !llm.apiKeyLoaded,
+    llm,
   });
 });
 
@@ -52,6 +61,7 @@ app.use("/api/replies", repliesRouter);
 app.use("/api/coach", coachRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/expenses", expenseRouter);
+app.use("/api/settings", settingsRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found." });

@@ -1,5 +1,5 @@
 import { callMcpTool } from "../mcp/mcpClient";
-import { hasNvidiaApiKey } from "../utils/env";
+import { callChatCompletion, hasConfiguredLlmApiKey } from "../services/llmService";
 import { safeParseJson } from "../utils/safeJson";
 
 type Source = "static" | "llm" | "fallback";
@@ -8,6 +8,7 @@ type ExpenseToolName = "createExpense" | "listExpenses" | "expenseSummary" | "de
 export type ExpenseItem = {
   id: string;
   amount: number;
+  currency?: "AED" | "INR";
   category: string;
   description: string;
   date: string;
@@ -63,8 +64,6 @@ type AgentMessage = {
   content: string;
 };
 
-const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
-const defaultModel = "meta/llama-3.1-8b-instruct";
 const maxTurns = 6;
 
 const expenseTools = [
@@ -105,7 +104,7 @@ const expenseTools = [
 ];
 
 export async function handleExpenseMessage(message: string): Promise<ExpenseResponse> {
-  if (!hasNvidiaApiKey()) {
+  if (!hasConfiguredLlmApiKey()) {
     return fallbackExpenseResponse(message);
   }
 
@@ -148,6 +147,8 @@ async function runExpenseAgentLoop(message: string): Promise<ExpenseResponse> {
           "For messages with multiple expenses, call createExpense once per expense.",
           "Use expenseSummary after logging expenses when the user asks for insight or when a concise total would help.",
           "For spending questions, call expenseSummary or listExpenses.",
+          "When the user mentions a category like food, groceries, fuel, transport, bills, health, entertainment, shopping, or rent, include category in listExpenses or expenseSummary arguments.",
+          "For 'summarize food expenses', call expenseSummary with category food.",
           "For normal non-expense questions, return final directly.",
         ],
         responseSchemas: {
@@ -190,7 +191,8 @@ async function runExpenseAgentLoop(message: string): Promise<ExpenseResponse> {
       continue;
     }
 
-    const result = await callExpenseTool(action.toolName, action.arguments);
+    const normalizedArguments = normalizeExpenseToolArguments(action.toolName, action.arguments, message);
+    const result = await callExpenseTool(action.toolName, normalizedArguments);
     observations.push({ toolName: action.toolName, result });
     toolCalls.push({
       name: action.toolName,
@@ -227,36 +229,15 @@ async function runExpenseAgentLoop(message: string): Promise<ExpenseResponse> {
 }
 
 async function callExpenseModel(messages: AgentMessage[]): Promise<AgentAction> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
-    throw new Error("NVIDIA_API_KEY is not configured.");
-  }
-
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 500,
-        response_format: { type: "json_object" },
-        messages,
-      }),
+    const completion = await callChatCompletion({
+      temperature: 0.2,
+      maxTokens: 500,
+      responseFormat: { type: "json_object" },
+      messages,
     });
 
-    if (!response.ok) {
-      throw new Error(`NVIDIA API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content;
-    const action = parseExpenseAction(content);
+    const action = parseExpenseAction(completion.content);
     if (action) {
       return action;
     }
@@ -314,26 +295,22 @@ async function synthesizeExpenseFinal(
   observations: Array<{ toolName: ExpenseToolName; result: ExpenseToolResult }>,
   draftReply: string,
 ): Promise<string> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-  if (!apiKey) {
+  if (!hasConfiguredLlmApiKey()) {
     return draftReply;
   }
 
   const requestBody = {
-    model,
     temperature: 0.2,
     max_tokens: 350,
-    response_format: { type: "json_object" },
+    response_format: { type: "json_object" as const },
     messages: [
       {
-        role: "system",
+        role: "system" as const,
         content:
           "Return only valid JSON with assistantReply. Mention every successful expense tool action and include useful spending insight if totals/categories are available. Do not invent actions that are not in observations.",
       },
       {
-        role: "user",
+        role: "user" as const,
         content: JSON.stringify({
           userMessage,
           draftReply,
@@ -347,24 +324,21 @@ async function synthesizeExpenseFinal(
     ],
   };
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    console.error("[expenses] final synthesis failed", { status: response.status });
+  try {
+    const completion = await callChatCompletion({
+      temperature: requestBody.temperature,
+      maxTokens: requestBody.max_tokens,
+      responseFormat: requestBody.response_format,
+      messages: requestBody.messages,
+    });
+    const parsed = safeParseJson<{ assistantReply?: string }>(completion.content || "");
+    return parsed?.assistantReply || draftReply;
+  } catch (error) {
+    console.error("[expenses] final synthesis failed", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return draftReply;
   }
-
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
-  const parsed = safeParseJson<{ assistantReply?: string }>(content || "");
-  return parsed?.assistantReply || draftReply;
 }
 
 async function callExpenseTool(toolName: ExpenseToolName, payload: unknown): Promise<ExpenseToolResult> {
@@ -469,7 +443,45 @@ function validateExpenseToolCall(action: Extract<AgentAction, { type: "tool_call
     return "deleteExpense requires string target.";
   }
 
+  if (["listExpenses", "expenseSummary"].includes(action.toolName)) {
+    const period = action.arguments.period;
+    if (period !== undefined && !["all", "today", "week", "month"].includes(String(period))) {
+      return `${action.toolName} period must be all, today, week, or month.`;
+    }
+  }
+
   return null;
+}
+
+function normalizeExpenseToolArguments(
+  toolName: ExpenseToolName,
+  args: Record<string, unknown>,
+  originalMessage: string,
+): Record<string, unknown> {
+  if (toolName === "createExpense") {
+    const description = String(args.description || "expense").trim();
+    return {
+      ...args,
+      category: typeof args.category === "string" ? normalizeExpenseCategory(args.category) : inferExpenseCategory(description),
+      description,
+    };
+  }
+
+  if (toolName === "listExpenses" || toolName === "expenseSummary") {
+    const inferredCategory = extractExpenseCategory(originalMessage);
+    return {
+      ...args,
+      period: normalizeExpensePeriod(args.period, originalMessage),
+      ...(typeof args.category === "string" && args.category.trim()
+        ? { category: normalizeExpenseCategory(args.category) }
+        : inferredCategory
+          ? { category: inferredCategory }
+          : {}),
+      ...(toolName === "listExpenses" ? { limit: typeof args.limit === "number" ? args.limit : 20 } : {}),
+    };
+  }
+
+  return args;
 }
 
 function classifyExpenseFallback(message: string): Extract<AgentAction, { type: "tool_call" }> | null {
@@ -497,7 +509,8 @@ function classifyExpenseFallback(message: string): Extract<AgentAction, { type: 
       type: "tool_call",
       toolName: "listExpenses",
       arguments: {
-        period: lowered.includes("today") ? "today" : lowered.includes("week") ? "week" : lowered.includes("month") ? "month" : "all",
+        period: extractExpensePeriod(lowered, "all"),
+        ...(extractExpenseCategory(lowered) ? { category: extractExpenseCategory(lowered) } : {}),
         limit: 20,
       },
     };
@@ -508,7 +521,8 @@ function classifyExpenseFallback(message: string): Extract<AgentAction, { type: 
       type: "tool_call",
       toolName: "expenseSummary",
       arguments: {
-        period: lowered.includes("today") ? "today" : lowered.includes("week") ? "week" : lowered.includes("all") ? "all" : "month",
+        period: extractExpensePeriod(lowered, "month"),
+        ...(extractExpenseCategory(lowered) ? { category: extractExpenseCategory(lowered) } : {}),
       },
     };
   }
@@ -586,6 +600,68 @@ function inferExpenseCategory(description: string): string {
   }
 
   return "other";
+}
+
+function extractExpenseCategory(message: string): string | null {
+  const lowered = message.toLowerCase();
+  if (/(food|grocery|groceries|lunch|dinner|breakfast|coffee|restaurant|snack)/.test(lowered)) {
+    return "food";
+  }
+
+  if (/(transport|fuel|petrol|uber|taxi|bus|train|metro|parking)/.test(lowered)) {
+    return "transport";
+  }
+
+  if (/(entertainment|movie|cinema|game|netflix|show|concert)/.test(lowered)) {
+    return "entertainment";
+  }
+
+  if (/(bill|bills|rent|electricity|water|internet|phone)/.test(lowered)) {
+    return "bills";
+  }
+
+  if (/(health|medicine|doctor|hospital|pharmacy)/.test(lowered)) {
+    return "health";
+  }
+
+  if (/(shopping|clothes|clothing|mall)/.test(lowered)) {
+    return "shopping";
+  }
+
+  return null;
+}
+
+function normalizeExpenseCategory(category: string): string {
+  const inferred = extractExpenseCategory(category);
+  return inferred || category.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function normalizeExpensePeriod(value: unknown, originalMessage: string): "all" | "today" | "week" | "month" {
+  if (value !== undefined && ["all", "today", "week", "month"].includes(String(value))) {
+    return String(value) as "all" | "today" | "week" | "month";
+  }
+
+  return extractExpensePeriod(originalMessage.toLowerCase(), "month");
+}
+
+function extractExpensePeriod(message: string, fallback: "all" | "today" | "week" | "month"): "all" | "today" | "week" | "month" {
+  if (message.includes("today")) {
+    return "today";
+  }
+
+  if (message.includes("week")) {
+    return "week";
+  }
+
+  if (message.includes("month")) {
+    return "month";
+  }
+
+  if (message.includes("all")) {
+    return "all";
+  }
+
+  return fallback;
 }
 
 function formatAmount(value: number): string {

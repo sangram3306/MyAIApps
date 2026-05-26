@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import path from "node:path";
+import { getActiveLlmInfo } from "../services/llmService";
 
 const envPath = path.resolve(__dirname, "../../.env");
 
@@ -31,10 +32,11 @@ export function getMcpSharedSecret(): string {
 }
 
 export function logEnvStatus(): void {
+  const llm = getActiveLlmInfo();
   console.log(
-    `[env] NVIDIA_API_KEY loaded: ${hasNvidiaApiKey() ? "yes" : "no"}, model: ${
-      process.env.NVIDIA_MODEL || "default"
-    }, baseUrl: ${process.env.NVIDIA_BASE_URL || "default"}, MCP_SERVER_URL loaded: ${
+    `[env] LLM provider: ${llm.providerName}, API key loaded: ${llm.apiKeyLoaded ? "yes" : "no"}, model: ${
+      llm.model
+    }, MCP_SERVER_URL loaded: ${
       hasMcpServerUrl() ? "yes" : "no"
     }`,
   );

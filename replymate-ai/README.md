@@ -228,9 +228,13 @@ npm run dev
 Required backend env vars:
 
 ```text
+DEFAULT_LLM_PROVIDER=nvidia
 NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 MCP_SERVER_URL=
 MCP_SHARED_SECRET=
 ```
@@ -273,7 +277,7 @@ The mobile app keeps using the existing backend URL flow. It does not store NVID
 ### Backend deployment
 
 1. Deploy `backend/` as its own web service.
-2. Set `NVIDIA_API_KEY`, `NVIDIA_MODEL`, `NVIDIA_BASE_URL`, `MCP_SERVER_URL`, and `MCP_SHARED_SECRET`.
+2. Set `DEFAULT_LLM_PROVIDER`, provider API keys/model env vars, `MCP_SERVER_URL`, and `MCP_SHARED_SECRET`.
 3. Keep the existing reply endpoints live.
 
 ### reply-mcp deployment

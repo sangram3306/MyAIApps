@@ -2,18 +2,7 @@ import { GenerateRepliesInput } from "../schemas/replySchemas";
 import { CoachDraftInput } from "../agents/replyCoachTypes";
 import { getMockGrammarFixes, getMockReplies, getMockRewrites } from "../utils/mockReplies";
 import { parseRepliesFromModel } from "../utils/parseReplies";
-import { hasNvidiaApiKey } from "../utils/env";
-
-type NvidiaChatResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-};
-
-const defaultBaseUrl = "https://integrate.api.nvidia.com/v1";
-const defaultModel = "meta/llama-3.1-8b-instruct";
+import { callChatCompletion, hasConfiguredLlmApiKey } from "./llmService";
 
 export async function generateReplies(input: GenerateRepliesInput): Promise<string[]> {
   return generateWithNvidia({
@@ -101,11 +90,7 @@ export async function generateCoachOutput(input: CoachDraftInput): Promise<{
   dontTips: string[];
   recommendedReply: string;
 }> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-
-  if (!hasNvidiaApiKey()) {
+  if (!hasConfiguredLlmApiKey()) {
     return {
       suggestedTone: getSuggestedTone(input),
       strategy: getFallbackStrategy(input),
@@ -116,39 +101,24 @@ export async function generateCoachOutput(input: CoachDraftInput): Promise<{
   }
 
   const prompt = buildCoachPrompt(input);
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.4,
-      max_tokens: 700,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            'You are ReplyMate AI Smart Reply Coach. Return only valid JSON and no markdown. Do not expose chain-of-thought.',
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
+  const completion = await callChatCompletion({
+    temperature: 0.4,
+    maxTokens: 700,
+    responseFormat: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          'You are ReplyMate AI Smart Reply Coach. Return only valid JSON and no markdown. Do not expose chain-of-thought.',
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[nvidia] coach API error", response.status, errorText);
-    throw new Error(`NVIDIA API error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as NvidiaChatResponse;
-  const content = data.choices?.[0]?.message?.content;
+  const content = completion.content;
 
   if (!content) {
     throw new Error("Model response did not include coaching content.");
@@ -175,47 +145,28 @@ async function generateWithNvidia({
   systemPrompt: string;
   userPrompt: string;
 }): Promise<string[]> {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
-  const model = process.env.NVIDIA_MODEL || defaultModel;
-  const baseUrl = process.env.NVIDIA_BASE_URL || defaultBaseUrl;
-
-  if (!hasNvidiaApiKey()) {
-    console.log(`[nvidia] NVIDIA_API_KEY missing. Returning mock ${logLabel}.`);
+  if (!hasConfiguredLlmApiKey()) {
+    console.log(`[llm] API key missing. Returning mock ${logLabel}.`);
     return mockFallback(input);
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.7,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    }),
+  const completion = await callChatCompletion({
+    temperature: 0.7,
+    maxTokens: 500,
+    responseFormat: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: userPrompt,
+      },
+    ],
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[nvidia] API error", response.status, errorText);
-    throw new Error(`NVIDIA API error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as NvidiaChatResponse;
-  const content = data.choices?.[0]?.message?.content;
+  const content = completion.content;
 
   if (!content) {
     throw new Error("NVIDIA response did not include message content.");

@@ -6,6 +6,7 @@ import { Collection, MongoClient } from "mongodb";
 export type ExpenseItem = {
   id: string;
   amount: number;
+  currency: "AED" | "INR";
   category: string;
   description: string;
   date: string;
@@ -41,6 +42,7 @@ async function getCollection(): Promise<Collection<ExpenseItem>> {
 
 export async function createExpense(input: {
   amount: number;
+  currency?: "AED" | "INR";
   category: string;
   description: string;
   date?: string;
@@ -49,6 +51,7 @@ export async function createExpense(input: {
   const expense: ExpenseItem = {
     id: randomUUID(),
     amount: Number(input.amount.toFixed(2)),
+    currency: input.currency || "AED",
     category: normalizeText(input.category || "other"),
     description: normalizeText(input.description || input.category || "Expense"),
     date: input.date?.trim() || now.slice(0, 10),
@@ -234,7 +237,7 @@ async function readFileExpenses(): Promise<ExpenseItem[]> {
   try {
     const raw = await fs.readFile(getStorePath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter(isExpenseItem) : [];
+    return Array.isArray(parsed) ? parsed.filter(isExpenseItem).map(withDefaultCurrency) : [];
   } catch (error) {
     if (isMissingFileError(error)) {
       return [];
@@ -267,12 +270,20 @@ function isExpenseItem(value: unknown): value is ExpenseItem {
   return (
     typeof item.id === "string" &&
     typeof item.amount === "number" &&
+    (item.currency === undefined || item.currency === "AED" || item.currency === "INR") &&
     typeof item.category === "string" &&
     typeof item.description === "string" &&
     typeof item.date === "string" &&
     typeof item.createdAt === "string" &&
     typeof item.updatedAt === "string"
   );
+}
+
+function withDefaultCurrency(expense: ExpenseItem): ExpenseItem {
+  return {
+    ...expense,
+    currency: expense.currency || "AED",
+  };
 }
 
 function isMissingFileError(error: unknown): boolean {
