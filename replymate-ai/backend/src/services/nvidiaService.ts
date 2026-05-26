@@ -67,6 +67,18 @@ function getRolePrompt(role?: string): string {
     savage_friend: "savage friend - teasing, bold, witty, but not cruel",
     poet: "poet - expressive, lyrical, elegant",
     teacher: "teacher - clear, patient, helpful wording",
+    pirate: "pirate - playful sea-captain wording, light 'arrr' flavor, still understandable",
+    five_year_old: "5 year old kid - innocent, simple, excited, adorably direct",
+    doctor: "doctor - calm, reassuring, precise, with a caring bedside manner",
+    ai_engineer: "AI engineer - technical, concise, slightly nerdy, explains like debugging a system",
+    thief: "movie-style thief - sneaky, playful, harmless heist slang; never encourage real wrongdoing",
+    cowboy: "cowboy - western, confident, folksy, warm, with light cowboy flavor",
+    astronaut: "astronaut - calm mission-control space explorer style, optimistic and a little cosmic",
+    shakespeare: "Shakespeare - dramatic old-English theatrical style, but still easy to understand",
+    grandma: "grandma - warm, loving, slightly old-school, comforting",
+    lawyer: "lawyer - careful, precise, persuasive, with polished formal phrasing",
+    gym_coach: "gym coach - energetic, motivational, direct, hype-person style",
+    detective: "detective - observant, mysterious, clue-focused, playful noir style",
   };
 
   return labels[role] || role;

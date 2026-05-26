@@ -155,7 +155,6 @@ export default function ExpensesScreen() {
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Save Expense</Text>
-            <Text style={styles.sectionHint}>Structured DB write</Text>
           </View>
 
           <View style={styles.amountShell}>

@@ -13,7 +13,19 @@ export type Role =
   | "comedian"
   | "savage_friend"
   | "poet"
-  | "teacher";
+  | "teacher"
+  | "pirate"
+  | "five_year_old"
+  | "doctor"
+  | "ai_engineer"
+  | "thief"
+  | "cowboy"
+  | "astronaut"
+  | "shakespeare"
+  | "grandma"
+  | "lawyer"
+  | "gym_coach"
+  | "detective";
 
 export const replyRoles: Array<{ label: string; value: Role }> = [
   { label: "None", value: "none" },
@@ -26,6 +38,18 @@ export const replyRoles: Array<{ label: string; value: Role }> = [
   { label: "Comedian", value: "comedian" },
   { label: "Savage Friend", value: "savage_friend" },
   { label: "Poet", value: "poet" },
+  { label: "Pirate", value: "pirate" },
+  { label: "5 Year Old Kid", value: "five_year_old" },
+  { label: "Doctor", value: "doctor" },
+  { label: "AI Engineer", value: "ai_engineer" },
+  { label: "Thief", value: "thief" },
+  { label: "Cowboy", value: "cowboy" },
+  { label: "Astronaut", value: "astronaut" },
+  { label: "Shakespeare", value: "shakespeare" },
+  { label: "Grandma", value: "grandma" },
+  { label: "Lawyer", value: "lawyer" },
+  { label: "Gym Coach", value: "gym_coach" },
+  { label: "Detective", value: "detective" },
 ];
 
 export const rewriteRoles: Array<{ label: string; value: Role }> = [

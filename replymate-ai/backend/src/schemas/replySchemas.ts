@@ -40,6 +40,18 @@ const roleValues = [
   "savage_friend",
   "poet",
   "teacher",
+  "pirate",
+  "five_year_old",
+  "doctor",
+  "ai_engineer",
+  "thief",
+  "cowboy",
+  "astronaut",
+  "shakespeare",
+  "grandma",
+  "lawyer",
+  "gym_coach",
+  "detective",
 ] as const;
 
 export const toneSchema = z.preprocess((value) => {
@@ -57,6 +69,10 @@ export const roleSchema = z.preprocess((value) => {
 
   if (value.toLowerCase() === "theif") {
     return "thief";
+  }
+
+  if (value.toLowerCase() === "astonout") {
+    return "astronaut";
   }
 
   return value;
