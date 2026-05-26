@@ -182,6 +182,16 @@ export type ExpenseMessageResponse = {
   };
 };
 
+export type DeepSeekBalanceResponse = {
+  isAvailable: boolean;
+  balances: Array<{
+    currency: string;
+    totalBalance: string;
+    grantedBalance: string;
+    toppedUpBalance: string;
+  }>;
+};
+
 export async function analyzeCoachFromApi(params: {
   backendUrl: string;
   message: string;
@@ -321,6 +331,29 @@ export async function createExpenseFromApi(params: {
   }
 
   return data as ExpenseMessageResponse;
+}
+
+export async function getDeepSeekBalanceFromApi(params: {
+  backendUrl: string;
+}): Promise<DeepSeekBalanceResponse> {
+  const response = await fetch(`${params.backendUrl}/api/settings/deepseek-balance`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<DeepSeekBalanceResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not fetch DeepSeek usage.");
+  }
+
+  if (typeof data?.isAvailable !== "boolean" || !Array.isArray(data?.balances)) {
+    throw new Error("Backend returned an unexpected DeepSeek usage response.");
+  }
+
+  return data as DeepSeekBalanceResponse;
 }
 
 async function getApiHeaders(): Promise<Record<string, string>> {

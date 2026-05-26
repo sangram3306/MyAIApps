@@ -1,20 +1,50 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { colors, spacing } from "../constants/theme";
 import { defaultLlmPreference, LlmPreference, llmProviders } from "../constants/llm";
-import { getLlmPreference, saveLlmPreference } from "../storage/appStorage";
+import { getBackendUrl, getLlmPreference, saveLlmPreference } from "../storage/appStorage";
+import { DeepSeekBalanceResponse, getDeepSeekBalanceFromApi } from "../services/api";
 
 export default function LlmProviderScreen() {
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
+  const [backendUrl, setBackendUrl] = useState("");
+  const [usage, setUsage] = useState<DeepSeekBalanceResponse | null>(null);
+  const [usageError, setUsageError] = useState("");
+  const [usageLoading, setUsageLoading] = useState(false);
   const selectedProvider =
     llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
 
   useFocusEffect(
     useCallback(() => {
       getLlmPreference().then(setLlmPreference);
+      getBackendUrl().then(setBackendUrl);
     }, []),
+  );
+
+  const loadDeepSeekUsage = useCallback(async () => {
+    if (!backendUrl || llmPreference.provider !== "deepseek") {
+      return;
+    }
+
+    setUsageLoading(true);
+    setUsageError("");
+    try {
+      const response = await getDeepSeekBalanceFromApi({ backendUrl });
+      setUsage(response);
+    } catch (error) {
+      setUsage(null);
+      setUsageError(error instanceof Error ? error.message : "Could not fetch DeepSeek usage.");
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [backendUrl, llmPreference.provider]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadDeepSeekUsage();
+    }, [loadDeepSeekUsage]),
   );
 
   async function handleProviderChange(providerId: LlmPreference["provider"]) {
@@ -29,6 +59,10 @@ export default function LlmProviderScreen() {
     };
     setLlmPreference(nextPreference);
     await saveLlmPreference(nextPreference);
+    if (nextPreference.provider !== "deepseek") {
+      setUsage(null);
+      setUsageError("");
+    }
   }
 
   async function handleModelChange(model: string) {
@@ -108,6 +142,46 @@ export default function LlmProviderScreen() {
           </View>
         </View>
       </View>
+
+      {llmPreference.provider === "deepseek" ? (
+        <View style={styles.usageCard}>
+          <View style={styles.usageHeader}>
+            <View>
+              <Text style={styles.modelLabel}>DeepSeek Usage</Text>
+              <Text style={styles.usageStatus}>
+                {usage?.isAvailable ? "Balance API available" : "Balance status"}
+              </Text>
+            </View>
+            <Pressable onPress={loadDeepSeekUsage} disabled={usageLoading} style={styles.refreshButton}>
+              {usageLoading ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <Ionicons name="refresh" color={colors.primary} size={18} />
+              )}
+            </Pressable>
+          </View>
+
+          {usageError ? <Text style={styles.usageError}>{usageError}</Text> : null}
+
+          {usage?.balances.length ? (
+            <View style={styles.balanceList}>
+              {usage.balances.map((balance, index) => (
+                <View key={`${balance.currency}-${index}`} style={styles.balanceRow}>
+                  <Text style={styles.balanceCurrency}>{balance.currency}</Text>
+                  <View style={styles.balanceText}>
+                    <Text style={styles.balanceTotal}>Total: {balance.totalBalance}</Text>
+                    <Text style={styles.balanceMeta}>
+                      Granted {balance.grantedBalance} · Top-up {balance.toppedUpBalance}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : !usageError && !usageLoading ? (
+            <Text style={styles.usageCopy}>Tap refresh to load DeepSeek balance.</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.noteCard}>
         <Ionicons name="shield-checkmark-outline" color={colors.primary} size={22} />
@@ -267,6 +341,80 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     padding: spacing.md,
+  },
+  usageCard: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  usageHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  usageStatus: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  refreshButton: {
+    alignItems: "center",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  usageError: {
+    color: colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  usageCopy: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  balanceList: {
+    gap: spacing.xs,
+  },
+  balanceRow: {
+    alignItems: "center",
+    backgroundColor: "rgba(69, 245, 198, 0.06)",
+    borderColor: "rgba(69, 245, 198, 0.16)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  balanceCurrency: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    minWidth: 42,
+    textTransform: "uppercase",
+  },
+  balanceText: {
+    flex: 1,
+    gap: 2,
+  },
+  balanceTotal: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  balanceMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
   },
   noteText: {
     flex: 1,
