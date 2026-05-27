@@ -370,6 +370,29 @@ export async function getExpenseExportFromApi(params: {
   return data as ExpenseExportResponse;
 }
 
+export async function clearExpensesFromApi(params: {
+  backendUrl: string;
+}): Promise<{ cleared: number; deleted: string[] }> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/clear`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<{ cleared: number; deleted: string[] } & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not clear expenses.");
+  }
+
+  if (typeof data?.cleared !== "number" || !Array.isArray(data?.deleted)) {
+    throw new Error("Backend returned an unexpected clear expenses response.");
+  }
+
+  return { cleared: data.cleared, deleted: data.deleted };
+}
+
 export async function getDeepSeekBalanceFromApi(params: {
   backendUrl: string;
 }): Promise<DeepSeekBalanceResponse> {

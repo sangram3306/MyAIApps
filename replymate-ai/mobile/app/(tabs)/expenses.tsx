@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,7 +15,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { getBackendUrl } from "../../storage/appStorage";
+import {
+  getAutoCategorySuggestionsPreference,
+  getBackendUrl,
+  getBudgetTargetPreference,
+  getBudgetWarningThresholdPreference,
+  getQuickAddCategoriesPreference,
+} from "../../storage/appStorage";
 import {
   createExpenseFromApi,
   ExpenseItem,
@@ -22,7 +29,7 @@ import {
   sendExpenseMessageFromApi,
 } from "../../services/api";
 
-const categories: Array<{
+const baseCategories: Array<{
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   accent: string;
@@ -46,10 +53,40 @@ const insightPrompts = [
   "Which category is highest?",
 ];
 
+const categoryLookup: Record<string, string> = {
+  food: "Food",
+  groceries: "Groceries",
+  grocery: "Groceries",
+  transport: "Transport",
+  taxi: "Transport",
+  ride: "Transport",
+  shopping: "Shopping",
+  bills: "Bills",
+  bill: "Bills",
+  rent: "Rent",
+  health: "Health",
+  medicine: "Health",
+  doctor: "Health",
+  entertainment: "Entertainment",
+  movie: "Entertainment",
+  travel: "Travel",
+  flight: "Travel",
+  education: "Education",
+  school: "Education",
+};
+
 export default function ExpensesScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [backendUrl, setBackendUrl] = useState("");
+  const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
+  const [budgetWarningThreshold, setBudgetWarningThreshold] = useState(80);
+  const [autoCategorySuggestions, setAutoCategorySuggestions] = useState(true);
+  const [quickAddCategories, setQuickAddCategories] = useState<string[]>([
+    "Food",
+    "Groceries",
+    "Transport",
+  ]);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"AED" | "INR">("AED");
   const [category, setCategory] = useState("Food");
@@ -62,9 +99,52 @@ export default function ExpensesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getBackendUrl().then(setBackendUrl);
+      Promise.all([
+        getBackendUrl(),
+        getBudgetTargetPreference(),
+        getBudgetWarningThresholdPreference(),
+        getAutoCategorySuggestionsPreference(),
+        getQuickAddCategoriesPreference(),
+      ]).then(([url, target, threshold, autoCategory, quickAdds]) => {
+        setBackendUrl(url);
+        setBudgetTarget(target);
+        setBudgetWarningThreshold(threshold);
+        setAutoCategorySuggestions(autoCategory);
+        setQuickAddCategories(quickAdds);
+      });
     }, []),
   );
+
+  const orderedCategories = useMemo(() => {
+    const preferred = quickAddCategories
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const preferredSet = new Set(preferred.map((item) => item.toLowerCase()));
+    const baseByLabel = new Map(baseCategories.map((item) => [item.label.toLowerCase(), item]));
+    const featured = preferred.map((label) => {
+      const matched = baseByLabel.get(label.toLowerCase());
+      return (
+        matched || {
+          label,
+          icon: "pricetag-outline" as const,
+          accent: colors.secondary,
+        }
+      );
+    });
+    const rest = baseCategories.filter((item) => !preferredSet.has(item.label.toLowerCase()));
+    return [...featured, ...rest];
+  }, [colors.secondary, quickAddCategories]);
+
+  useEffect(() => {
+    if (!autoCategorySuggestions || !note.trim()) {
+      return;
+    }
+
+    const inferred = inferCategory(note, quickAddCategories);
+    if (inferred && inferred !== category) {
+      setCategory(inferred);
+    }
+  }, [autoCategorySuggestions, category, note, quickAddCategories]);
 
   async function handleSaveExpense() {
     if (!backendUrl) {
@@ -92,6 +172,7 @@ export default function ExpensesScreen() {
       setResult(response);
       setAmount("");
       setNote("");
+      warnIfOverBudget(response.total, budgetTarget, budgetWarningThreshold);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save expense.");
     } finally {
@@ -122,6 +203,7 @@ export default function ExpensesScreen() {
         message: nextPrompt,
       });
       setResult(response);
+      warnIfOverBudget(response.total, budgetTarget, budgetWarningThreshold);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Expense insights are temporarily unavailable.");
     } finally {
@@ -201,7 +283,7 @@ export default function ExpensesScreen() {
             keyboardShouldPersistTaps="handled"
             showsHorizontalScrollIndicator={false}
           >
-            {categories.map((item) => {
+            {orderedCategories.map((item) => {
               const selected = item.label === category;
               return (
                 <Pressable
@@ -369,6 +451,37 @@ export default function ExpensesScreen() {
   );
 }
 
+function inferCategory(text: string, quickAdds: string[]): string | null {
+  const lowered = text.toLowerCase();
+  for (const quickAdd of quickAdds) {
+    if (lowered.includes(quickAdd.toLowerCase())) {
+      return quickAdd;
+    }
+  }
+
+  for (const [needle, category] of Object.entries(categoryLookup)) {
+    if (lowered.includes(needle)) {
+      return category;
+    }
+  }
+
+  return null;
+}
+
+function warnIfOverBudget(total: number | undefined, budgetTarget: number | null, threshold: number) {
+  if (typeof total !== "number" || budgetTarget === null || budgetTarget <= 0) {
+    return;
+  }
+
+  const thresholdValue = budgetTarget * (threshold / 100);
+  if (total >= thresholdValue) {
+    Alert.alert(
+      "Budget warning",
+      `You have reached ${threshold}% of your budget target.`,
+    );
+  }
+}
+
 function MetricCard({
   styles,
   label,
@@ -444,213 +557,213 @@ function formatAmount(value: number | undefined, currency?: "AED" | "INR"): stri
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
-  keyboard: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  content: {
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  glowPrimary: {
-    backgroundColor: "rgba(69, 245, 198, 0.18)",
-    borderRadius: 999,
-    height: 180,
-    position: "absolute",
-    right: -70,
-    top: -50,
-    width: 180,
-  },
-  glowAmber: {
-    backgroundColor: "rgba(255, 209, 102, 0.10)",
-    borderRadius: 999,
-    height: 220,
-    left: -120,
-    position: "absolute",
-    top: 260,
-    width: 220,
-  },
-  hero: {
-    gap: spacing.xs,
-    paddingTop: spacing.lg,
-  },
-  heroIcon: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.borderStrong,
-    borderRadius: 18,
-    borderWidth: 1,
-    height: 54,
-    justifyContent: "center",
-    marginBottom: spacing.sm,
-    width: 54,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: "900",
-    letterSpacing: -1,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  card: {
-    backgroundColor: "rgba(17, 19, 24, 0.94)",
-    borderColor: colors.border,
-    borderRadius: 22,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  sectionHeader: {
-    gap: 2,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "900",
-  },
-  sectionHint: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  amountShell: {
-    backgroundColor: "rgba(24, 27, 34, 0.94)",
-    borderColor: "rgba(69, 245, 198, 0.24)",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  amountEntryRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  amountLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  currencySwitch: {
-    backgroundColor: "rgba(5, 5, 6, 0.62)",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    padding: 3,
-  },
-  currencyOption: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-  },
-  currencyOptionSelected: {
-    backgroundColor: colors.primary,
-  },
-  currencyText: {
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  currencyTextSelected: {
-    color: "#07110D",
-  },
-  amountInput: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 24,
-    fontWeight: "900",
-    minHeight: 34,
-    padding: 0,
-  },
-  categoryHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: -spacing.xs,
-  },
-  categoryHeaderLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.7,
-    textTransform: "uppercase",
-  },
-  categoryHeaderValue: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  categoryRail: {
-    flexDirection: "row",
-    gap: spacing.xs,
-    paddingRight: spacing.md,
-    paddingVertical: 2,
-  },
-  categoryCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(24, 27, 34, 0.82)",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: spacing.xs,
-    justifyContent: "center",
-    minHeight: 92,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    width: 92,
-  },
-  categoryCardSelected: {
-    backgroundColor: "rgba(69, 245, 198, 0.10)",
-    shadowColor: colors.primary,
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-  },
-  categoryIcon: {
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  categoryCardText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  categoryCardTextSelected: {
-    color: colors.primary,
-  },
-  noteInput: {
-    backgroundColor: "rgba(24, 27, 34, 0.94)",
-    borderColor: colors.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 15,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
+    keyboard: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    content: {
+      gap: spacing.md,
+      padding: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    glowPrimary: {
+      backgroundColor: "rgba(69, 245, 198, 0.18)",
+      borderRadius: 999,
+      height: 180,
+      position: "absolute",
+      right: -70,
+      top: -50,
+      width: 180,
+    },
+    glowAmber: {
+      backgroundColor: "rgba(255, 209, 102, 0.10)",
+      borderRadius: 999,
+      height: 220,
+      left: -120,
+      position: "absolute",
+      top: 260,
+      width: 220,
+    },
+    hero: {
+      gap: spacing.xs,
+      paddingTop: spacing.lg,
+    },
+    heroIcon: {
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 18,
+      borderWidth: 1,
+      height: 54,
+      justifyContent: "center",
+      marginBottom: spacing.sm,
+      width: 54,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
+    },
+    title: {
+      color: colors.text,
+      fontSize: 34,
+      fontWeight: "900",
+      letterSpacing: -1,
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 16,
+      lineHeight: 24,
+    },
+    card: {
+      backgroundColor: "rgba(17, 19, 24, 0.94)",
+      borderColor: colors.border,
+      borderRadius: 22,
+      borderWidth: 1,
+      gap: spacing.md,
+      padding: spacing.md,
+    },
+    sectionHeader: {
+      gap: 2,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: "900",
+    },
+    sectionHint: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+    },
+    amountShell: {
+      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      borderColor: "rgba(69, 245, 198, 0.24)",
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    amountEntryRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+    amountLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    currencySwitch: {
+      backgroundColor: "rgba(5, 5, 6, 0.62)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      padding: 3,
+    },
+    currencyOption: {
+      borderRadius: 999,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    currencyOptionSelected: {
+      backgroundColor: colors.primary,
+    },
+    currencyText: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "900",
+    },
+    currencyTextSelected: {
+      color: "#07110D",
+    },
+    amountInput: {
+      color: colors.text,
+      flex: 1,
+      fontSize: 24,
+      fontWeight: "900",
+      minHeight: 34,
+      padding: 0,
+    },
+    categoryHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: -spacing.xs,
+    },
+    categoryHeaderLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+    },
+    categoryHeaderValue: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+    categoryRail: {
+      flexDirection: "row",
+      gap: spacing.xs,
+      paddingRight: spacing.md,
+      paddingVertical: 2,
+    },
+    categoryCard: {
+      alignItems: "center",
+      backgroundColor: "rgba(24, 27, 34, 0.82)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: spacing.xs,
+      justifyContent: "center",
+      minHeight: 92,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      width: 92,
+    },
+    categoryCardSelected: {
+      backgroundColor: "rgba(69, 245, 198, 0.10)",
+      shadowColor: colors.primary,
+      shadowOpacity: 0.22,
+      shadowRadius: 14,
+    },
+    categoryIcon: {
+      alignItems: "center",
+      borderRadius: 16,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: "center",
+      width: 40,
+    },
+    categoryCardText: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "900",
+      textAlign: "center",
+    },
+    categoryCardTextSelected: {
+      color: colors.primary,
+    },
+    noteInput: {
+      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 15,
+      minHeight: 48,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
   insightInput: {
     backgroundColor: "rgba(24, 27, 34, 0.94)",
     borderColor: "rgba(69, 245, 198, 0.24)",

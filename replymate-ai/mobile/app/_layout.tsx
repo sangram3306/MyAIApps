@@ -1,12 +1,16 @@
+import "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppThemeProvider, useAppTheme } from "../context/app-theme";
 
 export default function RootLayout() {
   return (
-    <AppThemeProvider>
-      <RootNavigator />
-    </AppThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppThemeProvider>
+        <RootNavigator />
+      </AppThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

@@ -31,6 +31,7 @@ type ExpenseToolResult = {
 router.post("/create", handleCreateExpenseRequest);
 router.post("/message", handleExpenseMessageRequest);
 router.get("/export", handleExportExpensesRequest);
+router.post("/clear", handleClearExpensesRequest);
 
 export async function handleCreateExpenseRequest(
   req: { body: unknown },
@@ -164,6 +165,57 @@ export async function handleExportExpensesRequest(
   } catch (error) {
     return res.status(500).json({
       error: "Could not export expenses right now.",
+    });
+  }
+}
+
+export async function handleClearExpensesRequest(
+  _req: { body?: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const listResult = await callMcpTool<ExpenseToolResult>(
+      "listExpenses",
+      {
+        period: "all",
+        limit: 100,
+      },
+      {
+        timeoutMs: 5000,
+        retries: 1,
+      },
+    );
+
+    const expenses = listResult.expenses || [];
+    const deleted: string[] = [];
+
+    for (const expense of expenses) {
+      const deleteResult = await callMcpTool<ExpenseToolResult>(
+        "deleteExpense",
+        {
+          target: expense.id,
+        },
+        {
+          timeoutMs: 5000,
+          retries: 1,
+        },
+      );
+
+      if (deleteResult?.expense?.id) {
+        deleted.push(deleteResult.expense.id);
+      }
+    }
+
+    res.json({
+      cleared: deleted.length,
+      deleted,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Could not clear expenses right now.",
     });
   }
 }

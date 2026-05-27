@@ -1,38 +1,80 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import {
+  NestableDraggableFlatList,
+  NestableScrollContainer,
+  RenderItemParams,
+} from "react-native-draggable-flatlist";
 import { BrandLogo, brandFont } from "../../components/BrandLogo";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import {
-  buildLocalExportPayload,
-  getBackendUrl,
-  getDefaultTabPreference,
-  getQuickActionsPreference,
-  saveDefaultTabPreference,
-  saveQuickActionsPreference,
-  DefaultTabId,
-} from "../../storage/appStorage";
 import { defaultLlmPreference, LlmPreference, llmProviders } from "../../constants/llm";
-import { getLlmPreference } from "../../storage/appStorage";
+import {
+  AppLockMode,
+  DefaultTabId,
+  buildLocalExportPayload,
+  clearAllLocalAppData,
+  getAppLockModePreference,
+  getAutoCategorySuggestionsPreference,
+  getBackendUrl,
+  getBudgetTargetPreference,
+  getBudgetWarningThresholdPreference,
+  getDefaultTabPreference,
+  getLlmPreference,
+  getQuickAddCategoriesPreference,
+  getThemeModePreference,
+  saveAppLockModePreference,
+  saveAutoCategorySuggestionsPreference,
+  saveBudgetTargetPreference,
+  saveBudgetWarningThresholdPreference,
+  saveDefaultTabPreference,
+  saveQuickAddCategoriesPreference,
+} from "../../storage/appStorage";
+import { clearExpensesFromApi } from "../../services/api";
 
 const defaultTabOptions: Array<{ label: string; value: DefaultTabId }> = [
   { label: "Home", value: "home" },
   { label: "Coach", value: "coach" },
   { label: "Chat", value: "chat" },
   { label: "Expenses", value: "expenses" },
-  { label: "Settings", value: "settings" },
+];
+
+const themeOptions = [
+  { label: "System", value: "system" as const },
+  { label: "Light", value: "light" as const },
+  { label: "Dark", value: "dark" as const },
 ];
 
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
-  const [quickActionsEnabled, setQuickActionsEnabled] = useState(true);
   const [defaultTab, setDefaultTab] = useState<DefaultTabId>("home");
+  const [appLockMode, setAppLockMode] = useState<AppLockMode>("off");
+  const [budgetTarget, setBudgetTarget] = useState("");
+  const [budgetWarningThreshold, setBudgetWarningThreshold] = useState("80");
+  const [autoCategorySuggestions, setAutoCategorySuggestions] = useState(true);
+  const [quickAddCategories, setQuickAddCategories] = useState<string[]>([
+    "Food",
+    "Groceries",
+    "Transport",
+  ]);
+  const [newQuickCategory, setNewQuickCategory] = useState("");
   const [backendUrl, setBackendUrl] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [clearingData, setClearingData] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<SectionId | null>(null);
 
   const selectedProvider =
     llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
@@ -41,14 +83,23 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       Promise.all([
+        getThemeModePreference(),
         getLlmPreference(),
         getDefaultTabPreference(),
-        getQuickActionsPreference(),
+        getAppLockModePreference(),
+        getBudgetTargetPreference(),
+        getBudgetWarningThresholdPreference(),
+        getAutoCategorySuggestionsPreference(),
+        getQuickAddCategoriesPreference(),
         getBackendUrl(),
-      ]).then(([llm, tab, quickActions, url]) => {
+      ]).then(([, llm, tab, lockMode, target, threshold, autoCategory, quickAdds, url]) => {
         setLlmPreference(llm);
-        setQuickActionsEnabled(quickActions);
         setDefaultTab(tab);
+        setAppLockMode(lockMode);
+        setBudgetTarget(target === null ? "" : String(target));
+        setBudgetWarningThreshold(String(threshold));
+        setAutoCategorySuggestions(autoCategory);
+        setQuickAddCategories(quickAdds);
         setBackendUrl(url);
       });
     }, []),
@@ -58,42 +109,97 @@ export default function SettingsScreen() {
     await setMode(nextMode);
   }
 
-  async function handleQuickActionsChange(nextValue: boolean) {
-    setQuickActionsEnabled(nextValue);
-    await saveQuickActionsPreference(nextValue);
-  }
-
   async function handleDefaultTabChange(nextTab: DefaultTabId) {
     setDefaultTab(nextTab);
     await saveDefaultTabPreference(nextTab);
+  }
+
+  async function handleAppLockChange(nextMode: AppLockMode) {
+    setAppLockMode(nextMode);
+    await saveAppLockModePreference(nextMode);
+  }
+
+  async function handleBudgetTargetCommit() {
+    const numeric = budgetTarget.trim() ? Number(budgetTarget.replace(/,/g, "")) : null;
+    if (budgetTarget.trim() && (numeric === null || !Number.isFinite(numeric) || numeric < 0)) {
+      Alert.alert("Invalid target", "Enter a valid budget target amount.");
+      return;
+    }
+
+    await saveBudgetTargetPreference(numeric);
+  }
+
+  async function handleBudgetThresholdCommit() {
+    const numeric = Number(budgetWarningThreshold);
+    if (!Number.isFinite(numeric) || numeric < 0 || numeric > 100) {
+      Alert.alert("Invalid threshold", "Enter a percentage between 0 and 100.");
+      return;
+    }
+
+    await saveBudgetWarningThresholdPreference(numeric);
+  }
+
+  async function handleAutoCategorySuggestionsChange(nextValue: boolean) {
+    setAutoCategorySuggestions(nextValue);
+    await saveAutoCategorySuggestionsPreference(nextValue);
+  }
+
+  async function handleAddQuickCategory() {
+    const nextValue = newQuickCategory.trim();
+    if (!nextValue) {
+      return;
+    }
+
+    if (
+      quickAddCategories.some((item) => item.toLowerCase() === nextValue.toLowerCase())
+    ) {
+      setNewQuickCategory("");
+      return;
+    }
+
+    const nextCategories = [...quickAddCategories, nextValue];
+    setQuickAddCategories(nextCategories);
+    setNewQuickCategory("");
+    await saveQuickAddCategoriesPreference(nextCategories);
+  }
+
+  async function handleRemoveQuickCategory(categoryToRemove: string) {
+    const nextCategories = quickAddCategories.filter((item) => item !== categoryToRemove);
+    setQuickAddCategories(nextCategories);
+    await saveQuickAddCategoriesPreference(nextCategories);
+  }
+
+  async function handleReorderQuickCategories(data: string[]) {
+    setQuickAddCategories(data);
+    await saveQuickAddCategoriesPreference(data);
   }
 
   async function handleExportData() {
     setExporting(true);
     try {
       const localExport = await buildLocalExportPayload();
+      let expensesExport: unknown = null;
 
-      let backendExport: unknown = null;
       if (backendUrl) {
         try {
           const response = await fetch(`${backendUrl}/api/expenses/export`);
-          backendExport = await response.json();
+          expensesExport = await response.json();
         } catch {
-          backendExport = { error: "Expense export unavailable right now." };
+          expensesExport = { error: "Expense export unavailable right now." };
         }
       }
 
-      const payload = {
-        exportedAt: new Date().toISOString(),
-        local: localExport,
-        backend: {
-          expenses: backendExport,
-        },
-      };
-
       await Share.share({
         title: "ReplyMate AI export",
-        message: JSON.stringify(payload, null, 2),
+        message: JSON.stringify(
+          {
+            exportedAt: new Date().toISOString(),
+            local: localExport,
+            backend: { expenses: expensesExport },
+          },
+          null,
+          2,
+        ),
       });
     } catch (error) {
       Alert.alert("Export failed", error instanceof Error ? error.message : "Could not export data.");
@@ -102,69 +208,230 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleClearAllData() {
+    setClearingData(true);
+    try {
+      if (backendUrl) {
+        try {
+          await clearExpensesFromApi({ backendUrl });
+        } catch {
+          // Best effort. Local data will still be cleared.
+        }
+      }
+
+      await clearAllLocalAppData();
+      setLlmPreference(defaultLlmPreference);
+      setDefaultTab("home");
+      setAppLockMode("off");
+      setBudgetTarget("");
+      setBudgetWarningThreshold("80");
+      setAutoCategorySuggestions(true);
+      setQuickAddCategories(["Food", "Groceries", "Transport"]);
+      setNewQuickCategory("");
+      await setMode("system");
+      Alert.alert("Data cleared", "All local data and expenses were cleared.");
+    } catch (error) {
+      Alert.alert("Clear failed", error instanceof Error ? error.message : "Could not clear data.");
+    } finally {
+      setClearingData(false);
+    }
+  }
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Control room</Text>
-        <View style={styles.titleRow}>
+    <NestableScrollContainer style={styles.screen} contentContainerStyle={styles.container}>
+      <View style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTopRow}>
           <BrandLogo compact />
-          <Text style={styles.title}>Settings</Text>
+          <View style={styles.heroBadge}>
+            <Ionicons name="shield-checkmark-outline" color={colors.primary} size={14} />
+            <Text style={styles.heroBadgeText}>Secure backend</Text>
+          </View>
         </View>
+        <Text style={styles.eyebrow}>Control room</Text>
+        <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
-          Tune the app’s reply flow, coach behavior, privacy, expense tools, data, and appearance.
+          Shape how ReplyMate behaves across replies, coach, privacy, expenses, and launch flow.
         </Text>
-      </View>
-
-      <View style={styles.statusCard}>
-        <View style={styles.statusText}>
-          <Text style={styles.cardTitle}>AI backend online</Text>
-          <Text style={styles.cardCopy}>
-            Messages are generated through the secure cloud backend. Provider API keys are never
-            stored in the app.
-          </Text>
+        <View style={styles.metaRow}>
+          <MetaPill
+            styles={styles}
+            icon="hardware-chip-outline"
+            label={`${selectedProvider.label}`}
+            value={selectedModel?.label || llmPreference.model}
+          />
+          <MetaPill styles={styles} icon="layers-outline" label="Launch tab" value={defaultTab} />
+          <MetaPill styles={styles} icon="contrast-outline" label="Theme" value={resolvedTheme} />
         </View>
       </View>
 
-      <Section title="Reply" styles={styles}>
-        <SettingToggle
-          icon="flash-outline"
-          title="Quick actions on home screen"
-          copy="Show shortcut chips for mode switches and fast navigation on the home tab."
-          value={quickActionsEnabled}
-          onValueChange={handleQuickActionsChange}
-          styles={styles}
-        />
-      </Section>
-
-      <Section title="Coach" styles={styles}>
+      <AccordionSection
+        id="coach"
+        expandedSection={expandedSection}
+        icon="sparkles-outline"
+        title="Coach"
+        subtitle="Open the smart analysis flow directly."
+        summary="Jump to message analysis and reply guidance."
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
         <SettingLink
-          icon="sparkles-outline"
+          icon="arrow-forward-outline"
           title="Open coach"
-          copy="Jump directly to the coach tab for message analysis."
+          copy="Jump to message analysis and reply guidance."
           onPress={() => router.push("/coach" as never)}
           styles={styles}
         />
-      </Section>
+      </AccordionSection>
 
-      <Section title="Privacy" styles={styles}>
-        <InfoTile
+      <AccordionSection
+        id="privacy"
+        expandedSection={expandedSection}
+        icon="lock-closed-outline"
+        title="Privacy"
+        subtitle="Keep local and backend data boundaries clear."
+        summary={`App lock: ${formatAppLockMode(appLockMode)}.`}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
+        <SettingNote
           title="Private by design"
           copy="Secrets stay on the backend and local data stays on-device."
           styles={styles}
         />
-      </Section>
 
-      <Section title="Expenses" styles={styles}>
+        <SegmentedGroup
+          title="App lock"
+          copy="Use Face ID, fingerprint, or passcode to open the app."
+          options={[
+            { label: "Off", value: "off" as const },
+            { label: "Face ID", value: "faceId" as const },
+            { label: "Fingerprint", value: "fingerprint" as const },
+            { label: "Passcode", value: "passcode" as const },
+          ]}
+          value={appLockMode}
+          onChange={handleAppLockChange}
+          styles={styles}
+        />
+
+        <SettingButton
+          icon="trash-outline"
+          title={clearingData ? "Clearing..." : "Clear all data"}
+          copy="Remove local history, favorites, settings, and expense data."
+          onPress={handleClearAllData}
+          disabled={clearingData}
+          styles={styles}
+        />
+      </AccordionSection>
+
+      <AccordionSection
+        id="expenses"
+        expandedSection={expandedSection}
+        icon="wallet-outline"
+        title="Expenses"
+        subtitle="Go straight to spending insights."
+        summary={`Budget target ${budgetTarget || "not set"}, smart categories ${autoCategorySuggestions ? "on" : "off"}.`}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
         <SettingLink
-          icon="wallet-outline"
+          icon="arrow-forward-outline"
           title="Open expenses"
-          copy="Go straight to the expense tracker and AI insights."
+          copy="Jump into the expense tracker and AI summaries."
           onPress={() => router.push("/expenses" as never)}
           styles={styles}
         />
-      </Section>
 
-      <Section title="Data" styles={styles}>
+        <SettingToggle
+          icon="sparkles-outline"
+          title="Auto-category suggestions"
+          copy="Turn smart category detection on or off."
+          value={autoCategorySuggestions}
+          onValueChange={handleAutoCategorySuggestionsChange}
+          styles={styles}
+        />
+
+        <View style={styles.inlineGroup}>
+          <SettingField
+            icon="cash-outline"
+            title="Budget target"
+            copy="Set a monthly target that spending can warn against."
+            value={budgetTarget}
+            placeholder="e.g. 1500"
+            keyboardType="decimal-pad"
+            onChangeText={setBudgetTarget}
+            onEndEditing={handleBudgetTargetCommit}
+            styles={styles}
+          />
+
+          <SettingField
+            icon="warning-outline"
+            title="Warning threshold"
+            copy="Warn when spending reaches a percentage of your target."
+            value={budgetWarningThreshold}
+            placeholder="e.g. 80"
+            keyboardType="number-pad"
+            suffix="%"
+            onChangeText={setBudgetWarningThreshold}
+            onEndEditing={handleBudgetThresholdCommit}
+            styles={styles}
+          />
+        </View>
+
+        <View style={styles.categoryManager}>
+          <View style={styles.categoryManagerHeader}>
+            <View style={styles.categoryManagerCopy}>
+              <Text style={styles.rowTitle}>Quick-add categories</Text>
+              <Text style={styles.rowCopy}>
+                Add categories here, then drag to reorder how they appear in Expenses.
+              </Text>
+            </View>
+            <View style={styles.categoryManagerAdd}>
+              <TextInput
+                placeholder="Add category"
+                placeholderTextColor={colors.muted}
+                style={styles.categoryManagerInput}
+                value={newQuickCategory}
+                onChangeText={setNewQuickCategory}
+                onSubmitEditing={() => void handleAddQuickCategory()}
+                returnKeyType="done"
+              />
+              <Pressable onPress={() => void handleAddQuickCategory()} style={styles.addButton}>
+                <Ionicons name="add" color={colors.text} size={18} />
+              </Pressable>
+            </View>
+          </View>
+
+          <NestableDraggableFlatList
+            data={quickAddCategories}
+            keyExtractor={(item) => item}
+            onDragEnd={({ data }) => {
+              void handleReorderQuickCategories(data);
+            }}
+            renderItem={({ item, drag, isActive }: RenderItemParams<string>) => (
+              <QuickCategoryRow
+                category={item}
+                isActive={isActive}
+                onDelete={() => void handleRemoveQuickCategory(item)}
+                onLongPress={drag}
+                styles={styles}
+              />
+            )}
+            ItemSeparatorComponent={() => <View style={styles.categorySeparator} />}
+          />
+        </View>
+      </AccordionSection>
+
+      <AccordionSection
+        id="data"
+        expandedSection={expandedSection}
+        icon="download-outline"
+        title="Data"
+        subtitle="Back up your local data and expense summary."
+        summary={exporting ? "Export in progress..." : "Share history, favorites, settings, and expenses."}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
         <SettingButton
           icon="download-outline"
           title={exporting ? "Exporting..." : "Export data"}
@@ -173,23 +440,28 @@ export default function SettingsScreen() {
           disabled={exporting}
           styles={styles}
         />
-      </Section>
+      </AccordionSection>
 
-      <Section title="Appearance" styles={styles}>
-        <SettingSegment
+      <AccordionSection
+        id="appearance"
+        expandedSection={expandedSection}
+        icon="color-palette-outline"
+        title="Appearance"
+        subtitle="Control theme and launch behavior."
+        summary={`Theme: ${resolvedTheme}. Launches to ${defaultTab}.`}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
+        <SegmentedGroup
           title="Theme"
           copy="Choose how the app should follow your device and color preference."
-          options={[
-            { label: "System", value: "system" as const },
-            { label: "Light", value: "light" as const },
-            { label: "Dark", value: "dark" as const },
-          ]}
+          options={themeOptions}
           value={mode}
           onChange={handleThemeChange}
           styles={styles}
         />
 
-        <SettingSegment
+        <SegmentedGroup
           title="Default tab on launch"
           copy="Pick which tab opens first when the app starts."
           options={defaultTabOptions}
@@ -197,45 +469,72 @@ export default function SettingsScreen() {
           onChange={handleDefaultTabChange}
           styles={styles}
         />
-      </Section>
+      </AccordionSection>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>LLM Provider</Text>
+      <AccordionSection
+        id="llm"
+        expandedSection={expandedSection}
+        icon="hardware-chip-outline"
+        title="LLM Provider"
+        subtitle="Choose the backend model behind replies."
+        summary={`${selectedProvider.label} · ${selectedModel?.label || llmPreference.model}`}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
         <SettingLink
-          icon="hardware-chip-outline"
+          icon="chevron-forward-outline"
           title="Provider settings"
           copy={`${selectedProvider.label} · ${selectedModel?.label || llmPreference.model}`}
           onPress={() => router.push("/llm-provider" as never)}
           styles={styles}
         />
-      </View>
-
-      <View style={styles.grid}>
-        <InfoTile title="History ready" copy="Recent generations are saved locally." styles={styles} />
-        <InfoTile title="Favorites" copy="Keep your best replies one tap away." styles={styles} />
-        <InfoTile
-          title="Theme aware"
-          copy={`Current appearance: ${resolvedTheme}.`}
-          styles={styles}
-        />
-      </View>
-    </ScrollView>
+      </AccordionSection>
+    </NestableScrollContainer>
   );
 }
 
-function Section({
+type SectionId = "coach" | "privacy" | "expenses" | "data" | "appearance" | "llm";
+
+function AccordionSection({
+  id,
+  icon,
   title,
+  subtitle,
+  summary,
   children,
+  expandedSection,
+  onToggle,
   styles,
 }: {
+  id: SectionId;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
+  subtitle: string;
+  summary: string;
   children: ReactNode;
+  expandedSection: SectionId | null;
+  onToggle: (id: SectionId | null) => void;
   styles: ReturnType<typeof createStyles>;
 }) {
+  const { colors } = useAppTheme();
+  const expanded = expandedSection === id;
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+    <View style={[styles.sectionCard, expanded ? styles.sectionCardExpanded : styles.sectionCardCollapsed]}>
+      <Pressable onPress={() => onToggle(expanded ? null : id)} style={styles.sectionHeader}>
+        <View style={styles.sectionIcon}>
+          <Ionicons name={icon} color={colors.primary} size={20} />
+        </View>
+        <View style={styles.sectionHeaderText}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.sectionSubtitle}>{expanded ? subtitle : summary}</Text>
+        </View>
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          color={colors.muted}
+          size={18}
+        />
+      </Pressable>
+      {expanded ? <View style={styles.sectionBody}>{children}</View> : null}
     </View>
   );
 }
@@ -255,13 +554,13 @@ function SettingLink({
 }) {
   const { colors } = useAppTheme();
   return (
-    <Pressable onPress={onPress} style={styles.linkCard}>
-      <View style={styles.linkIcon}>
-        <Ionicons name={icon} color={colors.primary} size={22} />
+    <Pressable onPress={onPress} style={styles.rowCard}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} color={colors.primary} size={20} />
       </View>
-      <View style={styles.linkText}>
-        <Text style={styles.linkTitle}>{title}</Text>
-        <Text style={styles.linkCopy}>{copy}</Text>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
       </View>
       <Ionicons name="chevron-forward" color={colors.muted} size={20} />
     </Pressable>
@@ -288,14 +587,14 @@ function SettingButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.linkCard, disabled && styles.linkCardDisabled]}
+      style={[styles.rowCard, disabled && styles.rowCardDisabled]}
     >
-      <View style={styles.linkIcon}>
-        <Ionicons name={icon} color={colors.primary} size={22} />
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} color={colors.primary} size={20} />
       </View>
-      <View style={styles.linkText}>
-        <Text style={styles.linkTitle}>{title}</Text>
-        <Text style={styles.linkCopy}>{copy}</Text>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
       </View>
       <Ionicons name="chevron-forward" color={colors.muted} size={20} />
     </Pressable>
@@ -320,12 +619,12 @@ function SettingToggle({
   const { colors } = useAppTheme();
   return (
     <View style={styles.toggleCard}>
-      <View style={styles.linkIcon}>
-        <Ionicons name={icon} color={colors.primary} size={22} />
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} color={colors.primary} size={20} />
       </View>
-      <View style={styles.linkText}>
-        <Text style={styles.linkTitle}>{title}</Text>
-        <Text style={styles.linkCopy}>{copy}</Text>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
       </View>
       <Switch
         trackColor={{ false: colors.border, true: colors.primarySoft }}
@@ -337,7 +636,59 @@ function SettingToggle({
   );
 }
 
-function SettingSegment<T extends string>({
+function SettingField({
+  icon,
+  title,
+  copy,
+  value,
+  placeholder,
+  keyboardType,
+  suffix,
+  multiline = false,
+  onChangeText,
+  onEndEditing,
+  styles,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  copy: string;
+  value: string;
+  placeholder: string;
+  keyboardType?: "default" | "numeric" | "email-address" | "decimal-pad" | "number-pad";
+  suffix?: string;
+  multiline?: boolean;
+  onChangeText: (value: string) => void;
+  onEndEditing: () => void | Promise<void>;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.fieldCard}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} color={colors.primary} size={20} />
+      </View>
+      <View style={styles.fieldBody}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
+        <View style={styles.fieldInputWrap}>
+          <TextInput
+            keyboardType={keyboardType}
+            multiline={multiline}
+            placeholder={placeholder}
+            placeholderTextColor={colors.muted}
+            style={[styles.fieldInput, multiline && styles.fieldInputMultiline]}
+            value={value}
+            onChangeText={onChangeText}
+            onEndEditing={() => void onEndEditing()}
+          />
+          {suffix ? <Text style={styles.fieldSuffix}>{suffix}</Text> : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SegmentedGroup<T extends string>({
   title,
   copy,
   options,
@@ -356,8 +707,8 @@ function SettingSegment<T extends string>({
   return (
     <View style={styles.segmentCard}>
       <View style={styles.segmentHeader}>
-        <Text style={styles.linkTitle}>{title}</Text>
-        <Text style={styles.linkCopy}>{copy}</Text>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
       </View>
       <View style={styles.segmentRow}>
         {options.map((option) => {
@@ -379,7 +730,7 @@ function SettingSegment<T extends string>({
   );
 }
 
-function InfoTile({
+function SettingNote({
   title,
   copy,
   styles,
@@ -389,11 +740,71 @@ function InfoTile({
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
-    <View style={styles.tile}>
-      <Text style={styles.tileTitle}>{title}</Text>
-      <Text style={styles.tileCopy}>{copy}</Text>
+    <View style={styles.noteCard}>
+      <Text style={styles.rowTitle}>{title}</Text>
+      <Text style={styles.rowCopy}>{copy}</Text>
     </View>
   );
+}
+
+function QuickCategoryRow({
+  category,
+  isActive,
+  onLongPress,
+  onDelete,
+  styles,
+}: {
+  category: string;
+  isActive: boolean;
+  onLongPress: () => void;
+  onDelete: () => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      onLongPress={onLongPress}
+      style={[styles.categoryRow, isActive && styles.categoryRowActive]}
+    >
+      <View style={styles.categoryGrip}>
+        <Ionicons name="reorder-three" color={colors.primary} size={20} />
+      </View>
+      <Text style={styles.categoryRowText}>{category}</Text>
+      <Pressable onPress={onDelete} style={styles.categoryDeleteButton}>
+        <Ionicons name="close" color={colors.muted} size={16} />
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function MetaPill({
+  icon,
+  label,
+  value,
+  styles,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.metaPill}>
+      <Ionicons name={icon} color={colors.primary} size={14} />
+      <View style={styles.metaPillText}>
+        <Text style={styles.metaLabel}>{label}</Text>
+        <Text style={styles.metaValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+function formatAppLockMode(value: AppLockMode): string {
+  if (value === "faceId") return "Face ID";
+  if (value === "fingerprint") return "Fingerprint";
+  if (value === "passcode") return "Passcode";
+  return "Off";
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
@@ -404,100 +815,183 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     container: {
       backgroundColor: colors.background,
-      flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.md,
       paddingBottom: spacing.xl,
     },
-    header: {
+    heroCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+      borderRadius: 24,
+      borderWidth: 1,
       gap: spacing.sm,
-      paddingTop: spacing.sm,
+      overflow: "hidden",
+      padding: spacing.lg,
     },
-    titleRow: {
+    heroGlow: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 999,
+      height: 140,
+      opacity: 0.8,
+      position: "absolute",
+      right: -50,
+      top: -60,
+      width: 140,
+    },
+    heroTopRow: {
       alignItems: "center",
       flexDirection: "row",
-      gap: spacing.md,
+      justifyContent: "space-between",
+      zIndex: 1,
+    },
+    heroBadge: {
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: 6,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+    },
+    heroBadgeText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
     },
     eyebrow: {
       color: colors.primary,
       fontSize: 12,
       fontWeight: "800",
-      letterSpacing: 0,
+      letterSpacing: 1,
       textTransform: "uppercase",
+      zIndex: 1,
     },
     title: {
       color: colors.text,
       fontFamily: brandFont,
       fontSize: 34,
       fontWeight: "900",
+      zIndex: 1,
     },
     subtitle: {
       color: colors.muted,
       fontSize: 15,
       lineHeight: 22,
+      zIndex: 1,
     },
-    statusCard: {
-      alignItems: "flex-start",
+    metaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+      zIndex: 1,
+    },
+    metaPill: {
+      alignItems: "center",
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 8,
+      borderColor: colors.border,
+      borderRadius: 16,
       borderWidth: 1,
       flexDirection: "row",
-      gap: spacing.md,
-      padding: spacing.lg,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.22,
-      shadowRadius: 24,
-    },
-    statusText: {
-      flex: 1,
-      gap: spacing.xs,
-    },
-    cardTitle: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: "900",
-    },
-    cardCopy: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 21,
-    },
-    grid: {
-      gap: spacing.md,
-    },
-    section: {
       gap: spacing.sm,
+      maxWidth: "100%",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    metaPillText: {
+      flexShrink: 1,
+      gap: 1,
+    },
+    metaLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
+    },
+    metaValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "800",
+    },
+    sectionCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 22,
+      borderWidth: 1,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.08,
+      shadowRadius: 18,
+    },
+    sectionCardCollapsed: {
+      gap: 0,
+      padding: spacing.md,
+    },
+    sectionCardExpanded: {
+      gap: spacing.md,
+      padding: spacing.md,
+    },
+    sectionHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.md,
+    },
+    sectionIcon: {
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 14,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: "center",
+      width: 40,
+    },
+    sectionHeaderText: {
+      flex: 1,
+      gap: 2,
     },
     sectionTitle: {
       color: colors.text,
       fontSize: 18,
       fontWeight: "900",
     },
-    linkCard: {
+    sectionSubtitle: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    sectionBody: {
+      gap: spacing.sm,
+    },
+    inlineGroup: {
+      gap: spacing.sm,
+    },
+    rowCard: {
       alignItems: "center",
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: 1,
       flexDirection: "row",
       gap: spacing.md,
       padding: spacing.md,
     },
-    linkCardDisabled: {
-      opacity: 0.65,
+    rowCardDisabled: {
+      opacity: 0.6,
     },
     toggleCard: {
       alignItems: "center",
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: 1,
       flexDirection: "row",
       gap: spacing.md,
       padding: spacing.md,
     },
-    linkIcon: {
+    rowIcon: {
       alignItems: "center",
       backgroundColor: colors.primarySoft,
       borderColor: colors.borderStrong,
@@ -507,24 +1001,28 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       justifyContent: "center",
       width: 44,
     },
-    linkText: {
+    rowText: {
       flex: 1,
       gap: 3,
     },
-    linkTitle: {
+    fieldBody: {
+      flex: 1,
+      gap: spacing.sm,
+    },
+    rowTitle: {
       color: colors.text,
       fontSize: 16,
       fontWeight: "900",
     },
-    linkCopy: {
+    rowCopy: {
       color: colors.muted,
       fontSize: 13,
       lineHeight: 18,
     },
     segmentCard: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: 18,
       borderWidth: 1,
       gap: spacing.md,
       padding: spacing.md,
@@ -538,7 +1036,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     segmentPill: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: 999,
       borderWidth: 1,
@@ -554,23 +1052,125 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       fontSize: 13,
       fontWeight: "800",
     },
-    tile: {
-      backgroundColor: colors.surface,
+    fieldCard: {
+      alignItems: "flex-start",
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 8,
+      borderRadius: 16,
       borderWidth: 1,
-      gap: spacing.sm,
+      flexDirection: "row",
+      gap: spacing.md,
       padding: spacing.md,
     },
-    tileTitle: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: "800",
+    fieldInputWrap: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
     },
-    tileCopy: {
+    fieldInput: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      color: colors.text,
+      flex: 1,
+      fontSize: 14,
+      minHeight: 44,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    fieldInputMultiline: {
+      minHeight: 66,
+      textAlignVertical: "top",
+    },
+    fieldSuffix: {
       color: colors.muted,
       fontSize: 14,
-      lineHeight: 20,
+      fontWeight: "900",
+    },
+    categoryManager: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: spacing.md,
+      padding: spacing.md,
+    },
+    categoryManagerHeader: {
+      gap: spacing.md,
+    },
+    categoryManagerCopy: {
+      gap: 3,
+    },
+    categoryManagerAdd: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    categoryManagerInput: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      color: colors.text,
+      flex: 1,
+      fontSize: 14,
+      minHeight: 44,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    addButton: {
+      alignItems: "center",
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      height: 44,
+      justifyContent: "center",
+      width: 44,
+    },
+    categorySeparator: {
+      height: spacing.sm,
+    },
+    categoryRow: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    categoryRowActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+    },
+    categoryGrip: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: 24,
+    },
+    categoryRowText: {
+      color: colors.text,
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    categoryDeleteButton: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 999,
+      height: 28,
+      justifyContent: "center",
+      width: 28,
+    },
+    noteCard: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.xs,
+      padding: spacing.md,
     },
   });
 }

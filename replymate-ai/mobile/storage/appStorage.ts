@@ -4,6 +4,8 @@ import { defaultLlmPreference, LlmPreference, llmProviders } from "../constants/
 import { ThemeMode } from "../constants/theme";
 import { FavoriteReply, ReplyHistoryItem } from "./types";
 
+export type AppLockMode = "off" | "faceId" | "fingerprint" | "passcode";
+
 const keys = {
   history: "replymate.history",
   favorites: "replymate.favorites",
@@ -11,6 +13,11 @@ const keys = {
   themeMode: "replymate.themeMode",
   defaultTab: "replymate.defaultTab",
   quickActionsEnabled: "replymate.quickActionsEnabled",
+  appLockMode: "replymate.appLockMode",
+  budgetTarget: "replymate.expenses.budgetTarget",
+  budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
+  autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
+  quickAddCategories: "replymate.expenses.quickAddCategories",
 };
 
 export type DefaultTabId = "home" | "coach" | "chat" | "expenses" | "settings";
@@ -22,6 +29,11 @@ export type ExportPayload = {
     themeMode: ThemeMode;
     defaultTab: DefaultTabId;
     quickActionsEnabled: boolean;
+    appLockMode: AppLockMode;
+    budgetTarget: number | null;
+    budgetWarningThreshold: number;
+    autoCategorySuggestions: boolean;
+    quickAddCategories: string[];
   };
   history: ReplyHistoryItem[];
   favorites: FavoriteReply[];
@@ -70,6 +82,47 @@ export async function saveQuickActionsPreference(enabled: boolean): Promise<void
   await AsyncStorage.setItem(keys.quickActionsEnabled, JSON.stringify(enabled));
 }
 
+export async function getAppLockModePreference(): Promise<AppLockMode> {
+  return readJson<AppLockMode>(keys.appLockMode, "off");
+}
+
+export async function saveAppLockModePreference(mode: AppLockMode): Promise<void> {
+  await AsyncStorage.setItem(keys.appLockMode, JSON.stringify(mode));
+}
+
+export async function getBudgetTargetPreference(): Promise<number | null> {
+  return readJson<number | null>(keys.budgetTarget, null);
+}
+
+export async function saveBudgetTargetPreference(value: number | null): Promise<void> {
+  await AsyncStorage.setItem(keys.budgetTarget, JSON.stringify(value));
+}
+
+export async function getBudgetWarningThresholdPreference(): Promise<number> {
+  return readJson<number>(keys.budgetWarningThreshold, 80);
+}
+
+export async function saveBudgetWarningThresholdPreference(value: number): Promise<void> {
+  await AsyncStorage.setItem(keys.budgetWarningThreshold, JSON.stringify(value));
+}
+
+export async function getAutoCategorySuggestionsPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.autoCategorySuggestions, true);
+}
+
+export async function saveAutoCategorySuggestionsPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.autoCategorySuggestions, JSON.stringify(value));
+}
+
+export async function getQuickAddCategoriesPreference(): Promise<string[]> {
+  return readJson<string[]>(keys.quickAddCategories, ["Food", "Groceries", "Transport"]);
+}
+
+export async function saveQuickAddCategoriesPreference(values: string[]): Promise<void> {
+  const normalized = values.map((item) => item.trim()).filter(Boolean);
+  await AsyncStorage.setItem(keys.quickAddCategories, JSON.stringify(normalized));
+}
+
 export async function getHistory(): Promise<ReplyHistoryItem[]> {
   return readJson<ReplyHistoryItem[]>(keys.history, []);
 }
@@ -104,12 +157,29 @@ export async function removeFavorite(id: string): Promise<void> {
 }
 
 export async function buildLocalExportPayload(): Promise<ExportPayload> {
-  const [llmPreference, themeMode, defaultTab, quickActionsEnabled, history, favorites] =
+  const [
+    llmPreference,
+    themeMode,
+    defaultTab,
+    quickActionsEnabled,
+    appLockMode,
+    budgetTarget,
+    budgetWarningThreshold,
+    autoCategorySuggestions,
+    quickAddCategories,
+    history,
+    favorites,
+  ] =
     await Promise.all([
       getLlmPreference(),
       getThemeModePreference(),
       getDefaultTabPreference(),
       getQuickActionsPreference(),
+      getAppLockModePreference(),
+      getBudgetTargetPreference(),
+      getBudgetWarningThresholdPreference(),
+      getAutoCategorySuggestionsPreference(),
+      getQuickAddCategoriesPreference(),
       getHistory(),
       getFavorites(),
     ]);
@@ -121,10 +191,21 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       themeMode,
       defaultTab,
       quickActionsEnabled,
+      appLockMode,
+      budgetTarget,
+      budgetWarningThreshold,
+      autoCategorySuggestions,
+      quickAddCategories,
     },
     history,
     favorites,
   };
+}
+
+export async function clearAllLocalAppData(): Promise<void> {
+  await Promise.all(
+    Object.values(keys).map((key) => AsyncStorage.removeItem(key)),
+  );
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
