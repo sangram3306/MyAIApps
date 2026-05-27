@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { colors, spacing } from "../../constants/theme";
+import { spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl } from "../../storage/appStorage";
 import { saveAgentDetails } from "../../storage/agentDetailsStore";
 import { ChatMessageResponse, sendChatMessageFromApi } from "../../services/api";
@@ -29,6 +30,8 @@ type ChatBubble = {
 };
 
 export default function ChatScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollRef = useRef<ScrollView | null>(null);
   const [backendUrl, setBackendUrl] = useState("");
   const [message, setMessage] = useState("");
@@ -229,177 +232,179 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  keyboard: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  container: {
-    backgroundColor: colors.background,
-    flex: 1,
-    padding: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  matrixGlowTop: {
-    backgroundColor: "rgba(69, 245, 198, 0.16)",
-    borderRadius: 999,
-    height: 170,
-    opacity: 0.38,
-    position: "absolute",
-    right: -70,
-    top: -40,
-    width: 170,
-  },
-  matrixGlowBottom: {
-    backgroundColor: "rgba(69, 245, 198, 0.08)",
-    borderRadius: 999,
-    bottom: 120,
-    height: 220,
-    left: -110,
-    opacity: 0.24,
-    position: "absolute",
-    width: 220,
-  },
-  thread: {
-    backgroundColor: "rgba(12, 14, 18, 0.94)",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 0,
-    borderWidth: 1,
-    flex: 1,
-    marginHorizontal: -spacing.sm,
-    marginTop: -spacing.sm,
-    overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    zIndex: 1,
-  },
-  threadHeader: {
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    borderBottomWidth: 1,
-    gap: 2,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    paddingTop: spacing.md,
-  },
-  threadTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  threadSubtitle: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  threadContent: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  bubble: {
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.sm,
-  },
-  userBubble: {
-    alignSelf: "flex-end",
-    backgroundColor: "rgba(69, 245, 198, 0.10)",
-    borderColor: "rgba(69, 245, 198, 0.28)",
-    maxWidth: "88%",
-    minWidth: "34%",
-  },
-  assistantBubble: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(24, 27, 34, 0.98)",
-    borderColor: "rgba(69, 245, 198, 0.16)",
-    maxWidth: "92%",
-    minWidth: "44%",
-  },
-  bubbleRole: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-  },
-  bubbleText: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  detailsLink: {
-    alignItems: "center",
-    backgroundColor: "rgba(69, 245, 198, 0.06)",
-    borderColor: "rgba(69, 245, 198, 0.18)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  detailsLinkTitle: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  detailsLinkSubtitle: {
-    color: colors.muted,
-    fontSize: 9,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  error: {
-    backgroundColor: colors.dangerSoft,
-    borderColor: colors.danger,
-    borderRadius: 16,
-    borderWidth: 1,
-    color: colors.danger,
-    lineHeight: 20,
-    padding: spacing.md,
-  },
-  composer: {
-    paddingBottom: Platform.OS === "android" ? spacing.xs : 0,
-    paddingTop: spacing.xs,
-  },
-  composerShell: {
-    alignItems: "flex-end",
-    backgroundColor: "rgba(24, 27, 34, 0.98)",
-    borderColor: "rgba(69, 245, 198, 0.26)",
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    minHeight: 58,
-    padding: spacing.xs,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-  },
-  input: {
-    backgroundColor: "transparent",
-    color: colors.text,
-    flex: 1,
-    fontSize: 15,
-    maxHeight: 120,
-    minHeight: 44,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    lineHeight: 22,
-  },
-  sendButton: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
-  },
-  sendButtonDisabled: {
-    opacity: 0.75,
-  },
-});
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    keyboard: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    container: {
+      backgroundColor: colors.background,
+      flex: 1,
+      padding: spacing.sm,
+      paddingBottom: spacing.md,
+    },
+    matrixGlowTop: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 999,
+      height: 170,
+      opacity: 0.38,
+      position: "absolute",
+      right: -70,
+      top: -40,
+      width: 170,
+    },
+    matrixGlowBottom: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 999,
+      bottom: 120,
+      height: 220,
+      left: -110,
+      opacity: 0.24,
+      position: "absolute",
+      width: 220,
+    },
+    thread: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 0,
+      borderWidth: 1,
+      flex: 1,
+      marginHorizontal: -spacing.sm,
+      marginTop: -spacing.sm,
+      overflow: "hidden",
+      shadowColor: colors.primary,
+      shadowOpacity: 0.12,
+      shadowRadius: 18,
+      zIndex: 1,
+    },
+    threadHeader: {
+      borderBottomColor: colors.border,
+      borderBottomWidth: 1,
+      gap: 2,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.sm,
+      paddingTop: spacing.md,
+    },
+    threadTitle: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: "900",
+    },
+    threadSubtitle: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "800",
+      textTransform: "uppercase",
+    },
+    threadContent: {
+      gap: spacing.sm,
+      padding: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    bubble: {
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.sm,
+    },
+    userBubble: {
+      alignSelf: "flex-end",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      maxWidth: "88%",
+      minWidth: "34%",
+    },
+    assistantBubble: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.borderStrong,
+      maxWidth: "92%",
+      minWidth: "44%",
+    },
+    bubbleRole: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      letterSpacing: 1.1,
+      textTransform: "uppercase",
+    },
+    bubbleText: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    detailsLink: {
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    detailsLinkTitle: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    detailsLinkSubtitle: {
+      color: colors.muted,
+      fontSize: 9,
+      fontWeight: "700",
+      marginTop: 2,
+    },
+    error: {
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: 16,
+      borderWidth: 1,
+      color: colors.danger,
+      lineHeight: 20,
+      padding: spacing.md,
+    },
+    composer: {
+      paddingBottom: Platform.OS === "android" ? spacing.xs : 0,
+      paddingTop: spacing.xs,
+    },
+    composerShell: {
+      alignItems: "flex-end",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.borderStrong,
+      borderRadius: 18,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 58,
+      padding: spacing.xs,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.14,
+      shadowRadius: 16,
+    },
+    input: {
+      backgroundColor: "transparent",
+      color: colors.text,
+      flex: 1,
+      fontSize: 15,
+      maxHeight: 120,
+      minHeight: 44,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      lineHeight: 22,
+    },
+    sendButton: {
+      alignItems: "center",
+      backgroundColor: colors.primary,
+      borderRadius: 14,
+      height: 46,
+      justifyContent: "center",
+      width: 46,
+    },
+    sendButtonDisabled: {
+      opacity: 0.75,
+    },
+  });
+}

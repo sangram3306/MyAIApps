@@ -1,13 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
-import { colors, spacing } from "../../constants/theme";
+import { spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
 import { clearHistory, getHistory, saveFavorite } from "../../storage/appStorage";
 import { ReplyHistoryItem } from "../../storage/types";
 
 export default function HistoryScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ReplyHistoryItem[]>([]);
 
   const loadHistory = useCallback(() => {
@@ -79,72 +82,74 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  container: {
-    backgroundColor: colors.background,
-    flexGrow: 1,
-    gap: spacing.lg,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  headerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-  clearButton: {
-    backgroundColor: colors.dangerSoft,
-    borderColor: colors.danger,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  clearText: {
-    color: colors.danger,
-    fontWeight: "800",
-  },
-  group: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  date: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  message: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  tone: {
-    color: colors.secondary,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  replies: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-});
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    screen: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    container: {
+      backgroundColor: colors.background,
+      flexGrow: 1,
+      gap: spacing.lg,
+      padding: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    headerRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: "800",
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 0,
+      textTransform: "uppercase",
+    },
+    clearButton: {
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    clearText: {
+      color: colors.danger,
+      fontWeight: "800",
+    },
+    group: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 8,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.md,
+    },
+    date: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    message: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 21,
+    },
+    tone: {
+      color: colors.secondary,
+      fontSize: 13,
+      fontWeight: "800",
+    },
+    replies: {
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+  });
+}

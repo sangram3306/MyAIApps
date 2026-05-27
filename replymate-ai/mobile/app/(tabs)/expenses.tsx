@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
-import { colors, spacing } from "../../constants/theme";
+import { spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl } from "../../storage/appStorage";
 import {
   createExpenseFromApi,
@@ -46,6 +47,8 @@ const insightPrompts = [
 ];
 
 export default function ExpensesScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [backendUrl, setBackendUrl] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"AED" | "INR">("AED");
@@ -310,8 +313,8 @@ export default function ExpensesScreen() {
             </View>
 
             <View style={styles.metricsRow}>
-              <MetricCard label="Total" value={formatTotal(result)} />
-              <MetricCard label="Records" value={`${result.expenses.length}`} />
+              <MetricCard styles={styles} label="Total" value={formatTotal(result)} />
+              <MetricCard styles={styles} label="Records" value={`${result.expenses.length}`} />
             </View>
 
             {result.toolCalls.length ? (
@@ -355,7 +358,7 @@ export default function ExpensesScreen() {
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Recent Expenses</Text>
                 {result.expenses.slice(0, 8).map((expense, index) => (
-                  <ExpenseRow key={expense.id} expense={expense} index={index} />
+                  <ExpenseRow styles={styles} key={expense.id} expense={expense} index={index} />
                 ))}
               </View>
             ) : null}
@@ -366,7 +369,15 @@ export default function ExpensesScreen() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  styles,
+  label,
+  value,
+}: {
+  styles: ReturnType<typeof createStyles>;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.metricCard}>
       <Text style={styles.metricLabel}>{label}</Text>
@@ -375,7 +386,15 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ExpenseRow({ expense, index }: { expense: ExpenseItem; index: number }) {
+function ExpenseRow({
+  styles,
+  expense,
+  index,
+}: {
+  styles: ReturnType<typeof createStyles>;
+  expense: ExpenseItem;
+  index: number;
+}) {
   return (
     <View style={styles.expenseRow}>
       <View style={styles.expenseNumber}>
@@ -423,7 +442,8 @@ function formatAmount(value: number | undefined, currency?: "AED" | "INR"): stri
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
   keyboard: {
     backgroundColor: colors.background,
     flex: 1,
@@ -853,4 +873,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
-});
+  });
+}

@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { colors, spacing } from "../constants/theme";
+import { spacing } from "../constants/theme";
+import { useAppTheme } from "../context/app-theme";
 import { ChatAgentEvent, ChatToolCall } from "../services/api";
 import { getAgentDetails } from "../storage/agentDetailsStore";
 
@@ -13,6 +15,8 @@ type LoopStep = {
 };
 
 export default function AgentDetailsScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ id?: string }>();
   const record = params.id ? getAgentDetails(params.id) : undefined;
 
@@ -25,7 +29,8 @@ export default function AgentDetailsScreen() {
         </Pressable>
         <Text style={styles.emptyTitle}>Agent details unavailable</Text>
         <Text style={styles.emptyText}>
-          This response detail is stored for the current app session. Please return to chat and open a recent response.
+          This response detail is stored for the current app session. Please return to chat and open
+          a recent response.
         </Text>
       </View>
     );
@@ -50,7 +55,8 @@ export default function AgentDetailsScreen() {
         <Text style={styles.eyebrow}>Agent Diagnostics</Text>
         <Text style={styles.title}>AI Workflow</Text>
         <Text style={styles.subtitle}>
-          User message enters the LLM, the LLM requests tools, MCP returns observations, then the LLM writes the final answer.
+          User message enters the LLM, the LLM requests tools, MCP returns observations, then the
+          LLM writes the final answer.
         </Text>
       </View>
 
@@ -65,17 +71,17 @@ export default function AgentDetailsScreen() {
           {steps.map((step, index) => {
             const stepKey = `${step.title}-${index}`;
             return (
-            <View key={stepKey} style={styles.stepRow}>
-              <View style={[styles.stepIcon, styles[`${step.kind}Icon`]]}>
-                <Text style={styles.stepNumber}>{index + 1}</Text>
+              <View key={stepKey} style={styles.stepRow}>
+                <View style={[styles.stepIcon, stepIconStyle(styles, step.kind)]}>
+                  <Text style={styles.stepNumber}>{index + 1}</Text>
+                </View>
+                <View style={styles.stepBody}>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                  <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
+                  <Text style={styles.stepDetail}>{step.detail}</Text>
+                </View>
+                {index < steps.length - 1 ? <View style={styles.stepLine} /> : null}
               </View>
-              <View style={styles.stepBody}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
-                <Text style={styles.stepDetail}>{step.detail}</Text>
-              </View>
-              {index < steps.length - 1 ? <View style={styles.stepLine} /> : null}
-            </View>
             );
           })}
         </View>
@@ -259,259 +265,241 @@ function summarizeEventResponse(value: unknown): string {
 
 function buildPills(
   toolCalls: ChatToolCall[],
-  sources: {
-    classifyIntent: "static" | "llm" | "fallback";
-    todoSkill: "static" | "llm" | "fallback";
-    answerGeneration: "static" | "llm" | "fallback";
-  },
-): Array<{
-  kind: "Skill" | "Tool";
-  label: string;
-  source: "static" | "llm" | "fallback";
-  usesDb?: boolean;
-}> {
-  return [
-    {
-      kind: "Skill",
-      label: "LLM Tool Planner",
-      source: sources.classifyIntent,
+  toolSources: Record<string, "static" | "llm" | "fallback">,
+) {
+  return toolCalls.map((tool) => ({
+    kind: isDatabaseTool(tool.name) ? "DB Tool" : "Tool",
+    label: formatToolName(tool.name),
+    usesDb: isDatabaseTool(tool.name),
+    source: toolSources[tool.name] || tool.source,
+  }));
+}
+
+function stepIconStyle(
+  styles: ReturnType<typeof createStyles>,
+  kind: LoopStep["kind"],
+) {
+  if (kind === "user") return styles.userIcon;
+  if (kind === "llm") return styles.llmIcon;
+  if (kind === "tool") return styles.toolIcon;
+  if (kind === "mcp") return styles.mcpIcon;
+  return styles.finalIcon;
+}
+
+function formatToolName(toolName: string): string {
+  return toolName.replace(/([A-Z])/g, " $1").replace(/^./, (value) => value.toUpperCase());
+}
+
+function isDatabaseTool(toolName: string): boolean {
+  return /todo|expense/i.test(toolName);
+}
+
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    container: {
+      backgroundColor: colors.background,
+      flex: 1,
+      padding: spacing.md,
     },
-    ...toolCalls.map((tool) => ({
-      kind: "Tool" as const,
-      label: formatToolName(tool.name),
-      source: tool.source,
-      usesDb: isDatabaseTool(tool.name),
-    })),
-    {
-      kind: "Skill",
-      label: "Final Answer Generator",
-      source: sources.answerGeneration,
+    glowTop: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 999,
+      height: 180,
+      opacity: 0.18,
+      position: "absolute",
+      right: -60,
+      top: -30,
+      width: 180,
     },
-  ];
+    header: {
+      gap: spacing.sm,
+      paddingTop: spacing.md,
+    },
+    backButton: {
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.xs,
+      alignSelf: "flex-start",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    backText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 1.4,
+      textTransform: "uppercase",
+    },
+    title: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: "900",
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    content: {
+      gap: spacing.md,
+      paddingBottom: spacing.xl,
+      paddingTop: spacing.md,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.md,
+    },
+    cardLabel: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 1,
+      textTransform: "uppercase",
+    },
+    cardText: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    loopCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.md,
+      padding: spacing.md,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "900",
+    },
+    stepRow: {
+      gap: spacing.sm,
+      paddingLeft: spacing.sm,
+      position: "relative",
+    },
+    stepIcon: {
+      alignItems: "center",
+      borderRadius: 999,
+      height: 28,
+      justifyContent: "center",
+      width: 28,
+    },
+    userIcon: {
+      backgroundColor: colors.primarySoft,
+    },
+    llmIcon: {
+      backgroundColor: colors.secondarySoft,
+    },
+    toolIcon: {
+      backgroundColor: colors.amber,
+    },
+    mcpIcon: {
+      backgroundColor: colors.primarySoft,
+    },
+    finalIcon: {
+      backgroundColor: colors.primary,
+    },
+    stepNumber: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+    stepBody: {
+      marginLeft: 40,
+      marginTop: -28,
+      gap: 4,
+    },
+    stepTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "900",
+    },
+    stepSubtitle: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    stepDetail: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    stepLine: {
+      backgroundColor: colors.border,
+      bottom: -8,
+      left: 13,
+      position: "absolute",
+      top: 28,
+      width: 1,
+    },
+    pillGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    pill: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      gap: 4,
+      minWidth: "47%",
+      padding: spacing.md,
+    },
+    pillKind: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
+    },
+    pillLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+    dbBadge: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    pillSource: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "700",
+      textTransform: "uppercase",
+    },
+    emptyContainer: {
+      backgroundColor: colors.background,
+      flex: 1,
+      gap: spacing.md,
+      justifyContent: "center",
+      padding: spacing.md,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 26,
+      fontWeight: "900",
+    },
+    emptyText: {
+      color: colors.muted,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+  });
 }
-
-function formatToolName(name: string): string {
-  const labels: Record<string, string> = {
-    createTodo: "Create Todo",
-    listTodos: "List Todos",
-    completeTodo: "Complete Todo",
-    deleteTodo: "Delete Todo",
-    updateTodo: "Update Todo",
-  };
-
-  return labels[name] || name;
-}
-
-function isDatabaseTool(name: string): boolean {
-  return ["createTodo", "listTodos", "completeTodo", "deleteTodo", "updateTodo"].includes(name);
-}
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  emptyContainer: {
-    backgroundColor: colors.background,
-    flex: 1,
-    justifyContent: "center",
-    padding: spacing.lg,
-  },
-  glowTop: {
-    backgroundColor: "rgba(69, 245, 198, 0.14)",
-    borderRadius: 999,
-    height: 220,
-    position: "absolute",
-    right: -110,
-    top: -70,
-    width: 220,
-  },
-  header: {
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  backButton: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    gap: 4,
-    paddingVertical: spacing.xs,
-  },
-  backText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  content: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  card: {
-    backgroundColor: "rgba(24, 27, 34, 0.96)",
-    borderColor: colors.border,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  loopCard: {
-    backgroundColor: "rgba(24, 27, 34, 0.96)",
-    borderColor: "rgba(69, 245, 198, 0.18)",
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  cardLabel: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  cardText: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "900",
-    marginTop: spacing.md,
-  },
-  emptyText: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: spacing.sm,
-  },
-  stepRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    position: "relative",
-  },
-  stepIcon: {
-    alignItems: "center",
-    borderRadius: 999,
-    height: 30,
-    justifyContent: "center",
-    width: 30,
-  },
-  userIcon: {
-    backgroundColor: "rgba(140, 124, 255, 0.22)",
-  },
-  llmIcon: {
-    backgroundColor: "rgba(69, 245, 198, 0.18)",
-  },
-  toolIcon: {
-    backgroundColor: "rgba(255, 209, 102, 0.18)",
-  },
-  mcpIcon: {
-    backgroundColor: "rgba(69, 245, 198, 0.12)",
-  },
-  finalIcon: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-  },
-  stepNumber: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  stepBody: {
-    flex: 1,
-    gap: 3,
-  },
-  stepTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  stepSubtitle: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  stepDetail: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  stepLine: {
-    backgroundColor: "rgba(69, 245, 198, 0.18)",
-    bottom: -spacing.md,
-    left: 14,
-    position: "absolute",
-    top: 32,
-    width: 1,
-  },
-  pillGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  pill: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderColor: "rgba(69, 245, 198, 0.20)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  pillKind: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  pillLabel: {
-    color: colors.text,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  dbBadge: {
-    backgroundColor: "rgba(69, 245, 198, 0.12)",
-    borderColor: "rgba(69, 245, 198, 0.24)",
-    borderRadius: 999,
-    borderWidth: 1,
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: "900",
-    overflow: "hidden",
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  pillSource: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-});

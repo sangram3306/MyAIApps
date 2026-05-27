@@ -1,5 +1,30 @@
-import { Redirect } from "expo-router";
+import { useEffect } from "react";
+import { router } from "expo-router";
+import { getDefaultTabPreference } from "../storage/appStorage";
+
+const tabRoutes: Record<string, string> = {
+  home: "/(tabs)",
+  coach: "/(tabs)/coach",
+  chat: "/(tabs)/chat",
+  expenses: "/(tabs)/expenses",
+  settings: "/(tabs)/settings",
+};
 
 export default function Index() {
-  return <Redirect href="/(tabs)" />;
+  useEffect(() => {
+    let active = true;
+    getDefaultTabPreference().then((tab) => {
+      if (!active) {
+        return;
+      }
+
+      router.replace((tabRoutes[tab] || "/(tabs)") as never);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return null;
 }

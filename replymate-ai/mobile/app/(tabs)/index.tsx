@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,32 +11,45 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { BrandLogo } from "../../components/BrandLogo";
 import { ChipSelector } from "../../components/ChipSelector";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
 import { Role, replyRoles, rewriteRoles } from "../../constants/roles";
 import { replyTones, rewriteStyles, Tone } from "../../constants/tones";
-import { colors, spacing } from "../../constants/theme";
+import { spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
 import { fixGrammarFromApi, generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
-import { addHistoryItem, getBackendUrl, saveFavorite } from "../../storage/appStorage";
+import {
+  addHistoryItem,
+  getBackendUrl,
+  getQuickActionsPreference,
+  saveFavorite,
+} from "../../storage/appStorage";
 
 type Mode = "reply" | "rewrite" | "grammar";
 
 export default function HomeScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const quickActionStyles = useMemo(() => createQuickActionStyles(colors), [colors]);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<Tone>("none");
   const [role, setRole] = useState<Role>("none");
   const [mode, setMode] = useState<Mode>("reply");
   const [backendUrl, setBackendUrl] = useState("");
+  const [quickActionsEnabled, setQuickActionsEnabled] = useState(true);
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useFocusEffect(
     useCallback(() => {
-      getBackendUrl().then(setBackendUrl);
+      Promise.all([getBackendUrl(), getQuickActionsPreference()]).then(([url, enabled]) => {
+        setBackendUrl(url);
+        setQuickActionsEnabled(enabled);
+      });
     }, []),
   );
 
@@ -121,16 +134,64 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>Smart replies, rewrites, and grammar fixes.</Text>
         </View>
 
+        {quickActionsEnabled ? (
+          <View style={styles.quickActions}>
+            <QuickAction
+              label="Reply"
+              onPress={() => {
+                setMode("reply");
+                setTone("none");
+                setRole("none");
+                setReplies([]);
+              }}
+              active={mode === "reply"}
+              styles={quickActionStyles}
+            />
+            <QuickAction
+              label="Rewrite"
+              onPress={() => {
+                setMode("rewrite");
+                setTone("clearer");
+                setRole("none");
+                setReplies([]);
+              }}
+              active={mode === "rewrite"}
+              styles={quickActionStyles}
+            />
+            <QuickAction
+              label="Grammar"
+              onPress={() => {
+                setMode("grammar");
+                setTone("none");
+                setRole("none");
+                setReplies([]);
+              }}
+              active={mode === "grammar"}
+              styles={quickActionStyles}
+            />
+            <QuickAction
+              label="Coach"
+              onPress={() => router.push("/coach" as never)}
+              styles={quickActionStyles}
+            />
+            <QuickAction
+              label="Expenses"
+              onPress={() => router.push("/expenses" as never)}
+              styles={quickActionStyles}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.modeSwitch}>
           {(["reply", "rewrite", "grammar"] as Mode[]).map((item) => (
             <Pressable
               key={item}
-            onPress={() => {
-              setMode(item);
-              setTone(item === "rewrite" ? "clearer" : "none");
-              setRole("none");
-              setReplies([]);
-            }}
+              onPress={() => {
+                setMode(item);
+                setTone(item === "rewrite" ? "clearer" : "none");
+                setRole("none");
+                setReplies([]);
+              }}
               style={[styles.modeButton, mode === item && styles.modeButtonActive]}
             >
               <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
@@ -142,7 +203,11 @@ export default function HomeScreen() {
 
         <View style={styles.inputBlock}>
           <Text style={styles.label}>
-            {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
+            {mode === "reply"
+              ? "Message to reply to"
+              : mode === "rewrite"
+                ? "Your message"
+                : "Text to fix"}
           </Text>
           <TextInput
             multiline
@@ -194,7 +259,11 @@ export default function HomeScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.generateButtonText}>
-              {mode === "reply" ? "Generate Replies" : mode === "rewrite" ? "Rewrite Message" : "Fix Grammar"}
+              {mode === "reply"
+                ? "Generate Replies"
+                : mode === "rewrite"
+                  ? "Rewrite Message"
+                  : "Fix Grammar"}
             </Text>
           )}
         </Pressable>
@@ -202,7 +271,11 @@ export default function HomeScreen() {
         <View style={styles.results}>
           {replies.length > 0 ? (
             replies.map((reply, index) => (
-              <ReplyCard key={`${reply}-${index}`} reply={reply} onFavorite={() => handleFavorite(reply)} />
+              <ReplyCard
+                key={`${reply}-${index}`}
+                reply={reply}
+                onFavorite={() => handleFavorite(reply)}
+              />
             ))
           ) : (
             <EmptyState
@@ -228,105 +301,156 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  keyboard: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    gap: spacing.lg,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  header: {
-    gap: spacing.md,
-    paddingTop: spacing.md,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  inputBlock: {
-    gap: spacing.sm,
-  },
-  modeSwitch: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.xs,
-  },
-  modeButton: {
-    alignItems: "center",
-    borderRadius: 8,
-    flex: 1,
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  modeButtonActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.borderStrong,
-    borderWidth: 1,
-  },
-  modeText: {
-    color: colors.muted,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  modeTextActive: {
-    color: colors.primary,
-  },
-  label: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  input: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.borderStrong,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 16,
-    minHeight: 160,
-    padding: spacing.md,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-  },
-  error: {
-    backgroundColor: colors.dangerSoft,
-    borderColor: colors.danger,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.danger,
-    lineHeight: 20,
-    padding: spacing.md,
-  },
-  generateButton: {
-    alignItems: "center",
-    backgroundColor: colors.secondary,
-    borderRadius: 8,
-    minHeight: 52,
-    justifyContent: "center",
-    padding: spacing.md,
-    shadowColor: colors.secondary,
-    shadowOpacity: 0.36,
-    shadowRadius: 18,
-  },
-  generateButtonDisabled: {
-    opacity: 0.7,
-  },
-  generateButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  results: {
-    gap: spacing.md,
-  },
-});
+function QuickAction({
+  label,
+  onPress,
+  styles,
+  active = false,
+}: {
+  label: string;
+  onPress: () => void;
+  styles: ReturnType<typeof createQuickActionStyles>;
+  active?: boolean;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.action, active && styles.actionActive]}>
+      <Text style={[styles.actionText, active && styles.actionTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function createQuickActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    action: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    actionActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+    },
+    actionText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "800",
+    },
+    actionTextActive: {
+      color: colors.primary,
+    },
+  });
+}
+
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    keyboard: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      gap: spacing.lg,
+      padding: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    header: {
+      gap: spacing.md,
+      paddingTop: spacing.md,
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      textAlign: "center",
+    },
+    quickActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    inputBlock: {
+      gap: spacing.sm,
+    },
+    modeSwitch: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      padding: spacing.xs,
+    },
+    modeButton: {
+      alignItems: "center",
+      borderRadius: 8,
+      flex: 1,
+      minHeight: 44,
+      justifyContent: "center",
+    },
+    modeButtonActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderWidth: 1,
+    },
+    modeText: {
+      color: colors.muted,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    modeTextActive: {
+      color: colors.primary,
+    },
+    label: {
+      color: colors.primary,
+      fontSize: 15,
+      fontWeight: "800",
+    },
+    input: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.borderStrong,
+      borderRadius: 8,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 16,
+      minHeight: 160,
+      padding: spacing.md,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.16,
+      shadowRadius: 18,
+    },
+    error: {
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: 8,
+      borderWidth: 1,
+      color: colors.danger,
+      lineHeight: 20,
+      padding: spacing.md,
+    },
+    generateButton: {
+      alignItems: "center",
+      backgroundColor: colors.secondary,
+      borderRadius: 8,
+      minHeight: 52,
+      justifyContent: "center",
+      padding: spacing.md,
+      shadowColor: colors.secondary,
+      shadowOpacity: 0.36,
+      shadowRadius: 18,
+    },
+    generateButtonDisabled: {
+      opacity: 0.7,
+    },
+    generateButtonText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    results: {
+      gap: spacing.md,
+    },
+  });
+}

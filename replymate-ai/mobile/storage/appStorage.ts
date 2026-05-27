@@ -1,12 +1,30 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEFAULT_BACKEND_URL } from "../constants/api";
 import { defaultLlmPreference, LlmPreference, llmProviders } from "../constants/llm";
+import { ThemeMode } from "../constants/theme";
 import { FavoriteReply, ReplyHistoryItem } from "./types";
 
 const keys = {
   history: "replymate.history",
   favorites: "replymate.favorites",
   llmPreference: "replymate.llmPreference",
+  themeMode: "replymate.themeMode",
+  defaultTab: "replymate.defaultTab",
+  quickActionsEnabled: "replymate.quickActionsEnabled",
+};
+
+export type DefaultTabId = "home" | "coach" | "chat" | "expenses" | "settings";
+
+export type ExportPayload = {
+  exportedAt: string;
+  app: {
+    llmPreference: LlmPreference;
+    themeMode: ThemeMode;
+    defaultTab: DefaultTabId;
+    quickActionsEnabled: boolean;
+  };
+  history: ReplyHistoryItem[];
+  favorites: FavoriteReply[];
 };
 
 export async function getBackendUrl(): Promise<string> {
@@ -26,6 +44,30 @@ export async function getLlmPreference(): Promise<LlmPreference> {
 
 export async function saveLlmPreference(preference: LlmPreference): Promise<void> {
   await AsyncStorage.setItem(keys.llmPreference, JSON.stringify(preference));
+}
+
+export async function getThemeModePreference(): Promise<ThemeMode> {
+  return readJson<ThemeMode>(keys.themeMode, "system");
+}
+
+export async function saveThemeModePreference(mode: ThemeMode): Promise<void> {
+  await AsyncStorage.setItem(keys.themeMode, JSON.stringify(mode));
+}
+
+export async function getDefaultTabPreference(): Promise<DefaultTabId> {
+  return readJson<DefaultTabId>(keys.defaultTab, "home");
+}
+
+export async function saveDefaultTabPreference(tab: DefaultTabId): Promise<void> {
+  await AsyncStorage.setItem(keys.defaultTab, JSON.stringify(tab));
+}
+
+export async function getQuickActionsPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.quickActionsEnabled, true);
+}
+
+export async function saveQuickActionsPreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.quickActionsEnabled, JSON.stringify(enabled));
 }
 
 export async function getHistory(): Promise<ReplyHistoryItem[]> {
@@ -59,6 +101,30 @@ export async function removeFavorite(id: string): Promise<void> {
     keys.favorites,
     JSON.stringify(current.filter((item) => item.id !== id)),
   );
+}
+
+export async function buildLocalExportPayload(): Promise<ExportPayload> {
+  const [llmPreference, themeMode, defaultTab, quickActionsEnabled, history, favorites] =
+    await Promise.all([
+      getLlmPreference(),
+      getThemeModePreference(),
+      getDefaultTabPreference(),
+      getQuickActionsPreference(),
+      getHistory(),
+      getFavorites(),
+    ]);
+
+  return {
+    exportedAt: new Date().toISOString(),
+    app: {
+      llmPreference,
+      themeMode,
+      defaultTab,
+      quickActionsEnabled,
+    },
+    history,
+    favorites,
+  };
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {

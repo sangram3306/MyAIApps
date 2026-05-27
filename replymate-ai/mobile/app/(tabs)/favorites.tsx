@@ -1,13 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
-import { colors, spacing } from "../../constants/theme";
+import { spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
 import { getFavorites, removeFavorite } from "../../storage/appStorage";
 import { FavoriteReply } from "../../storage/types";
 
 export default function FavoritesScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [favorites, setFavorites] = useState<FavoriteReply[]>([]);
 
   const loadFavorites = useCallback(() => {
@@ -43,29 +46,31 @@ export default function FavoritesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  container: {
-    backgroundColor: colors.background,
-    flexGrow: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: spacing.sm,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-});
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    screen: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    container: {
+      backgroundColor: colors.background,
+      flexGrow: 1,
+      gap: spacing.md,
+      padding: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: "800",
+      marginBottom: spacing.sm,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 0,
+      textTransform: "uppercase",
+    },
+  });
+}

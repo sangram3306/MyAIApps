@@ -182,6 +182,14 @@ export type ExpenseMessageResponse = {
   };
 };
 
+export type ExpenseExportResponse = {
+  exportedAt: string;
+  expenses: ExpenseItem[];
+  total: number;
+  byCategory: Array<{ category: string; total: number; count: number }>;
+  count: number;
+};
+
 export type DeepSeekBalanceResponse = {
   isAvailable: boolean;
   balances: Array<{
@@ -331,6 +339,35 @@ export async function createExpenseFromApi(params: {
   }
 
   return data as ExpenseMessageResponse;
+}
+
+export async function getExpenseExportFromApi(params: {
+  backendUrl: string;
+}): Promise<ExpenseExportResponse> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/export`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<ExpenseExportResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not export expenses.");
+  }
+
+  if (
+    typeof data?.exportedAt !== "string" ||
+    !Array.isArray(data?.expenses) ||
+    !Array.isArray(data?.byCategory) ||
+    typeof data?.total !== "number" ||
+    typeof data?.count !== "number"
+  ) {
+    throw new Error("Backend returned an unexpected expense export response.");
+  }
+
+  return data as ExpenseExportResponse;
 }
 
 export async function getDeepSeekBalanceFromApi(params: {

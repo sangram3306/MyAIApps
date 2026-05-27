@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
-import { colors, spacing } from "../constants/theme";
+import { spacing } from "../constants/theme";
+import { useAppTheme } from "../context/app-theme";
 
 type Option<T extends string> = {
   label: string;
@@ -13,6 +15,9 @@ type Props<T extends string> = {
 };
 
 export function ChipSelector<T extends string>({ options, selectedValue, onSelect }: Props<T>) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {options.map((option) => {
@@ -31,29 +36,31 @@ export function ChipSelector<T extends string>({ options, selectedValue, onSelec
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  chip: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  chipSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.borderStrong,
-  },
-  chipText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  chipTextSelected: {
-    color: colors.primary,
-  },
-});
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    row: {
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    chip: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    chipSelected: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+    },
+    chipText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    chipTextSelected: {
+      color: colors.primary,
+    },
+  });
+}

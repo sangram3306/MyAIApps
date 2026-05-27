@@ -30,6 +30,7 @@ type ExpenseToolResult = {
 
 router.post("/create", handleCreateExpenseRequest);
 router.post("/message", handleExpenseMessageRequest);
+router.get("/export", handleExportExpensesRequest);
 
 export async function handleCreateExpenseRequest(
   req: { body: unknown },
@@ -117,6 +118,52 @@ export async function handleExpenseMessageRequest(
       error: isLlmError
         ? "The selected AI provider could not answer expense questions right now."
         : "Could not process your expense request. Please try again.",
+    });
+  }
+}
+
+export async function handleExportExpensesRequest(
+  _req: { body?: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const [expensesResult, summaryResult] = await Promise.all([
+      callMcpTool<ExpenseToolResult>(
+        "listExpenses",
+        {
+          period: "all",
+          limit: 100,
+        },
+        {
+          timeoutMs: 5000,
+          retries: 1,
+        },
+      ),
+      callMcpTool<ExpenseToolResult>(
+        "expenseSummary",
+        {
+          period: "all",
+        },
+        {
+          timeoutMs: 5000,
+          retries: 1,
+        },
+      ),
+    ]);
+
+    res.json({
+      exportedAt: new Date().toISOString(),
+      expenses: expensesResult.expenses || [],
+      total: summaryResult.total ?? expensesResult.total ?? 0,
+      byCategory: summaryResult.byCategory || expensesResult.byCategory || [],
+      count: summaryResult.count ?? expensesResult.expenses.length ?? 0,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Could not export expenses right now.",
     });
   }
 }
