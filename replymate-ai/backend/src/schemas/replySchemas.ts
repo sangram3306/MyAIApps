@@ -19,6 +19,8 @@ const toneValues = [
   "formal",
   "persuasive",
   "simple_english",
+  "hinglish",
+  "hindi",
   "more_human",
   "short",
   "short_sweet",

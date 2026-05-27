@@ -18,15 +18,33 @@ export function getMockReplies({ tone, message, role }: GenerateRepliesInput): s
 export function getMockRewrites({ tone, message, role }: GenerateRepliesInput): string[] {
   const cleanMessage = message.trim();
   const rolePrefix = role && role !== "none" ? `[${role}] ` : "";
+  const hinglishPrefix = "Bhai, ";
+  const hindiPrefix = "Zaroor, ";
 
   return [
     `${rolePrefix}${cleanMessage}`,
-    tone === "professional"
+    tone === "hindi"
+      ? `${rolePrefix}${hindiPrefix}${cleanMessage}`
+      : tone === "hinglish"
+        ? `${rolePrefix}${hinglishPrefix}${cleanMessage}`
+        : tone === "professional"
       ? `${rolePrefix}Thank you for your message. ${cleanMessage}`
       : `${rolePrefix}Hey, ${cleanMessage}`,
-    tone === "short_sweet" ? `${rolePrefix}${cleanMessage.slice(0, 90)}` : `${rolePrefix}Just wanted to say: ${cleanMessage}`,
-    tone === "casual" ? `${rolePrefix}Hey, ${cleanMessage}` : `${rolePrefix}I wanted to share that ${cleanMessage}`,
-    tone === "polite" ? `${rolePrefix}Please note, ${cleanMessage}` : `${rolePrefix}Here is what I mean: ${cleanMessage}`,
+    tone === "short_sweet"
+      ? `${rolePrefix}${cleanMessage.slice(0, 90)}`
+      : tone === "hindi"
+        ? `${rolePrefix}Yeh hai: ${cleanMessage}`
+        : `${rolePrefix}Just wanted to say: ${cleanMessage}`,
+    tone === "casual"
+      ? `${rolePrefix}Hey, ${cleanMessage}`
+      : tone === "hinglish"
+        ? `${rolePrefix}Yaar, ${cleanMessage}`
+        : `${rolePrefix}I wanted to share that ${cleanMessage}`,
+    tone === "polite"
+      ? `${rolePrefix}Please note, ${cleanMessage}`
+      : tone === "hindi"
+        ? `${rolePrefix}Kripya dhyan dein, ${cleanMessage}`
+        : `${rolePrefix}Here is what I mean: ${cleanMessage}`,
   ];
 }
 

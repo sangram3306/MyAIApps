@@ -53,16 +53,7 @@ export const replyRoles: Array<{ label: string; value: Role }> = [
 ];
 
 export const rewriteRoles: Array<{ label: string; value: Role }> = [
-  { label: "None", value: "none" },
-  { label: "Professional Writer", value: "professional_writer" },
-  { label: "Manager", value: "manager" },
-  { label: "Customer Support", value: "customer_support" },
-  { label: "Teacher", value: "teacher" },
-  { label: "Sales Expert", value: "sales_expert" },
-  { label: "Marketing Expert", value: "marketing_expert" },
-  { label: "Influencer", value: "influencer" },
-  { label: "Poet", value: "poet" },
-  { label: "Startup Founder", value: "startup_founder" },
+  ...replyRoles,
 ];
 
 export const roles = replyRoles;

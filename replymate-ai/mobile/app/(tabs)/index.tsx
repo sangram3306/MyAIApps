@@ -228,22 +228,24 @@ export default function HomeScreen() {
 
         {mode !== "grammar" ? (
           <>
-            <View>
-              <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
-              <ChipSelector
-                options={mode === "reply" ? replyTones : rewriteStyles}
-                selectedValue={tone}
-                onSelect={setTone}
-              />
-            </View>
+            <View style={styles.selectorRow}>
+              <View style={styles.selectorColumn}>
+                <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
+                <ChipSelector
+                  options={mode === "reply" ? replyTones : rewriteStyles}
+                  selectedValue={tone}
+                  onSelect={setTone}
+                />
+              </View>
 
-            <View>
-              <Text style={styles.label}>Role</Text>
-              <ChipSelector
-                options={mode === "reply" ? replyRoles : rewriteRoles}
-                selectedValue={role}
-                onSelect={setRole}
-              />
+              <View style={styles.selectorColumn}>
+                <Text style={styles.label}>Role</Text>
+                <ChipSelector
+                  options={mode === "reply" ? replyRoles : rewriteRoles}
+                  selectedValue={role}
+                  onSelect={setRole}
+                />
+              </View>
             </View>
           </>
         ) : null}
@@ -373,6 +375,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     inputBlock: {
       gap: spacing.sm,
+    },
+    selectorRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.md,
+    },
+    selectorColumn: {
+      flexBasis: 0,
+      flexGrow: 1,
+      gap: spacing.sm,
+      minWidth: 160,
     },
     modeSwitch: {
       backgroundColor: colors.surface,

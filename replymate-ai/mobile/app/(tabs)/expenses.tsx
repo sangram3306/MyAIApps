@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import {
@@ -99,19 +99,33 @@ export default function ExpensesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([
-        getBackendUrl(),
-        getBudgetTargetPreference(),
-        getBudgetWarningThresholdPreference(),
-        getAutoCategorySuggestionsPreference(),
-        getQuickAddCategoriesPreference(),
-      ]).then(([url, target, threshold, autoCategory, quickAdds]) => {
+      let isActive = true;
+
+      async function loadData() {
+        const [url, target, threshold, autoCategory, quickAdds] = await Promise.all([
+          getBackendUrl(),
+          getBudgetTargetPreference(),
+          getBudgetWarningThresholdPreference(),
+          getAutoCategorySuggestionsPreference(),
+          getQuickAddCategoriesPreference(),
+        ]);
+
+        if (!isActive) {
+          return;
+        }
+
         setBackendUrl(url);
         setBudgetTarget(target);
         setBudgetWarningThreshold(threshold);
         setAutoCategorySuggestions(autoCategory);
         setQuickAddCategories(quickAdds);
-      });
+      }
+
+      void loadData();
+
+      return () => {
+        isActive = false;
+      };
     }, []),
   );
 
@@ -235,6 +249,22 @@ export default function ExpensesScreen() {
           <Text style={styles.subtitle}>
             Save expenses with clean categories, then ask AI to summarize patterns from your DB.
           </Text>
+        </View>
+
+        <View style={styles.linkCard}>
+          <View style={styles.linkCopy}>
+            <Text style={styles.linkTitle}>Spending Summary</Text>
+            <Text style={styles.linkSubtitle}>
+              Open the monthly and yearly dashboard with charts and totals.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/spending-summary" as never)}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkButtonText}>View summary</Text>
+            <Ionicons name="chevron-forward" color="#07110D" size={16} />
+          </Pressable>
         </View>
 
         <View style={styles.card}>
@@ -639,6 +669,45 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       fontWeight: "900",
       letterSpacing: 0.8,
       textTransform: "uppercase",
+    },
+    linkCard: {
+      alignItems: "center",
+      backgroundColor: "rgba(17, 19, 24, 0.94)",
+      borderColor: colors.border,
+      borderRadius: 22,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.md,
+      justifyContent: "space-between",
+      padding: spacing.md,
+    },
+    linkCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    linkTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: "900",
+    },
+    linkSubtitle: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    linkButton: {
+      alignItems: "center",
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      flexDirection: "row",
+      gap: 6,
+      minHeight: 48,
+      paddingHorizontal: spacing.md,
+    },
+    linkButtonText: {
+      color: "#07110D",
+      fontSize: 13,
+      fontWeight: "900",
     },
     amountShell: {
       backgroundColor: "rgba(24, 27, 34, 0.94)",

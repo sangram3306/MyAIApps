@@ -37,6 +37,8 @@ function getTonePrompt(tone?: string): string {
 
   const labels: Record<string, string> = {
     simple_english: "simple English",
+    hinglish: "Hinglish - natural Hindi-English mix, chatty and easy to read",
+    hindi: "Hindi - natural Hindi, clean and easy to understand",
     more_human: "more human and natural",
     snarky: "snarky - dry, witty, mildly sarcastic, but not mean or insulting",
   };
