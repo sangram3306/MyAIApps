@@ -1,6 +1,7 @@
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  type LayoutChangeEvent,
   Pressable,
   Share,
   StyleSheet,
@@ -59,6 +60,8 @@ const themeOptions = [
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const appearanceSectionY = useRef(0);
+  const scrollContainerRef = useRef<any>(null);
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
   const [defaultTab, setDefaultTab] = useState<DefaultTabId>("home");
   const [appLockMode, setAppLockMode] = useState<AppLockMode>("off");
@@ -102,6 +105,10 @@ export default function SettingsScreen() {
         setQuickAddCategories(quickAdds);
         setBackendUrl(url);
       });
+
+      return () => {
+        setExpandedSection(null);
+      };
     }, []),
   );
 
@@ -117,6 +124,16 @@ export default function SettingsScreen() {
   async function handleAppLockChange(nextMode: AppLockMode) {
     setAppLockMode(nextMode);
     await saveAppLockModePreference(nextMode);
+  }
+
+  function openAppearanceSection() {
+    setExpandedSection("appearance");
+    requestAnimationFrame(() => {
+      scrollContainerRef.current?.scrollTo?.({
+        animated: true,
+        y: Math.max(0, appearanceSectionY.current - 12),
+      });
+    });
   }
 
   async function handleBudgetTargetCommit() {
@@ -238,7 +255,11 @@ export default function SettingsScreen() {
   }
 
   return (
-    <NestableScrollContainer style={styles.screen} contentContainerStyle={styles.container}>
+    <NestableScrollContainer
+      ref={scrollContainerRef}
+      style={styles.screen}
+      contentContainerStyle={styles.container}
+    >
       <View style={styles.heroCard}>
         <View style={styles.heroGlow} />
         <View style={styles.heroTopRow}>
@@ -259,9 +280,22 @@ export default function SettingsScreen() {
             icon="hardware-chip-outline"
             label={`${selectedProvider.label}`}
             value={selectedModel?.label || llmPreference.model}
+            onPress={() => router.push("/llm-provider" as never)}
           />
-          <MetaPill styles={styles} icon="layers-outline" label="Launch tab" value={defaultTab} />
-          <MetaPill styles={styles} icon="contrast-outline" label="Theme" value={resolvedTheme} />
+          <MetaPill
+            styles={styles}
+            icon="layers-outline"
+            label="Launch tab"
+            value={defaultTab}
+            onPress={openAppearanceSection}
+          />
+          <MetaPill
+            styles={styles}
+            icon="contrast-outline"
+            label="Theme"
+            value={resolvedTheme}
+            onPress={openAppearanceSection}
+          />
         </View>
       </View>
 
@@ -451,6 +485,9 @@ export default function SettingsScreen() {
         summary={`Theme: ${resolvedTheme}. Launches to ${defaultTab}.`}
         styles={styles}
         onToggle={setExpandedSection}
+        onLayout={(event) => {
+          appearanceSectionY.current = event.nativeEvent.layout.y;
+        }}
       >
         <SegmentedGroup
           title="Theme"
@@ -504,6 +541,7 @@ function AccordionSection({
   children,
   expandedSection,
   onToggle,
+  onLayout,
   styles,
 }: {
   id: SectionId;
@@ -514,12 +552,16 @@ function AccordionSection({
   children: ReactNode;
   expandedSection: SectionId | null;
   onToggle: (id: SectionId | null) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
   styles: ReturnType<typeof createStyles>;
 }) {
   const { colors } = useAppTheme();
   const expanded = expandedSection === id;
   return (
-    <View style={[styles.sectionCard, expanded ? styles.sectionCardExpanded : styles.sectionCardCollapsed]}>
+    <View
+      onLayout={onLayout}
+      style={[styles.sectionCard, expanded ? styles.sectionCardExpanded : styles.sectionCardCollapsed]}
+    >
       <Pressable onPress={() => onToggle(expanded ? null : id)} style={styles.sectionHeader}>
         <View style={styles.sectionIcon}>
           <Ionicons name={icon} color={colors.primary} size={20} />
@@ -781,22 +823,29 @@ function MetaPill({
   icon,
   label,
   value,
+  onPress,
   styles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
+  onPress?: () => void;
   styles: ReturnType<typeof createStyles>;
 }) {
   const { colors } = useAppTheme();
   return (
-    <View style={styles.metaPill}>
+    <Pressable
+      accessibilityRole={onPress ? "button" : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={[styles.metaPill, onPress && styles.metaPillInteractive]}
+    >
       <Ionicons name={icon} color={colors.primary} size={14} />
       <View style={styles.metaPillText}>
         <Text style={styles.metaLabel}>{label}</Text>
         <Text style={styles.metaValue}>{value}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -900,6 +949,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       maxWidth: "100%",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
+    },
+    metaPillInteractive: {
+      opacity: 0.98,
     },
     metaPillText: {
       flexShrink: 1,
