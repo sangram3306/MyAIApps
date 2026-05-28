@@ -337,6 +337,92 @@ export type DecisionSimulationResponse = {
   };
 };
 
+export type SkillTreeNode = {
+  title: string;
+  type: "concept" | "practice" | "project" | "checkpoint";
+  difficulty: "easy" | "medium" | "hard";
+  whyItMatters: string;
+  practice: string;
+  proofOfSkill: string;
+  estimatedHours: number;
+};
+
+export type SkillTreeBranch = {
+  name: string;
+  description: string;
+  nodes: SkillTreeNode[];
+};
+
+export type SkillTree = {
+  id: string;
+  skillName: string;
+  currentLevel: string;
+  targetLevel: string;
+  timeBudget: string;
+  focusAreas: string[];
+  overview: string;
+  branches: SkillTreeBranch[];
+  weeklyQuests: string[];
+  milestones: string[];
+  recommendedRoutine: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SkillTreeResponse = {
+  assistantReply: string;
+  skillTree: SkillTree;
+  recentSkillTrees: SkillTree[];
+  saved: boolean;
+  toolCalls: Array<{
+    name: string;
+    source: "static" | "llm" | "fallback";
+    summary: string;
+  }>;
+  agentTrace: string[];
+};
+
+export type LearningRoadmapPhase = {
+  title: string;
+  duration: string;
+  outcome: string;
+  lessons: string[];
+  projects: string[];
+  checkpoints: string[];
+  resources: string[];
+};
+
+export type LearningRoadmap = {
+  id: string;
+  topic: string;
+  goal: string;
+  currentLevel: string;
+  timeline: string;
+  timePerWeek: string;
+  overview: string;
+  phases: LearningRoadmapPhase[];
+  weeklyPlan: string[];
+  practiceLoop: string[];
+  pitfalls: string[];
+  successMetrics: string[];
+  nextActions: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LearningRoadmapResponse = {
+  assistantReply: string;
+  roadmap: LearningRoadmap;
+  recentRoadmaps: LearningRoadmap[];
+  saved: boolean;
+  toolCalls: Array<{
+    name: string;
+    source: "static" | "llm" | "fallback";
+    summary: string;
+  }>;
+  agentTrace: string[];
+};
+
 export type DeepSeekBalanceResponse = {
   isAvailable: boolean;
   balances: Array<{
@@ -695,6 +781,88 @@ export async function simulateDecisionFromApi(params: {
   }
 
   return data as DecisionSimulationResponse;
+}
+
+export async function buildSkillTreeFromApi(params: {
+  backendUrl: string;
+  skillName: string;
+  currentLevel?: string;
+  targetLevel?: string;
+  timeBudget?: string;
+  focusAreas?: string[];
+}): Promise<SkillTreeResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/skill-tree`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      skillName: params.skillName,
+      currentLevel: params.currentLevel,
+      targetLevel: params.targetLevel,
+      timeBudget: params.timeBudget,
+      focusAreas: params.focusAreas,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<SkillTreeResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not build this skill tree.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    typeof data?.skillTree?.skillName !== "string" ||
+    !Array.isArray(data?.skillTree?.branches) ||
+    !Array.isArray(data?.agentTrace) ||
+    !Array.isArray(data?.toolCalls)
+  ) {
+    throw new Error("Backend returned an unexpected skill tree response.");
+  }
+
+  return data as SkillTreeResponse;
+}
+
+export async function buildLearningRoadmapFromApi(params: {
+  backendUrl: string;
+  topic: string;
+  goal?: string;
+  currentLevel?: string;
+  timeline?: string;
+  timePerWeek?: string;
+}): Promise<LearningRoadmapResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/roadmap`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      topic: params.topic,
+      goal: params.goal,
+      currentLevel: params.currentLevel,
+      timeline: params.timeline,
+      timePerWeek: params.timePerWeek,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<LearningRoadmapResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not build this learning roadmap.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    typeof data?.roadmap?.topic !== "string" ||
+    !Array.isArray(data?.roadmap?.phases) ||
+    !Array.isArray(data?.agentTrace) ||
+    !Array.isArray(data?.toolCalls)
+  ) {
+    throw new Error("Backend returned an unexpected learning roadmap response.");
+  }
+
+  return data as LearningRoadmapResponse;
 }
 
 export async function clearExpensesFromApi(params: {

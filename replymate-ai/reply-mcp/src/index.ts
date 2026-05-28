@@ -24,6 +24,12 @@ import {
   listDecisionSimulationsTool,
   saveDecisionSimulationTool,
 } from "./tools/decisions.js";
+import {
+  listLearningRoadmapsTool,
+  listSkillTreesTool,
+  saveLearningRoadmapTool,
+  saveSkillTreeTool,
+} from "./tools/learning.js";
 
 dotenv.config();
 
@@ -146,6 +152,22 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "listDecisionSimulations") {
       return res.json(await listDecisionSimulationsTool(payload));
+    }
+
+    if (toolName === "saveSkillTree") {
+      return res.json(await saveSkillTreeTool(payload));
+    }
+
+    if (toolName === "listSkillTrees") {
+      return res.json(await listSkillTreesTool(payload));
+    }
+
+    if (toolName === "saveLearningRoadmap") {
+      return res.json(await saveLearningRoadmapTool(payload));
+    }
+
+    if (toolName === "listLearningRoadmaps") {
+      return res.json(await listLearningRoadmapsTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

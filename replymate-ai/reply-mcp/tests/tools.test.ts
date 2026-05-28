@@ -26,6 +26,12 @@ import {
   listDecisionSimulationsTool,
   saveDecisionSimulationTool,
 } from "../src/tools/decisions.js";
+import {
+  listLearningRoadmapsTool,
+  listSkillTreesTool,
+  saveLearningRoadmapTool,
+  saveSkillTreeTool,
+} from "../src/tools/learning.js";
 
 test("classifyIntent static match", async () => {
   const result = await classifyIntent({ message: "Sorry, my bad for the delay." });
@@ -252,6 +258,80 @@ test("decision tools return fallback when MongoDB is not configured", async () =
     assert.equal(list.source, "fallback");
     assert.equal(list.simulations.length, 0);
     assert.match(list.summary, /MongoDB/i);
+  } finally {
+    restoreEnv("MONGODB_URI", originalMongoUri);
+  }
+});
+
+test("learning tools return fallback when MongoDB is not configured", async () => {
+  const originalMongoUri = process.env.MONGODB_URI;
+  delete process.env.MONGODB_URI;
+
+  try {
+    const tree = await saveSkillTreeTool({
+      skillName: "Public speaking",
+      currentLevel: "beginner",
+      targetLevel: "confident presenter",
+      timeBudget: "3 hours/week",
+      overview: "Practice speaking with deliberate feedback.",
+      branches: [
+        {
+          name: "Delivery",
+          description: "Voice and body language.",
+          nodes: [
+            {
+              title: "Record a two-minute talk",
+              type: "practice",
+              difficulty: "easy",
+              whyItMatters: "Builds self-awareness.",
+              practice: "Record and review.",
+              proofOfSkill: "One reviewed recording.",
+              estimatedHours: 1,
+            },
+          ],
+        },
+      ],
+      weeklyQuests: ["Give one short talk"],
+      milestones: ["Deliver a five-minute talk"],
+      recommendedRoutine: ["Practice twice weekly"],
+    });
+    assert.equal(tree.source, "fallback");
+    assert.match(tree.summary, /MongoDB/i);
+
+    const trees = await listSkillTreesTool({ limit: 5 });
+    assert.equal(trees.source, "fallback");
+    assert.equal(trees.skillTrees?.length, 0);
+
+    const roadmap = await saveLearningRoadmapTool({
+      topic: "Backend development",
+      goal: "Build APIs confidently",
+      currentLevel: "beginner",
+      timeline: "8 weeks",
+      timePerWeek: "5 hours/week",
+      overview: "Learn by shipping small services.",
+      phases: [
+        {
+          title: "API basics",
+          duration: "2 weeks",
+          outcome: "Create a simple REST API",
+          lessons: ["HTTP", "Routing"],
+          projects: ["Todo API"],
+          checkpoints: ["CRUD works"],
+          resources: ["Official docs"],
+        },
+      ],
+      weeklyPlan: ["Build one endpoint"],
+      practiceLoop: ["Learn, build, test, reflect"],
+      pitfalls: ["Only watching tutorials"],
+      successMetrics: ["Can explain request flow"],
+      nextActions: ["Set up a repo"],
+    });
+    assert.equal(roadmap.source, "fallback");
+    assert.match(roadmap.summary, /MongoDB/i);
+
+    const roadmaps = await listLearningRoadmapsTool({ limit: 5 });
+    assert.equal(roadmaps.source, "fallback");
+    assert.equal(roadmaps.roadmaps?.length, 0);
   } finally {
     restoreEnv("MONGODB_URI", originalMongoUri);
   }

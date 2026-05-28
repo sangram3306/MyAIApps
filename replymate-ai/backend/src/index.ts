@@ -6,6 +6,7 @@ import creatorRouter from "./routes/creatorRoutes";
 import coachRouter from "./routes/coachRoutes";
 import decisionRouter from "./routes/decisionRoutes";
 import expenseRouter from "./routes/expenseRoutes";
+import learningRouter from "./routes/learningRoutes";
 import repliesRouter from "./routes/replies";
 import settingsRouter from "./routes/settingsRoutes";
 import { getActiveLlmInfo, normalizeProvider, runWithLlmContext } from "./services/llmService";
@@ -65,6 +66,7 @@ app.use("/api/chat", chatRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/creator", creatorRouter);
 app.use("/api/decisions", decisionRouter);
+app.use("/api/learning", learningRouter);
 app.use("/api/settings", settingsRouter);
 
 app.use((_req: Request, res: Response) => {
