@@ -450,7 +450,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       opacity: 0.7,
     },
     refreshText: {
-      color: "#FFFFFF",
+      color: colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },

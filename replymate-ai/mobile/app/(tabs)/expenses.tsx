@@ -251,35 +251,27 @@ export default function ExpensesScreen() {
           </Text>
         </View>
 
-        <View style={styles.linkCard}>
-          <View style={styles.linkCopy}>
-            <Text style={styles.linkTitle}>Spending Summary</Text>
-            <Text style={styles.linkSubtitle}>
-              Open the monthly and yearly dashboard with charts and totals.
-            </Text>
-          </View>
+        <View style={styles.linkCardCompact}>
           <Pressable
             onPress={() => router.push("/spending-summary" as never)}
-            style={styles.linkButton}
+            style={styles.linkRowCompact}
           >
-            <Text style={styles.linkButtonText}>View summary</Text>
-            <Ionicons name="chevron-forward" color="#07110D" size={16} />
+            <View style={styles.linkRowLeft}>
+              <Ionicons name="stats-chart-outline" color={colors.primary} size={16} />
+              <Text style={styles.linkTitleCompact}>Spending Summary</Text>
+            </View>
+            <Ionicons name="chevron-forward" color={colors.muted} size={16} />
           </Pressable>
-        </View>
 
-        <View style={styles.linkCard}>
-          <View style={styles.linkCopy}>
-            <Text style={styles.linkTitle}>Expense Intelligence</Text>
-            <Text style={styles.linkSubtitle}>
-              Ask AI to explain spending patterns, pressure points, and opportunities to save.
-            </Text>
-          </View>
           <Pressable
             onPress={() => router.push("/expense-intelligence" as never)}
-            style={styles.linkButton}
+            style={styles.linkRowCompact}
           >
-            <Text style={styles.linkButtonText}>Open insights</Text>
-            <Ionicons name="chevron-forward" color="#07110D" size={16} />
+            <View style={styles.linkRowLeft}>
+              <Ionicons name="analytics-outline" color={colors.primary} size={16} />
+              <Text style={styles.linkTitleCompact}>Expense Intelligence</Text>
+            </View>
+            <Ionicons name="chevron-forward" color={colors.muted} size={16} />
           </Pressable>
         </View>
 
@@ -350,7 +342,7 @@ export default function ExpensesScreen() {
                   >
                     <Ionicons
                       name={item.icon}
-                      color={selected ? "#07110D" : item.accent}
+                      color={selected ? colors.onPrimary : item.accent}
                       size={21}
                     />
                   </View>
@@ -376,10 +368,10 @@ export default function ExpensesScreen() {
             style={[styles.primaryButton, saving && styles.disabledButton]}
           >
             {saving ? (
-              <ActivityIndicator color="#07110D" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <>
-                <Ionicons name="add-circle-outline" color="#07110D" size={19} />
+                <Ionicons name="add-circle-outline" color={colors.onPrimary} size={19} />
                 <Text style={styles.primaryButtonText}>Save Expense</Text>
               </>
             )}
@@ -622,7 +614,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       width: 180,
     },
     glowAmber: {
-      backgroundColor: "rgba(255, 209, 102, 0.10)",
+      backgroundColor: colors.secondarySoft,
       borderRadius: 999,
       height: 220,
       left: -120,
@@ -664,7 +656,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       lineHeight: 24,
     },
     card: {
-      backgroundColor: "rgba(17, 19, 24, 0.94)",
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: 22,
       borderWidth: 1,
@@ -686,48 +678,34 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       letterSpacing: 0.8,
       textTransform: "uppercase",
     },
-    linkCard: {
-      alignItems: "center",
-      backgroundColor: "rgba(17, 19, 24, 0.94)",
+    linkCardCompact: {
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: 22,
       borderWidth: 1,
-      flexDirection: "row",
-      gap: spacing.md,
-      justifyContent: "space-between",
-      padding: spacing.md,
-    },
-    linkCopy: {
-      flex: 1,
-      gap: 4,
-    },
-    linkTitle: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: "900",
-    },
-    linkSubtitle: {
-      color: colors.muted,
-      fontSize: 13,
-      lineHeight: 18,
-    },
-    linkButton: {
-      alignItems: "center",
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      flexDirection: "row",
-      gap: 6,
-      minHeight: 48,
       paddingHorizontal: spacing.md,
+      paddingVertical: 2,
     },
-    linkButtonText: {
-      color: "#07110D",
-      fontSize: 13,
+    linkRowCompact: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      minHeight: 44,
+      paddingVertical: spacing.xs,
+    },
+    linkRowLeft: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.xs,
+    },
+    linkTitleCompact: {
+      color: colors.text,
+      fontSize: 14,
       fontWeight: "900",
     },
     amountShell: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
-      borderColor: "rgba(69, 245, 198, 0.24)",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.borderStrong,
       borderRadius: 16,
       borderWidth: 1,
       gap: spacing.sm,
@@ -747,8 +725,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       textTransform: "uppercase",
     },
     currencySwitch: {
-      backgroundColor: "rgba(5, 5, 6, 0.62)",
-      borderColor: "rgba(255, 255, 255, 0.08)",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: "row",
@@ -768,7 +746,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       fontWeight: "900",
     },
     currencyTextSelected: {
-      color: "#07110D",
+      color: colors.onPrimary,
     },
     amountInput: {
       color: colors.text,
@@ -804,8 +782,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     categoryCard: {
       alignItems: "center",
-      backgroundColor: "rgba(24, 27, 34, 0.82)",
-      borderColor: "rgba(255, 255, 255, 0.08)",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
       borderRadius: 18,
       borderWidth: 1,
       gap: spacing.xs,
@@ -816,7 +794,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       width: 92,
     },
     categoryCardSelected: {
-      backgroundColor: "rgba(69, 245, 198, 0.10)",
+      backgroundColor: colors.primarySoft,
       shadowColor: colors.primary,
       shadowOpacity: 0.22,
       shadowRadius: 14,
@@ -839,7 +817,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.primary,
     },
     noteInput: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
       borderRadius: 16,
       borderWidth: 1,
@@ -850,8 +828,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       paddingVertical: spacing.sm,
     },
   insightInput: {
-    backgroundColor: "rgba(24, 27, 34, 0.94)",
-    borderColor: "rgba(69, 245, 198, 0.24)",
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderStrong,
     borderRadius: 18,
     borderWidth: 1,
     color: colors.text,
@@ -866,8 +844,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     gap: spacing.xs,
   },
   quickPill: {
-    backgroundColor: "rgba(69, 245, 198, 0.08)",
-    borderColor: "rgba(69, 245, 198, 0.22)",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: spacing.sm,
@@ -889,8 +867,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   },
   secondaryButton: {
     alignItems: "center",
-    backgroundColor: "rgba(69, 245, 198, 0.08)",
-    borderColor: "rgba(69, 245, 198, 0.28)",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -902,7 +880,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     opacity: 0.75,
   },
   primaryButtonText: {
-    color: "#07110D",
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: "900",
   },
@@ -924,8 +902,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     gap: spacing.md,
   },
   insightCard: {
-    backgroundColor: "rgba(69, 245, 198, 0.09)",
-    borderColor: "rgba(69, 245, 198, 0.30)",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
     borderRadius: 24,
     borderWidth: 1,
     gap: spacing.sm,
@@ -974,8 +952,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   },
   toolPill: {
     alignItems: "center",
-    backgroundColor: "rgba(69, 245, 198, 0.07)",
-    borderColor: "rgba(69, 245, 198, 0.22)",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
@@ -1001,8 +979,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     textTransform: "uppercase",
   },
   dbBadge: {
-    backgroundColor: "rgba(69, 245, 198, 0.13)",
-    borderColor: "rgba(69, 245, 198, 0.25)",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
     borderWidth: 1,
     color: colors.primary,

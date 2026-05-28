@@ -20,6 +20,10 @@ import {
   expenseSummaryTool,
   listExpensesTool,
 } from "./tools/expenses.js";
+import {
+  listDecisionSimulationsTool,
+  saveDecisionSimulationTool,
+} from "./tools/decisions.js";
 
 dotenv.config();
 
@@ -134,6 +138,14 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "deleteExpense") {
       return res.json(await deleteExpenseTool(payload));
+    }
+
+    if (toolName === "saveDecisionSimulation") {
+      return res.json(await saveDecisionSimulationTool(payload));
+    }
+
+    if (toolName === "listDecisionSimulations") {
+      return res.json(await listDecisionSimulationsTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

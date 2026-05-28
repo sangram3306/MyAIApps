@@ -9,8 +9,10 @@ export type ThemeColors = {
   text: string;
   muted: string;
   primary: string;
+  onPrimary: string;
   primarySoft: string;
   secondary: string;
+  onSecondary: string;
   secondarySoft: string;
   border: string;
   borderStrong: string;
@@ -22,22 +24,24 @@ export type ThemeColors = {
 };
 
 export const lightColors: ThemeColors = {
-  background: "#F5F7FA",
-  surface: "#FFFFFF",
-  surfaceElevated: "#EEF2F7",
-  text: "#09111C",
-  muted: "#5A6476",
-  primary: "#0A8F6B",
-  primarySoft: "rgba(10, 143, 107, 0.12)",
-  secondary: "#5B5CE2",
-  secondarySoft: "rgba(91, 92, 226, 0.12)",
-  border: "rgba(9, 17, 28, 0.10)",
-  borderStrong: "rgba(10, 143, 107, 0.28)",
-  success: "#0A8F6B",
-  danger: "#D83B5D",
-  dangerSoft: "rgba(216, 59, 93, 0.12)",
-  amber: "#B7791F",
-  ink: "#F0F4F9",
+  background: "#F7F1E8",
+  surface: "#FFFDF8",
+  surfaceElevated: "#EEE5D8",
+  text: "#19150F",
+  muted: "#756A5B",
+  primary: "#08755C",
+  onPrimary: "#FFFFFF",
+  primarySoft: "rgba(8, 117, 92, 0.12)",
+  secondary: "#A6572E",
+  onSecondary: "#FFFFFF",
+  secondarySoft: "rgba(166, 87, 46, 0.12)",
+  border: "rgba(25, 21, 15, 0.11)",
+  borderStrong: "rgba(8, 117, 92, 0.30)",
+  success: "#08755C",
+  danger: "#B7334E",
+  dangerSoft: "rgba(183, 51, 78, 0.12)",
+  amber: "#9C6418",
+  ink: "#FFFDF8",
 };
 
 export const darkColors: ThemeColors = {
@@ -47,8 +51,10 @@ export const darkColors: ThemeColors = {
   text: "#F5F7FA",
   muted: "#8B93A7",
   primary: "#45F5C6",
+  onPrimary: "#07110D",
   primarySoft: "rgba(69, 245, 198, 0.14)",
   secondary: "#8C7CFF",
+  onSecondary: "#FFFFFF",
   secondarySoft: "rgba(140, 124, 255, 0.16)",
   border: "rgba(255, 255, 255, 0.10)",
   borderStrong: "rgba(69, 245, 198, 0.36)",

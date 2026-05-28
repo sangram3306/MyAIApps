@@ -22,6 +22,10 @@ import {
   expenseSummaryTool,
   listExpensesTool,
 } from "../src/tools/expenses.js";
+import {
+  listDecisionSimulationsTool,
+  saveDecisionSimulationTool,
+} from "../src/tools/decisions.js";
 
 test("classifyIntent static match", async () => {
   const result = await classifyIntent({ message: "Sorry, my bad for the delay." });
@@ -204,6 +208,53 @@ test("expense tools perform stored expense operations", async () => {
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
     restoreEnv("EXPENSE_STORE_PATH", originalStorePath);
+  }
+});
+
+test("decision tools save and list simulations", async () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "reply-mcp-decisions-"));
+  const originalStorePath = process.env.DECISION_STORE_PATH;
+  process.env.DECISION_STORE_PATH = path.join(tempDir, "decisions.json");
+
+  try {
+    const saved = await saveDecisionSimulationTool({
+      question: "Should I move closer to work?",
+      context: "Commute is tiring but rent will increase.",
+      category: "life",
+      horizon: "next 3 months",
+      stakes: "medium",
+      recommendation: "Test the commute change before moving",
+      recommendationSummary: "Do a one-week trial near work before signing a lease.",
+      confidence: 72,
+      options: [
+        {
+          name: "Move closer",
+          score: 70,
+          pros: ["Less commute"],
+          cons: ["Higher rent"],
+          reasoning: "Better energy, higher cost.",
+        },
+      ],
+      keyFactors: ["Energy", "Rent"],
+      tradeoffs: ["Time versus money"],
+      risks: ["Signing too quickly"],
+      assumptions: ["Work location remains stable"],
+      experiments: ["Stay nearby for one week"],
+      nextSteps: ["Compare rents"],
+      regretCheck: "Would you regret the rent more than the commute?",
+      decisionRule: "Move only if the time saved feels worth the rent increase.",
+    });
+
+    assert.equal(saved.source, "static");
+    assert.equal(saved.simulation?.question, "Should I move closer to work?");
+
+    const list = await listDecisionSimulationsTool({ limit: 5 });
+    assert.equal(list.source, "static");
+    assert.equal(list.count, 1);
+    assert.equal(list.simulations[0]?.recommendation, "Test the commute change before moving");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+    restoreEnv("DECISION_STORE_PATH", originalStorePath);
   }
 });
 

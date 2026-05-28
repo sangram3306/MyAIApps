@@ -181,7 +181,7 @@ export default function HomeScreen() {
             />
             <QuickAction
               label="Creator"
-              onPress={() => router.push("/creator" as never)}
+              onPress={() => router.push("/(tabs)/creator" as never)}
               styles={quickActionStyles}
             />
           </View>
@@ -263,7 +263,7 @@ export default function HomeScreen() {
           style={[styles.generateButton, loading && styles.generateButtonDisabled]}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.onSecondary} />
           ) : (
             <Text style={styles.generateButtonText}>
               {mode === "reply"
@@ -463,7 +463,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       opacity: 0.7,
     },
     generateButtonText: {
-      color: colors.text,
+      color: colors.onSecondary,
       fontSize: 16,
       fontWeight: "800",
     },

@@ -562,7 +562,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       lineHeight: 24,
     },
     card: {
-      backgroundColor: "rgba(17, 19, 24, 0.94)",
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: 22,
       borderWidth: 1,
@@ -592,8 +592,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.xs,
     },
     summaryPill: {
-      backgroundColor: "rgba(69, 245, 198, 0.07)",
-      borderColor: "rgba(69, 245, 198, 0.18)",
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
       borderRadius: 999,
       borderWidth: 1,
       paddingHorizontal: spacing.sm,
@@ -611,7 +611,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       textTransform: "uppercase",
     },
     summaryPillTextSelected: {
-      color: "#07110D",
+      color: colors.onPrimary,
     },
     summaryMetricsRow: {
       flexDirection: "row",
@@ -623,7 +623,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     insightCard: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
       borderRadius: 18,
       borderWidth: 1,
@@ -653,7 +653,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       lineHeight: 18,
     },
     budgetPanel: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
       borderRadius: 18,
       borderWidth: 1,
@@ -666,8 +666,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     progressTrack: {
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
-      borderColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
       borderRadius: 999,
       borderWidth: 1,
       height: 10,
@@ -679,7 +679,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       height: "100%",
     },
     detailCard: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
+      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
       borderRadius: 18,
       borderWidth: 1,
@@ -761,8 +761,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       fontWeight: "900",
     },
     metricCard: {
-      backgroundColor: "rgba(24, 27, 34, 0.94)",
-      borderColor: "rgba(69, 245, 198, 0.16)",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.borderStrong,
       borderRadius: 18,
       borderWidth: 1,
       flex: 1,
@@ -800,8 +800,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     chartTrack: {
       alignItems: "center",
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-      borderColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
       borderRadius: 999,
       borderWidth: 1,
       height: 150,

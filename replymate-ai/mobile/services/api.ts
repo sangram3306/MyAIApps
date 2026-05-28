@@ -286,6 +286,57 @@ export type CreatorDraftUpdateResponse = {
   summary: string;
 };
 
+export type DecisionOption = {
+  name: string;
+  score: number;
+  pros: string[];
+  cons: string[];
+  reasoning: string;
+};
+
+export type DecisionSimulation = {
+  id: string;
+  question: string;
+  context: string;
+  category: string;
+  horizon: string;
+  stakes: "low" | "medium" | "high";
+  recommendation: string;
+  recommendationSummary: string;
+  confidence: number;
+  options: DecisionOption[];
+  keyFactors: string[];
+  tradeoffs: string[];
+  risks: string[];
+  assumptions: string[];
+  experiments: string[];
+  nextSteps: string[];
+  regretCheck: string;
+  decisionRule: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DecisionSimulationResponse = {
+  assistantReply: string;
+  simulation: DecisionSimulation;
+  recentDecisions: DecisionSimulation[];
+  toolCalls: Array<{
+    name: string;
+    source: "static" | "llm" | "fallback";
+    summary: string;
+  }>;
+  agentTrace: string[];
+  metadata: {
+    toolsUsed: string[];
+    toolSources: {
+      decisionMemory: "static" | "llm" | "fallback";
+      simulationStorage: "static" | "llm" | "fallback";
+      answerGeneration: "static" | "llm" | "fallback";
+    };
+  };
+};
+
 export type DeepSeekBalanceResponse = {
   isAvailable: boolean;
   balances: Array<{
@@ -602,6 +653,48 @@ export async function updateCreatorDraftFromApi(params: {
   }
 
   return data as CreatorDraftUpdateResponse;
+}
+
+export async function simulateDecisionFromApi(params: {
+  backendUrl: string;
+  question: string;
+  context?: string;
+  options?: string[];
+  horizon?: string;
+  stakes?: "low" | "medium" | "high";
+}): Promise<DecisionSimulationResponse> {
+  const response = await fetch(`${params.backendUrl}/api/decisions/simulate`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      question: params.question,
+      context: params.context,
+      options: params.options,
+      horizon: params.horizon,
+      stakes: params.stakes,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<DecisionSimulationResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not simulate this decision.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    typeof data?.simulation?.recommendation !== "string" ||
+    typeof data?.simulation?.confidence !== "number" ||
+    !Array.isArray(data?.simulation?.options) ||
+    !Array.isArray(data?.agentTrace) ||
+    !Array.isArray(data?.toolCalls)
+  ) {
+    throw new Error("Backend returned an unexpected decision simulation response.");
+  }
+
+  return data as DecisionSimulationResponse;
 }
 
 export async function clearExpensesFromApi(params: {

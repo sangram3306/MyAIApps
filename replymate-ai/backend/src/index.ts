@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import chatRouter from "./routes/chatRoutes";
 import creatorRouter from "./routes/creatorRoutes";
 import coachRouter from "./routes/coachRoutes";
+import decisionRouter from "./routes/decisionRoutes";
 import expenseRouter from "./routes/expenseRoutes";
 import repliesRouter from "./routes/replies";
 import settingsRouter from "./routes/settingsRoutes";
@@ -63,6 +64,7 @@ app.use("/api/coach", coachRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/creator", creatorRouter);
+app.use("/api/decisions", decisionRouter);
 app.use("/api/settings", settingsRouter);
 
 app.use((_req: Request, res: Response) => {

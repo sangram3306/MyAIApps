@@ -299,7 +299,7 @@ export default function CreatorScreen() {
           style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.primaryButtonText}>Generate repurposed drafts</Text>
           )}
@@ -440,7 +440,7 @@ export default function CreatorScreen() {
                 <Text style={styles.secondaryButtonText}>Cancel</Text>
               </Pressable>
               <Pressable style={styles.primaryButton} onPress={() => void handleSaveDraftEdit()} disabled={savingDraft}>
-                {savingDraft ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Save</Text>}
+                {savingDraft ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Save</Text>}
               </Pressable>
             </View>
           </View>
@@ -762,7 +762,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       opacity: 0.7,
     },
     primaryButtonText: {
-      color: "#FFFFFF",
+      color: colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },
