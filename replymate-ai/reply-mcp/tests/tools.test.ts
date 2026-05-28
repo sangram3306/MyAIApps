@@ -211,10 +211,9 @@ test("expense tools perform stored expense operations", async () => {
   }
 });
 
-test("decision tools save and list simulations", async () => {
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "reply-mcp-decisions-"));
-  const originalStorePath = process.env.DECISION_STORE_PATH;
-  process.env.DECISION_STORE_PATH = path.join(tempDir, "decisions.json");
+test("decision tools return fallback when MongoDB is not configured", async () => {
+  const originalMongoUri = process.env.MONGODB_URI;
+  delete process.env.MONGODB_URI;
 
   try {
     const saved = await saveDecisionSimulationTool({
@@ -245,16 +244,16 @@ test("decision tools save and list simulations", async () => {
       decisionRule: "Move only if the time saved feels worth the rent increase.",
     });
 
-    assert.equal(saved.source, "static");
-    assert.equal(saved.simulation?.question, "Should I move closer to work?");
+    assert.equal(saved.source, "fallback");
+    assert.equal(saved.simulation, undefined);
+    assert.match(saved.summary, /MongoDB/i);
 
     const list = await listDecisionSimulationsTool({ limit: 5 });
-    assert.equal(list.source, "static");
-    assert.equal(list.count, 1);
-    assert.equal(list.simulations[0]?.recommendation, "Test the commute change before moving");
+    assert.equal(list.source, "fallback");
+    assert.equal(list.simulations.length, 0);
+    assert.match(list.summary, /MongoDB/i);
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-    restoreEnv("DECISION_STORE_PATH", originalStorePath);
+    restoreEnv("MONGODB_URI", originalMongoUri);
   }
 });
 

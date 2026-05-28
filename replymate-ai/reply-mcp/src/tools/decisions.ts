@@ -55,8 +55,14 @@ export async function saveDecisionSimulationTool(input: unknown): Promise<Decisi
     return fallback("Could not read the decision simulation.");
   }
 
-  const simulation = await createDecisionSimulation(parsed.data);
-  const simulations = await listDecisionSimulations({ limit: 10 });
+  let simulation: DecisionSimulation;
+  let simulations: DecisionSimulation[];
+  try {
+    simulation = await createDecisionSimulation(parsed.data);
+    simulations = await listDecisionSimulations({ limit: 10 });
+  } catch {
+    return fallback("Decision memory needs MongoDB to be configured.");
+  }
 
   return {
     source: "static",
@@ -74,10 +80,15 @@ export async function listDecisionSimulationsTool(input: unknown): Promise<Decis
     return fallback("Could not read the decision history request.");
   }
 
-  const simulations = await listDecisionSimulations({
-    limit: parsed.data.limit,
-    category: parsed.data.category,
-  });
+  let simulations: DecisionSimulation[];
+  try {
+    simulations = await listDecisionSimulations({
+      limit: parsed.data.limit,
+      category: parsed.data.category,
+    });
+  } catch {
+    return fallback("Decision memory needs MongoDB to be configured.");
+  }
 
   return {
     source: "static",
@@ -93,6 +104,6 @@ async function fallback(summary: string): Promise<DecisionToolOutput> {
     source: "fallback",
     confidence: 0.3,
     summary,
-    simulations: await listDecisionSimulations({ limit: 10 }).catch(() => []),
+    simulations: [],
   };
 }

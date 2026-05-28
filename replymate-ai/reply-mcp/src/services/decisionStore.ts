@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Collection, MongoClient } from "mongodb";
 
@@ -38,14 +36,6 @@ type DecisionSimulationInput = Omit<DecisionSimulation, "id" | "createdAt" | "up
 
 let mongoClientPromise: Promise<MongoClient> | null = null;
 
-function shouldUseFileStore(): boolean {
-  return Boolean(process.env.DECISION_STORE_PATH?.trim()) || !process.env.MONGODB_URI?.trim();
-}
-
-function getStorePath(): string {
-  return process.env.DECISION_STORE_PATH?.trim() || path.resolve(process.cwd(), "data", "decisions.json");
-}
-
 async function getCollection(): Promise<Collection<DecisionSimulation>> {
   const uri = process.env.MONGODB_URI?.trim();
   if (!uri) {
@@ -71,14 +61,8 @@ export async function createDecisionSimulation(input: DecisionSimulationInput): 
     updatedAt: now,
   };
 
-  if (!shouldUseFileStore()) {
-    const collection = await getCollection();
-    await collection.insertOne(simulation);
-    return simulation;
-  }
-
-  const simulations = await readFileSimulations();
-  await writeFileSimulations([simulation, ...simulations]);
+  const collection = await getCollection();
+  await collection.insertOne(simulation);
   return simulation;
 }
 
@@ -89,36 +73,9 @@ export async function listDecisionSimulations(filter: {
   const limit = Math.min(Math.max(filter.limit || 10, 1), 50);
   const category = normalizeText(filter.category || "");
 
-  if (!shouldUseFileStore()) {
-    const collection = await getCollection();
-    const query = category ? { category } : {};
-    return collection.find(query).sort({ createdAt: -1 }).limit(limit).toArray();
-  }
-
-  const simulations = await readFileSimulations();
-  return simulations
-    .filter((simulation) => (category ? simulation.category === category : true))
-    .slice(0, limit);
-}
-
-async function readFileSimulations(): Promise<DecisionSimulation[]> {
-  try {
-    const raw = await fs.readFile(getStorePath(), "utf8");
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter(isDecisionSimulation) : [];
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return [];
-    }
-
-    throw error;
-  }
-}
-
-async function writeFileSimulations(simulations: DecisionSimulation[]): Promise<void> {
-  const filePath = getStorePath();
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(simulations, null, 2), "utf8");
+  const collection = await getCollection();
+  const query = category ? { category } : {};
+  return collection.find(query).sort({ createdAt: -1 }).limit(limit).toArray();
 }
 
 function sanitizeDecisionSimulationInput(input: DecisionSimulationInput): DecisionSimulationInput {
@@ -176,38 +133,4 @@ function normalizeText(value: string): string {
 
 function normalizeSentence(value: string): string {
   return value.replace(/\s+/g, " ").trim();
-}
-
-function isDecisionSimulation(value: unknown): value is DecisionSimulation {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const item = value as Record<string, unknown>;
-  return (
-    typeof item.id === "string" &&
-    typeof item.question === "string" &&
-    typeof item.context === "string" &&
-    typeof item.category === "string" &&
-    typeof item.horizon === "string" &&
-    (item.stakes === "low" || item.stakes === "medium" || item.stakes === "high") &&
-    typeof item.recommendation === "string" &&
-    typeof item.recommendationSummary === "string" &&
-    typeof item.confidence === "number" &&
-    Array.isArray(item.options) &&
-    Array.isArray(item.keyFactors) &&
-    Array.isArray(item.tradeoffs) &&
-    Array.isArray(item.risks) &&
-    Array.isArray(item.assumptions) &&
-    Array.isArray(item.experiments) &&
-    Array.isArray(item.nextSteps) &&
-    typeof item.regretCheck === "string" &&
-    typeof item.decisionRule === "string" &&
-    typeof item.createdAt === "string" &&
-    typeof item.updatedAt === "string"
-  );
-}
-
-function isMissingFileError(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
 }
