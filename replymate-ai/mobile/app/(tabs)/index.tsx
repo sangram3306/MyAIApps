@@ -179,6 +179,11 @@ export default function HomeScreen() {
               onPress={() => router.push("/expenses" as never)}
               styles={quickActionStyles}
             />
+            <QuickAction
+              label="Creator"
+              onPress={() => router.push("/creator" as never)}
+              styles={quickActionStyles}
+            />
           </View>
         ) : null}
 

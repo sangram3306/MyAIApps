@@ -190,6 +190,102 @@ export type ExpenseExportResponse = {
   count: number;
 };
 
+export type ExpenseIntelligenceResponse = {
+  period: "all" | "month" | "year";
+  exportedAt: string;
+  total: number;
+  count: number;
+  average: number;
+  byCategory: Array<{ category: string; total: number; count: number }>;
+  expenses: ExpenseItem[];
+  intelligence: {
+    headline: string;
+    summary: string;
+    highlights: string[];
+    opportunities: string[];
+    anomalies: string[];
+    recurringPatterns: string[];
+    forecast: {
+      label: string;
+      amount: number;
+      rationale: string;
+    };
+  };
+  source: {
+    expenseSkill: "static" | "llm" | "fallback";
+    analysis: "static" | "llm" | "fallback";
+  };
+};
+
+export type CreatorDraft = {
+  id: string;
+  sourceText: string;
+  sourceType: string;
+  audience: string;
+  goal: string;
+  tone: string;
+  platformOutputs: Record<string, unknown>;
+  title: string;
+  summary: string;
+  hook: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatorRepurposeResponse = {
+  assistantReply: string;
+  repurpose: {
+    title: string;
+    summary: string;
+    hook: string;
+    platformOutputs: {
+      x?: {
+        post: string;
+        thread: string[];
+        hashtags: string[];
+      };
+      linkedin?: {
+        post: string;
+        headline: string;
+      };
+      instagram?: {
+        caption: string;
+        hashtags: string[];
+      };
+      email?: {
+        subject: string;
+        body: string;
+      };
+      thread?: {
+        hook: string;
+        posts: string[];
+      };
+    };
+    repurposeTips: string[];
+  };
+  savedDraft: CreatorDraft | null;
+  saved: boolean;
+  agentTrace: string[];
+  metadata: {
+    toolsUsed: string[];
+    toolSources: {
+      contentGeneration: "static" | "llm" | "fallback";
+      draftStorage: "static" | "llm" | "fallback";
+    };
+  };
+};
+
+export type CreatorDraftsResponse = {
+  drafts: CreatorDraft[];
+  count: number;
+};
+
+export type CreatorDraftUpdateResponse = {
+  updated: boolean;
+  draft: CreatorDraft | null;
+  summary: string;
+};
+
 export type DeepSeekBalanceResponse = {
   isAvailable: boolean;
   balances: Array<{
@@ -368,6 +464,144 @@ export async function getExpenseExportFromApi(params: {
   }
 
   return data as ExpenseExportResponse;
+}
+
+export async function getExpenseIntelligenceFromApi(params: {
+  backendUrl: string;
+  period?: "all" | "month" | "year";
+}): Promise<ExpenseIntelligenceResponse> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/intelligence`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      period: params.period || "month",
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<ExpenseIntelligenceResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not analyze expenses.");
+  }
+
+  if (
+    typeof data?.period !== "string" ||
+    typeof data?.exportedAt !== "string" ||
+    typeof data?.total !== "number" ||
+    typeof data?.count !== "number" ||
+    typeof data?.average !== "number" ||
+    !Array.isArray(data?.byCategory) ||
+    !Array.isArray(data?.expenses) ||
+    typeof data?.intelligence?.headline !== "string" ||
+    typeof data?.intelligence?.summary !== "string"
+  ) {
+    throw new Error("Backend returned an unexpected expense intelligence response.");
+  }
+
+  return data as ExpenseIntelligenceResponse;
+}
+
+export async function repurposeContentFromApi(params: {
+  backendUrl: string;
+  sourceText: string;
+  sourceType?: string;
+  audience?: string;
+  goal?: string;
+  tone?: string;
+  platforms?: Array<"x" | "linkedin" | "instagram" | "email" | "thread">;
+}): Promise<CreatorRepurposeResponse> {
+  const response = await fetch(`${params.backendUrl}/api/creator/repurpose`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      sourceText: params.sourceText,
+      sourceType: params.sourceType,
+      audience: params.audience,
+      goal: params.goal,
+      tone: params.tone,
+      platforms: params.platforms,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<CreatorRepurposeResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not repurpose content.");
+  }
+
+  if (
+    typeof data?.assistantReply !== "string" ||
+    typeof data?.repurpose?.title !== "string" ||
+    typeof data?.repurpose?.summary !== "string" ||
+    typeof data?.repurpose?.hook !== "string" ||
+    !Array.isArray(data?.agentTrace)
+  ) {
+    throw new Error("Backend returned an unexpected creator response.");
+  }
+
+  return data as CreatorRepurposeResponse;
+}
+
+export async function getCreatorDraftsFromApi(params: {
+  backendUrl: string;
+}): Promise<CreatorDraftsResponse> {
+  const response = await fetch(`${params.backendUrl}/api/creator/drafts`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<CreatorDraftsResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not load drafts.");
+  }
+
+  if (!Array.isArray(data?.drafts) || typeof data?.count !== "number") {
+    throw new Error("Backend returned an unexpected drafts response.");
+  }
+
+  return data as CreatorDraftsResponse;
+}
+
+export async function updateCreatorDraftFromApi(params: {
+  backendUrl: string;
+  id: string;
+  title: string;
+  summary: string;
+  hook: string;
+  platformOutputs?: Record<string, unknown>;
+}): Promise<CreatorDraftUpdateResponse> {
+  const response = await fetch(`${params.backendUrl}/api/creator/drafts/update`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      id: params.id,
+      title: params.title,
+      summary: params.summary,
+      hook: params.hook,
+      platformOutputs: params.platformOutputs,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<CreatorDraftUpdateResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not update draft.");
+  }
+
+  if (typeof data?.updated !== "boolean" || typeof data?.summary !== "string") {
+    throw new Error("Backend returned an unexpected draft update response.");
+  }
+
+  return data as CreatorDraftUpdateResponse;
 }
 
 export async function clearExpensesFromApi(params: {

@@ -267,6 +267,22 @@ export default function ExpensesScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.linkCard}>
+          <View style={styles.linkCopy}>
+            <Text style={styles.linkTitle}>Expense Intelligence</Text>
+            <Text style={styles.linkSubtitle}>
+              Ask AI to explain spending patterns, pressure points, and opportunities to save.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/expense-intelligence" as never)}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkButtonText}>Open insights</Text>
+            <Ionicons name="chevron-forward" color="#07110D" size={16} />
+          </Pressable>
+        </View>
+
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Save Expense</Text>

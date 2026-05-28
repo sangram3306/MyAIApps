@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import chatRouter from "./routes/chatRoutes";
+import creatorRouter from "./routes/creatorRoutes";
 import coachRouter from "./routes/coachRoutes";
 import expenseRouter from "./routes/expenseRoutes";
 import repliesRouter from "./routes/replies";
@@ -61,6 +62,7 @@ app.use("/api/replies", repliesRouter);
 app.use("/api/coach", coachRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/expenses", expenseRouter);
+app.use("/api/creator", creatorRouter);
 app.use("/api/settings", settingsRouter);
 
 app.use((_req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 import { GenerateRepliesInput } from "../schemas/replySchemas";
 import { CoachDraftInput } from "../agents/replyCoachTypes";
+import { CreatorRepurposeInput } from "../schemas/creatorSchemas";
 import { getMockGrammarFixes, getMockReplies, getMockRewrites } from "../utils/mockReplies";
 import { parseRepliesFromModel } from "../utils/parseReplies";
 import { callChatCompletion, hasConfiguredLlmApiKey } from "./llmService";
@@ -147,6 +148,169 @@ export async function generateCoachOutput(input: CoachDraftInput): Promise<{
   return parsed;
 }
 
+export type ExpenseIntelligenceInput = {
+  period: "all" | "month" | "year";
+  total: number;
+  count: number;
+  average: number;
+  currency?: "AED" | "INR";
+  byCategory: Array<{ category: string; total: number; count: number }>;
+  recurringPatterns: string[];
+  peakPeriod: string;
+  largestExpense?: { amount: number; category: string; description: string; date: string };
+  comparedPeriod?: { label: string; total: number; difference: number };
+};
+
+export type ExpenseIntelligenceReport = {
+  headline: string;
+  summary: string;
+  highlights: string[];
+  opportunities: string[];
+  anomalies: string[];
+  recurringPatterns: string[];
+  forecast: {
+    label: string;
+    amount: number;
+    rationale: string;
+  };
+};
+
+export async function generateExpenseIntelligence(
+  input: ExpenseIntelligenceInput,
+): Promise<ExpenseIntelligenceReport> {
+  if (!hasConfiguredLlmApiKey()) {
+    return buildMockExpenseIntelligence(input);
+  }
+
+  const completion = await callChatCompletion({
+    temperature: 0.25,
+    maxTokens: 700,
+    responseFormat: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are ReplyMate AI Expense Intelligence. Return only valid JSON, no markdown, and no hidden reasoning.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          task: "Analyze spending patterns and produce a short practical insight report.",
+          input,
+          outputSchema: {
+            headline: "string",
+            summary: "string",
+            highlights: ["string"],
+            opportunities: ["string"],
+            anomalies: ["string"],
+            recurringPatterns: ["string"],
+            forecast: {
+              label: "string",
+              amount: "number",
+              rationale: "string",
+            },
+          },
+          rules: [
+            "Keep the language user-friendly and actionable.",
+            "Mention notable spending concentration or budget pressure.",
+            "Keep highlights short.",
+            "Use the provided recurring patterns only if relevant.",
+          ],
+        }),
+      },
+    ],
+  });
+
+  const parsed = safeParseExpenseIntelligenceJson(completion.content || "");
+  if (!parsed) {
+    throw new Error("Model response did not contain valid expense intelligence JSON.");
+  }
+
+  return parsed;
+}
+
+export type CreatorRepurposeReport = {
+  title: string;
+  summary: string;
+  hook: string;
+  platformOutputs: {
+    x?: {
+      post: string;
+      thread: string[];
+      hashtags: string[];
+    };
+    linkedin?: {
+      post: string;
+      headline: string;
+    };
+    instagram?: {
+      caption: string;
+      hashtags: string[];
+    };
+    email?: {
+      subject: string;
+      body: string;
+    };
+    thread?: {
+      hook: string;
+      posts: string[];
+    };
+  };
+  repurposeTips: string[];
+};
+
+export async function generateCreatorRepurpose(input: CreatorRepurposeInput): Promise<CreatorRepurposeReport> {
+  if (!hasConfiguredLlmApiKey()) {
+    return buildMockCreatorRepurpose(input);
+  }
+
+  const completion = await callChatCompletion({
+    temperature: 0.45,
+    maxTokens: 1200,
+    responseFormat: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are ReplyMate AI Creator Studio. Transform source content into polished platform-ready drafts. Return only valid JSON and no markdown.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          task: "Repurpose source content for multiple platforms.",
+          input,
+          outputSchema: {
+            title: "string",
+            summary: "string",
+            hook: "string",
+            platformOutputs: {
+              x: { post: "string", thread: ["string"], hashtags: ["string"] },
+              linkedin: { post: "string", headline: "string" },
+              instagram: { caption: "string", hashtags: ["string"] },
+              email: { subject: "string", body: "string" },
+              thread: { hook: "string", posts: ["string"] },
+            },
+            repurposeTips: ["string"],
+          },
+          rules: [
+            "Only include platform sections requested by the input.",
+            "Keep copy natural, useful, and ready to publish.",
+            "Threads should be concise and numbered logically.",
+            "Hashtags should be relevant, not spammy.",
+          ],
+        }),
+      },
+    ],
+  });
+
+  const parsed = safeParseCreatorJson(completion.content || "");
+  if (!parsed) {
+    throw new Error("Model response did not contain valid creator JSON.");
+  }
+
+  return parsed;
+}
+
 async function generateWithNvidia({
   input,
   mockFallback,
@@ -223,6 +387,171 @@ function buildCoachPrompt(input: CoachDraftInput): string {
       recommendedReply: "string",
     },
   });
+}
+
+function safeParseExpenseIntelligenceJson(content: string): ExpenseIntelligenceReport | null {
+  try {
+    const parsed = JSON.parse(content) as Partial<ExpenseIntelligenceReport>;
+    if (
+      typeof parsed.headline !== "string" ||
+      typeof parsed.summary !== "string" ||
+      !Array.isArray(parsed.highlights) ||
+      !Array.isArray(parsed.opportunities) ||
+      !Array.isArray(parsed.anomalies) ||
+      !Array.isArray(parsed.recurringPatterns) ||
+      !parsed.forecast ||
+      typeof parsed.forecast.label !== "string" ||
+      typeof parsed.forecast.amount !== "number" ||
+      typeof parsed.forecast.rationale !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      headline: parsed.headline,
+      summary: parsed.summary,
+      highlights: parsed.highlights.filter((item): item is string => typeof item === "string"),
+      opportunities: parsed.opportunities.filter((item): item is string => typeof item === "string"),
+      anomalies: parsed.anomalies.filter((item): item is string => typeof item === "string"),
+      recurringPatterns: parsed.recurringPatterns.filter(
+        (item): item is string => typeof item === "string",
+      ),
+      forecast: {
+        label: parsed.forecast.label,
+        amount: parsed.forecast.amount,
+        rationale: parsed.forecast.rationale,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function safeParseCreatorJson(content: string): CreatorRepurposeReport | null {
+  try {
+    const parsed = JSON.parse(content) as Partial<CreatorRepurposeReport>;
+    if (
+      typeof parsed.title !== "string" ||
+      typeof parsed.summary !== "string" ||
+      typeof parsed.hook !== "string" ||
+      !parsed.platformOutputs ||
+      !Array.isArray(parsed.repurposeTips)
+    ) {
+      return null;
+    }
+
+    return {
+      title: parsed.title,
+      summary: parsed.summary,
+      hook: parsed.hook,
+      platformOutputs: parsed.platformOutputs,
+      repurposeTips: parsed.repurposeTips.filter((item): item is string => typeof item === "string"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildMockExpenseIntelligence(input: ExpenseIntelligenceInput): ExpenseIntelligenceReport {
+  const topCategory = input.byCategory[0];
+  return {
+    headline: `${capitalize(input.period)} spending stays ${input.total > 0 ? "active" : "quiet"}`,
+    summary:
+      input.count > 0
+        ? `You made ${input.count} expense entries totaling ${formatAmountForPrompt(input.total, input.currency)}.`
+        : "There is not enough spending data yet to build a trend report.",
+    highlights: [
+      topCategory
+        ? `${topCategory.category} is the top category at ${formatAmountForPrompt(topCategory.total, input.currency)}.`
+        : "No category data yet.",
+      `Average spend per entry is ${formatAmountForPrompt(input.average, input.currency)}.`,
+      input.peakPeriod ? `Peak period: ${input.peakPeriod}.` : "No peak period identified yet.",
+    ].filter(Boolean),
+    opportunities: [
+      input.comparedPeriod
+        ? `Compared with ${input.comparedPeriod.label}, spending changed by ${formatAmountForPrompt(
+            input.comparedPeriod.difference,
+            input.currency,
+          )}.`
+        : "Compare this period with the previous one to spot drift.",
+      "Watch for repeated small purchases that can add up fast.",
+    ],
+    anomalies: input.largestExpense
+      ? [`Largest expense: ${input.largestExpense.description} at ${formatAmountForPrompt(input.largestExpense.amount, input.currency)}.`]
+      : ["No clear anomaly yet."],
+    recurringPatterns: input.recurringPatterns.length
+      ? input.recurringPatterns
+      : ["No recurring patterns detected yet."],
+    forecast: {
+      label: input.period === "year" ? "Next year estimate" : "Next period estimate",
+      amount: Math.max(0, Math.round(input.total * 1.05)),
+      rationale: "Simple trend projection based on the current period total.",
+    },
+  };
+}
+
+function buildMockCreatorRepurpose(input: CreatorRepurposeInput): CreatorRepurposeReport {
+  const base = input.sourceText.slice(0, 120).trim();
+  const xPost = `${base}${base.length >= input.sourceText.length ? "" : "..."}\n\n${input.goal}.`;
+  return {
+    title: `${capitalize(input.goal)} for ${input.audience}`,
+    summary: `Repurposed the source into platform-ready drafts for ${input.platforms.join(", ")}.`,
+    hook: `Turn ${input.sourceType} into something useful for ${input.audience}.`,
+    platformOutputs: {
+      x: input.platforms.includes("x")
+        ? {
+            post: xPost,
+            thread: [xPost, "Key point 2", "Key point 3"],
+            hashtags: ["#creator", "#content"],
+          }
+        : undefined,
+      linkedin: input.platforms.includes("linkedin")
+        ? {
+            headline: `${capitalize(input.goal)} with a practical angle`,
+            post: `If you're building for ${input.audience}, here is a clearer take:\n\n${base}`,
+          }
+        : undefined,
+      instagram: input.platforms.includes("instagram")
+        ? {
+            caption: `${base}\n\n${input.goal}`,
+            hashtags: ["#contentcreator", "#storytelling"],
+          }
+        : undefined,
+      email: input.platforms.includes("email")
+        ? {
+            subject: `${capitalize(input.goal)} update`,
+            body: `Hi,\n\n${base}\n\nBest,\nReplyMate`,
+          }
+        : undefined,
+      thread: input.platforms.includes("thread")
+        ? {
+            hook: `${capitalize(input.goal)} thread`,
+            posts: [base, "Detail 2", "Detail 3"],
+          }
+        : undefined,
+    },
+    repurposeTips: [
+      "Start with the strongest angle first.",
+      "Shorten the copy before posting on X.",
+      "Add one clear CTA for better engagement.",
+    ],
+  };
+}
+
+function formatAmountForPrompt(amount: number, currency?: "AED" | "INR"): string {
+  const formatted = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  }).format(amount);
+  return currency ? `${currency} ${formatted}` : formatted;
+}
+
+function capitalize(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function safeParseCoachJson(content: string): {
