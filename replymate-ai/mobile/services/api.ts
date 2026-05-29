@@ -374,6 +374,7 @@ export type SkillTreeResponse = {
   skillTree: SkillTree;
   recentSkillTrees: SkillTree[];
   saved: boolean;
+  saveSummary?: string;
   toolCalls: Array<{
     name: string;
     source: "static" | "llm" | "fallback";
@@ -421,6 +422,7 @@ export type LearningRoadmapResponse = {
   roadmap: LearningRoadmap;
   recentRoadmaps: LearningRoadmap[];
   saved: boolean;
+  saveSummary?: string;
   toolCalls: Array<{
     name: string;
     source: "static" | "llm" | "fallback";

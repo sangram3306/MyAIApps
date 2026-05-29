@@ -86,6 +86,7 @@ export type SkillTreeResponse = {
   skillTree: SkillTree;
   recentSkillTrees: SkillTree[];
   saved: boolean;
+  saveSummary: string;
   toolCalls: ToolCallSummary[];
   agentTrace: string[];
   metadata: {
@@ -103,6 +104,7 @@ export type RoadmapResponse = {
   roadmap: LearningRoadmap;
   recentRoadmaps: LearningRoadmap[];
   saved: boolean;
+  saveSummary: string;
   toolCalls: ToolCallSummary[];
   agentTrace: string[];
   metadata: {
@@ -150,12 +152,14 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
 
   const skillTree = saved.skillTree || withSkillTreeMetadata(generated);
   const savedToDb = Boolean(saved.skillTree);
+  const saveSummary = saved.summary || (savedToDb ? "Saved to MongoDB." : "Save skipped.");
 
   return {
-    assistantReply: `${skillTree.skillName} is mapped into ${skillTree.branches.length} branches with ${skillTree.weeklyQuests.length} weekly quests.${savedToDb ? " I saved it to your skill memory." : ""}`,
+    assistantReply: `${skillTree.skillName} is mapped into ${skillTree.branches.length} branches with ${skillTree.weeklyQuests.length} weekly quests.${savedToDb ? " I saved it to your skill memory." : " I could not save this to DB."}`,
     skillTree,
     recentSkillTrees: recent.skillTrees || [],
     saved: savedToDb,
+    saveSummary,
     toolCalls,
     agentTrace: [...trace, "Returned skill tree response"],
     metadata: {
@@ -187,12 +191,14 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
 
   const roadmap = saved.roadmap || withRoadmapMetadata(generated);
   const savedToDb = Boolean(saved.roadmap);
+  const saveSummary = saved.summary || (savedToDb ? "Saved to MongoDB." : "Save skipped.");
 
   return {
-    assistantReply: `${roadmap.topic} is planned across ${roadmap.phases.length} phases for ${roadmap.timeline}.${savedToDb ? " I saved it to your learning memory." : ""}`,
+    assistantReply: `${roadmap.topic} is planned across ${roadmap.phases.length} phases for ${roadmap.timeline}.${savedToDb ? " I saved it to your learning memory." : " I could not save this to DB."}`,
     roadmap,
     recentRoadmaps: recent.roadmaps || [],
     saved: savedToDb,
+    saveSummary,
     toolCalls,
     agentTrace: [...trace, "Returned roadmap response"],
     metadata: {

@@ -93,9 +93,7 @@ export default function SkillTreeScreen() {
         focusAreas: parseList(focusAreas),
       });
       setResult(response);
-      if (response.saved) {
-        await loadHistory(backendUrl);
-      }
+      await loadHistory(backendUrl);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not build this skill tree.");
     } finally {
@@ -162,6 +160,7 @@ export default function SkillTreeScreen() {
               <Text style={styles.kicker}>{result.saved ? "Saved to DB" : "Generated"}</Text>
               <Text style={styles.resultTitle}>{tree.skillName}</Text>
               <Text style={styles.bodyText}>{tree.overview}</Text>
+              {result.saveSummary ? <Text style={styles.saveSummary}>{result.saveSummary}</Text> : null}
             </View>
 
             {tree.branches.map((branch) => (
@@ -233,6 +232,7 @@ export default function SkillTreeScreen() {
                 <Text style={styles.historyMeta}>
                   {savedTree.currentLevel} to {savedTree.targetLevel} | {savedTree.branches.length} branches
                 </Text>
+                <Text style={styles.historyDate}>{formatDate(savedTree.updatedAt || savedTree.createdAt)}</Text>
               </View>
               <Ionicons name="chevron-forward" color={colors.muted} size={16} />
             </Pressable>
@@ -364,6 +364,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     results: { gap: spacing.md },
     kicker: { color: colors.primary, fontSize: 11, fontWeight: "900", letterSpacing: 0.9, textTransform: "uppercase" },
     resultTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
+    saveSummary: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 18,
+    },
     sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
     bodyText: { color: colors.text, flex: 1, fontSize: 14, lineHeight: 21 },
     mutedText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
@@ -403,6 +408,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.muted,
       fontSize: 12,
     },
+    historyDate: {
+      color: colors.muted,
+      fontSize: 11,
+    },
     historySource: {
       color: colors.primary,
       fontSize: 11,
@@ -410,4 +419,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       textTransform: "uppercase",
     },
   });
+}
+
+function formatDate(value: string | undefined): string {
+  if (!value) {
+    return "Unknown date";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }

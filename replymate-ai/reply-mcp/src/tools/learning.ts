@@ -102,8 +102,9 @@ export async function saveSkillTreeTool(input: unknown): Promise<LearningToolOut
       skillTrees,
       count: skillTrees.length,
     };
-  } catch {
-    return fallback("Skill tree storage needs MongoDB to be configured.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Skill tree storage failed: ${message}`);
   }
 }
 
@@ -125,8 +126,9 @@ export async function listSkillTreesTool(input: unknown): Promise<LearningToolOu
       skillTrees,
       count: skillTrees.length,
     };
-  } catch {
-    return fallback("Skill tree storage needs MongoDB to be configured.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Skill tree history failed: ${message}`);
   }
 }
 
@@ -147,8 +149,9 @@ export async function saveLearningRoadmapTool(input: unknown): Promise<LearningT
       roadmaps,
       count: roadmaps.length,
     };
-  } catch {
-    return fallback("Learning roadmap storage needs MongoDB to be configured.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Learning roadmap storage failed: ${message}`);
   }
 }
 
@@ -170,8 +173,9 @@ export async function listLearningRoadmapsTool(input: unknown): Promise<Learning
       roadmaps,
       count: roadmaps.length,
     };
-  } catch {
-    return fallback("Learning roadmap storage needs MongoDB to be configured.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Learning roadmap history failed: ${message}`);
   }
 }
 
