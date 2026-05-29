@@ -125,6 +125,18 @@ export default function LearningRoadmapScreen() {
           <View style={styles.results}>
             <View style={styles.heroCard}>
               <Text style={styles.kicker}>{result.saved ? "Saved to DB" : "Generated"}</Text>
+              <View style={styles.sourcePill}>
+                <Ionicons
+                  name={result.metadata?.toolSources.planGeneration === "llm" ? "flash-outline" : "warning-outline"}
+                  color={result.metadata?.toolSources.planGeneration === "llm" ? colors.primary : colors.danger}
+                  size={14}
+                />
+                <Text style={styles.sourceText}>
+                  {result.metadata?.toolSources.planGeneration === "llm"
+                    ? "Generation source: LLM"
+                    : "Generation source: Fallback (LLM unavailable/failed)"}
+                </Text>
+              </View>
               <Text style={styles.resultTitle}>{roadmap.topic}</Text>
               <Text style={styles.bodyText}>{roadmap.overview}</Text>
             </View>
@@ -260,6 +272,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     subtitle: { color: colors.muted, fontSize: 15, lineHeight: 23 },
     card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: spacing.md, padding: spacing.md },
     heroCard: { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong, borderRadius: 24, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
+    sourcePill: {
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    sourceText: { color: colors.text, fontSize: 11, fontWeight: "700" },
     field: { flex: 1, gap: spacing.xs },
     fieldRow: { flexDirection: "row", gap: spacing.sm },
     label: { color: colors.primary, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },

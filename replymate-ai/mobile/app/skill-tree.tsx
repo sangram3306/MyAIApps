@@ -229,6 +229,18 @@ export default function SkillTreeScreen() {
           <View style={styles.results}>
             <View style={styles.heroCard}>
               <Text style={styles.kicker}>{result.saved ? "Saved to DB" : "Generated"}</Text>
+              <View style={styles.sourcePill}>
+                <Ionicons
+                  name={result.metadata?.toolSources.planGeneration === "llm" ? "flash-outline" : "warning-outline"}
+                  color={result.metadata?.toolSources.planGeneration === "llm" ? colors.primary : colors.danger}
+                  size={14}
+                />
+                <Text style={styles.sourceText}>
+                  {result.metadata?.toolSources.planGeneration === "llm"
+                    ? "Generation source: LLM"
+                    : "Generation source: Fallback (LLM unavailable/failed)"}
+                </Text>
+              </View>
               <Text style={styles.resultTitle}>{tree.skillName}</Text>
               <Text style={styles.bodyText}>{tree.overview}</Text>
               {result.saveSummary ? <Text style={styles.saveSummary}>{result.saveSummary}</Text> : null}
@@ -477,6 +489,23 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.muted,
       fontSize: 12,
       lineHeight: 18,
+    },
+    sourcePill: {
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    sourceText: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: "700",
     },
     sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
     bodyText: { color: colors.text, flex: 1, fontSize: 14, lineHeight: 21 },

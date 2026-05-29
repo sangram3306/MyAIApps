@@ -141,9 +141,22 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
   toolCalls.push({ name: "listSkillTrees", source: recent.source, summary: recent.summary });
   trace.push("Loaded skill memory");
 
-  const generated = hasConfiguredLlmApiKey()
-    ? await generateSkillTreeWithLlm(input, recent.skillTrees || []).catch(() => localSkillTree(input))
-    : localSkillTree(input);
+  let planSource: Source = "fallback";
+  let generated: Omit<SkillTree, "id" | "createdAt" | "updatedAt">;
+  if (hasConfiguredLlmApiKey()) {
+    try {
+      generated = await generateSkillTreeWithLlm(input, recent.skillTrees || []);
+      planSource = "llm";
+    } catch {
+      generated = localSkillTree(input);
+      planSource = "fallback";
+      trace.push("LLM generation failed, used fallback planner");
+    }
+  } else {
+    generated = localSkillTree(input);
+    planSource = "fallback";
+    trace.push("LLM key missing, used fallback planner");
+  }
   trace.push("Generated skill tree");
 
   const saved = await callLearningTool("saveSkillTree", generated);
@@ -167,7 +180,7 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
       toolSources: {
         skillMemory: recent.source,
         skillStorage: saved.source,
-        planGeneration: hasConfiguredLlmApiKey() ? "llm" : "fallback",
+        planGeneration: planSource,
       },
     },
   };
@@ -180,9 +193,22 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
   toolCalls.push({ name: "listLearningRoadmaps", source: recent.source, summary: recent.summary });
   trace.push("Loaded roadmap memory");
 
-  const generated = hasConfiguredLlmApiKey()
-    ? await generateRoadmapWithLlm(input, recent.roadmaps || []).catch(() => localRoadmap(input))
-    : localRoadmap(input);
+  let planSource: Source = "fallback";
+  let generated: Omit<LearningRoadmap, "id" | "createdAt" | "updatedAt">;
+  if (hasConfiguredLlmApiKey()) {
+    try {
+      generated = await generateRoadmapWithLlm(input, recent.roadmaps || []);
+      planSource = "llm";
+    } catch {
+      generated = localRoadmap(input);
+      planSource = "fallback";
+      trace.push("LLM generation failed, used fallback planner");
+    }
+  } else {
+    generated = localRoadmap(input);
+    planSource = "fallback";
+    trace.push("LLM key missing, used fallback planner");
+  }
   trace.push("Generated learning roadmap");
 
   const saved = await callLearningTool("saveLearningRoadmap", generated);
@@ -206,7 +232,7 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
       toolSources: {
         roadmapMemory: recent.source,
         roadmapStorage: saved.source,
-        planGeneration: hasConfiguredLlmApiKey() ? "llm" : "fallback",
+        planGeneration: planSource,
       },
     },
   };
