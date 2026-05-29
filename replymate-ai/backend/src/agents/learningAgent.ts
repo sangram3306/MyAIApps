@@ -159,16 +159,13 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
   }
   trace.push("Generated skill tree");
 
-  const saved = await callLearningTool("saveSkillTree", generated);
-  toolCalls.push({ name: "saveSkillTree", source: saved.source, summary: saved.summary });
-  trace.push(saved.skillTree ? "Saved skill tree to MongoDB" : "Returned skill tree without DB save");
-
-  const skillTree = saved.skillTree || withSkillTreeMetadata(generated);
-  const savedToDb = Boolean(saved.skillTree);
-  const saveSummary = saved.summary || (savedToDb ? "Saved to MongoDB." : "Save skipped.");
+  const skillTree = withSkillTreeMetadata(generated);
+  const savedToDb = false;
+  const saveSummary = "Not saved yet. Tap Save to store this skill tree.";
+  trace.push("Auto-save disabled; waiting for manual save");
 
   return {
-    assistantReply: `${skillTree.skillName} is mapped into ${skillTree.branches.length} branches with ${skillTree.weeklyQuests.length} weekly quests.${savedToDb ? " I saved it to your skill memory." : " I could not save this to DB."}`,
+    assistantReply: `${skillTree.skillName} is mapped into ${skillTree.branches.length} branches with ${skillTree.weeklyQuests.length} weekly quests.`,
     skillTree,
     recentSkillTrees: recent.skillTrees || [],
     saved: savedToDb,
@@ -179,7 +176,7 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
       toolsUsed: ["learningAgent", ...toolCalls.map((tool) => tool.name)],
       toolSources: {
         skillMemory: recent.source,
-        skillStorage: saved.source,
+        skillStorage: "fallback",
         planGeneration: planSource,
       },
     },
@@ -211,16 +208,13 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
   }
   trace.push("Generated learning roadmap");
 
-  const saved = await callLearningTool("saveLearningRoadmap", generated);
-  toolCalls.push({ name: "saveLearningRoadmap", source: saved.source, summary: saved.summary });
-  trace.push(saved.roadmap ? "Saved roadmap to MongoDB" : "Returned roadmap without DB save");
-
-  const roadmap = saved.roadmap || withRoadmapMetadata(generated);
-  const savedToDb = Boolean(saved.roadmap);
-  const saveSummary = saved.summary || (savedToDb ? "Saved to MongoDB." : "Save skipped.");
+  const roadmap = withRoadmapMetadata(generated);
+  const savedToDb = false;
+  const saveSummary = "Not saved yet. Tap Save to store this roadmap.";
+  trace.push("Auto-save disabled; waiting for manual save");
 
   return {
-    assistantReply: `${roadmap.topic} is planned across ${roadmap.phases.length} phases for ${roadmap.timeline}.${savedToDb ? " I saved it to your learning memory." : " I could not save this to DB."}`,
+    assistantReply: `${roadmap.topic} is planned across ${roadmap.phases.length} phases for ${roadmap.timeline}.`,
     roadmap,
     recentRoadmaps: recent.roadmaps || [],
     saved: savedToDb,
@@ -231,7 +225,7 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
       toolsUsed: ["learningAgent", ...toolCalls.map((tool) => tool.name)],
       toolSources: {
         roadmapMemory: recent.source,
-        roadmapStorage: saved.source,
+        roadmapStorage: "fallback",
         planGeneration: planSource,
       },
     },

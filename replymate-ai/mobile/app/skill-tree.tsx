@@ -169,6 +169,9 @@ export default function SkillTreeScreen() {
   }
 
   const tree = result?.skillTree;
+  const planGenerationSource = result?.metadata?.toolSources.planGeneration;
+  const isLlmGeneration = planGenerationSource === "llm";
+  const isSavedHistoryGeneration = planGenerationSource === "static";
 
   return (
     <KeyboardAvoidingView
@@ -231,14 +234,16 @@ export default function SkillTreeScreen() {
               <Text style={styles.kicker}>{result.saved ? "Saved to DB" : "Generated"}</Text>
               <View style={styles.sourcePill}>
                 <Ionicons
-                  name={result.metadata?.toolSources.planGeneration === "llm" ? "flash-outline" : "warning-outline"}
-                  color={result.metadata?.toolSources.planGeneration === "llm" ? colors.primary : colors.danger}
+                  name={isLlmGeneration ? "flash-outline" : isSavedHistoryGeneration ? "archive-outline" : "warning-outline"}
+                  color={isLlmGeneration ? colors.primary : isSavedHistoryGeneration ? colors.text : colors.danger}
                   size={14}
                 />
                 <Text style={styles.sourceText}>
-                  {result.metadata?.toolSources.planGeneration === "llm"
+                  {isLlmGeneration
                     ? "Generation source: LLM"
-                    : "Generation source: Fallback (LLM unavailable/failed)"}
+                    : isSavedHistoryGeneration
+                      ? "Generation source: Saved history"
+                      : "Generation source: Fallback (LLM unavailable/failed)"}
                 </Text>
               </View>
               <Text style={styles.resultTitle}>{tree.skillName}</Text>
@@ -306,6 +311,7 @@ export default function SkillTreeScreen() {
                         recentSkillTrees: historyTrees,
                         saved: true,
                         saveSummary: "Loaded from saved history.",
+                        metadata: { toolSources: { planGeneration: "static" } },
                         toolCalls: [],
                         agentTrace: [],
                       };
@@ -317,6 +323,7 @@ export default function SkillTreeScreen() {
                       recentSkillTrees: historyTrees,
                       saved: true,
                       saveSummary: "Loaded from saved history.",
+                      metadata: { toolSources: { planGeneration: "static" } },
                     };
                   });
                   scrollRef.current?.scrollTo({ y: 0, animated: true });
