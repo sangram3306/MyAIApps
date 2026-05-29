@@ -456,6 +456,27 @@ export type LearningRoadmapResponse = {
   agentTrace: string[];
 };
 
+export type LearningRoadmapHistoryResponse = {
+  roadmaps: LearningRoadmap[];
+  count: number;
+  source: "static" | "llm" | "fallback";
+};
+
+export type SaveLearningRoadmapResponse = {
+  saved: boolean;
+  summary: string;
+  source: "static" | "llm" | "fallback";
+  roadmap: LearningRoadmap | null;
+};
+
+export type DeleteLearningRoadmapResponse = {
+  deleted: boolean;
+  deletedCount: number;
+  id: string;
+  summary: string;
+  source: "static" | "llm" | "fallback";
+};
+
 export type DeepSeekBalanceResponse = {
   isAvailable: boolean;
   balances: Array<{
@@ -921,6 +942,109 @@ export async function getSkillTreeHistoryFromApi(params: {
   return {
     skillTrees: data.skillTrees as SkillTree[],
     count: data.count,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+  };
+}
+
+export async function getLearningRoadmapHistoryFromApi(params: {
+  backendUrl: string;
+}): Promise<LearningRoadmapHistoryResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/roadmaps`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<LearningRoadmapHistoryResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not load learning roadmap history.");
+  }
+
+  if (!Array.isArray(data?.roadmaps) || typeof data?.count !== "number") {
+    throw new Error("Backend returned an unexpected learning roadmap history response.");
+  }
+
+  return {
+    roadmaps: data.roadmaps as LearningRoadmap[],
+    count: data.count,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+  };
+}
+
+export async function saveLearningRoadmapFromApi(params: {
+  backendUrl: string;
+  roadmap: LearningRoadmap;
+}): Promise<SaveLearningRoadmapResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/roadmaps/save`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      topic: params.roadmap.topic,
+      goal: params.roadmap.goal,
+      currentLevel: params.roadmap.currentLevel,
+      timeline: params.roadmap.timeline,
+      timePerWeek: params.roadmap.timePerWeek,
+      overview: params.roadmap.overview,
+      phases: params.roadmap.phases,
+      weeklyPlan: params.roadmap.weeklyPlan,
+      practiceLoop: params.roadmap.practiceLoop,
+      pitfalls: params.roadmap.pitfalls,
+      successMetrics: params.roadmap.successMetrics,
+      nextActions: params.roadmap.nextActions,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<SaveLearningRoadmapResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not save this learning roadmap.");
+  }
+
+  if (typeof data?.saved !== "boolean" || typeof data?.summary !== "string") {
+    throw new Error("Backend returned an unexpected save learning roadmap response.");
+  }
+
+  return {
+    saved: data.saved,
+    summary: data.summary,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+    roadmap: (data.roadmap as LearningRoadmap | null) || null,
+  };
+}
+
+export async function deleteLearningRoadmapFromApi(params: {
+  backendUrl: string;
+  id: string;
+}): Promise<DeleteLearningRoadmapResponse> {
+  const response = await fetch(
+    `${params.backendUrl}/api/learning/roadmaps/${encodeURIComponent(params.id)}`,
+    {
+      method: "DELETE",
+      headers: await getApiHeaders(),
+    },
+  );
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<DeleteLearningRoadmapResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not delete this learning roadmap.");
+  }
+
+  if (typeof data?.deleted !== "boolean" || typeof data?.deletedCount !== "number" || typeof data?.summary !== "string") {
+    throw new Error("Backend returned an unexpected delete learning roadmap response.");
+  }
+
+  return {
+    deleted: data.deleted,
+    deletedCount: data.deletedCount,
+    id: typeof data.id === "string" ? data.id : params.id,
+    summary: data.summary,
     source: (data.source as "static" | "llm" | "fallback") || "fallback",
   };
 }

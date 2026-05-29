@@ -25,6 +25,7 @@ import {
   saveDecisionSimulationTool,
 } from "./tools/decisions.js";
 import {
+  deleteLearningRoadmapTool,
   deleteSkillTreeTool,
   listLearningRoadmapsTool,
   listSkillTreesTool,
@@ -173,6 +174,10 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "listLearningRoadmaps") {
       return res.json(await listLearningRoadmapsTool(payload));
+    }
+
+    if (toolName === "deleteLearningRoadmap") {
+      return res.json(await deleteLearningRoadmapTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

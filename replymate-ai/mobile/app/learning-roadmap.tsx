@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,11 @@ import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { buildLearningRoadmapFromApi, LearningRoadmapResponse } from "../services/api";
+import {
+  deleteLearningRoadmapFromApi,
+  getLearningRoadmapHistoryFromApi,
+  saveLearningRoadmapFromApi,
+} from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
 
 export default function LearningRoadmapScreen() {
@@ -27,8 +32,32 @@ export default function LearningRoadmapScreen() {
   const [timeline, setTimeline] = useState("8 weeks");
   const [timePerWeek, setTimePerWeek] = useState("3 hours/week");
   const [result, setResult] = useState<LearningRoadmapResponse | null>(null);
+  const [historyRoadmaps, setHistoryRoadmaps] = useState<LearningRoadmapResponse["recentRoadmaps"]>([]);
+  const [historySource, setHistorySource] = useState<"static" | "llm" | "fallback">("fallback");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  const loadHistory = useCallback(async (url: string) => {
+    if (!url) {
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const history = await getLearningRoadmapHistoryFromApi({ backendUrl: url });
+      setHistoryRoadmaps(history.roadmaps);
+      setHistorySource(history.source);
+    } catch {
+      setHistoryRoadmaps([]);
+      setHistorySource("fallback");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,12 +65,13 @@ export default function LearningRoadmapScreen() {
       getBackendUrl().then((url) => {
         if (active) {
           setBackendUrl(url);
+          void loadHistory(url);
         }
       });
       return () => {
         active = false;
       };
-    }, []),
+    }, [loadHistory]),
   );
 
   async function handleBuild() {
@@ -67,10 +97,74 @@ export default function LearningRoadmapScreen() {
         timePerWeek: timePerWeek.trim(),
       });
       setResult(response);
+      await loadHistory(backendUrl);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not build this roadmap.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSaveCurrentRoadmap() {
+    if (!backendUrl) {
+      setError("Roadmap Builder needs the backend to be online.");
+      return;
+    }
+
+    if (!result?.roadmap) {
+      setError("Generate or open a roadmap first.");
+      return;
+    }
+
+    setSaveLoading(true);
+    setError("");
+    try {
+      const saved = await saveLearningRoadmapFromApi({
+        backendUrl,
+        roadmap: result.roadmap,
+      });
+      setResult((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          saved: saved.saved,
+          saveSummary: saved.summary,
+          roadmap: saved.roadmap || current.roadmap,
+        };
+      });
+      await loadHistory(backendUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save this learning roadmap.");
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
+  async function handleDeleteRoadmap(id: string) {
+    if (!backendUrl) {
+      setError("Roadmap Builder needs the backend to be online.");
+      return;
+    }
+
+    setDeletingId(id);
+    setError("");
+    try {
+      await deleteLearningRoadmapFromApi({ backendUrl, id });
+      setHistoryRoadmaps((items) => items.filter((item) => item.id !== id));
+      setResult((current) => {
+        if (!current || current.roadmap.id !== id) {
+          return current;
+        }
+        return null;
+      });
+      await loadHistory(backendUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not delete this learning roadmap.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -81,7 +175,11 @@ export default function LearningRoadmapScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.keyboard}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        ref={scrollRef}
+      >
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" color={colors.text} size={18} />
           <Text style={styles.backText}>Back</Text>
@@ -139,6 +237,17 @@ export default function LearningRoadmapScreen() {
               </View>
               <Text style={styles.resultTitle}>{roadmap.topic}</Text>
               <Text style={styles.bodyText}>{roadmap.overview}</Text>
+              {result.saveSummary ? <Text style={styles.saveSummary}>{result.saveSummary}</Text> : null}
+              <View style={styles.inlineActions}>
+                <Pressable
+                  disabled={saveLoading}
+                  onPress={handleSaveCurrentRoadmap}
+                  style={[styles.secondaryButton, saveLoading && styles.disabledButton]}
+                >
+                  {saveLoading ? <ActivityIndicator color={colors.text} /> : <Ionicons name="save-outline" color={colors.text} size={16} />}
+                  <Text style={styles.secondaryButtonText}>Save this roadmap</Text>
+                </Pressable>
+              </View>
             </View>
 
             {roadmap.phases.map((phase) => (
@@ -168,6 +277,66 @@ export default function LearningRoadmapScreen() {
             <Text style={styles.mutedText}>Your learning phases, projects, checkpoints, and weekly plan will appear here.</Text>
           </View>
         )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Saved roadmaps</Text>
+          {historyLoading ? <Text style={styles.mutedText}>Loading history...</Text> : null}
+          {!historyLoading && historyRoadmaps.length === 0 ? (
+            <Text style={styles.mutedText}>No saved roadmaps yet.</Text>
+          ) : null}
+          {historyRoadmaps.slice(0, 6).map((savedRoadmap) => (
+            <View key={savedRoadmap.id} style={styles.historyItem}>
+              <Pressable
+                onPress={() => {
+                  setResult((current) => {
+                    if (!current) {
+                      return {
+                        assistantReply: `${savedRoadmap.topic} loaded from history.`,
+                        roadmap: savedRoadmap,
+                        recentRoadmaps: historyRoadmaps,
+                        saved: true,
+                        saveSummary: "Loaded from saved history.",
+                        toolCalls: [],
+                        agentTrace: [],
+                      };
+                    }
+
+                    return {
+                      ...current,
+                      roadmap: savedRoadmap,
+                      recentRoadmaps: historyRoadmaps,
+                      saved: true,
+                      saveSummary: "Loaded from saved history.",
+                    };
+                  });
+                  scrollRef.current?.scrollTo({ y: 0, animated: true });
+                }}
+                style={styles.historyMainPress}
+              >
+                <View style={styles.historyCopy}>
+                  <Text style={styles.historyTitle}>{savedRoadmap.topic}</Text>
+                  <Text style={styles.historyMeta}>
+                    {savedRoadmap.currentLevel} | {savedRoadmap.timeline} | {savedRoadmap.phases.length} phases
+                  </Text>
+                  <Text style={styles.historyDate}>{formatDate(savedRoadmap.updatedAt || savedRoadmap.createdAt)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" color={colors.muted} size={16} />
+              </Pressable>
+              <Pressable
+                disabled={deletingId === savedRoadmap.id}
+                onPress={() => void handleDeleteRoadmap(savedRoadmap.id)}
+                style={[styles.deleteButton, deletingId === savedRoadmap.id && styles.disabledButton]}
+              >
+                {deletingId === savedRoadmap.id ? (
+                  <ActivityIndicator color={colors.danger} size="small" />
+                ) : (
+                  <Ionicons name="trash-outline" color={colors.danger} size={16} />
+                )}
+              </Pressable>
+            </View>
+          ))}
+          <Text style={styles.historySource}>History source: {historySource}</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -285,17 +454,31 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       paddingVertical: 5,
     },
     sourceText: { color: colors.text, fontSize: 11, fontWeight: "700" },
+    inlineActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs },
     field: { flex: 1, gap: spacing.xs },
     fieldRow: { flexDirection: "row", gap: spacing.sm },
     label: { color: colors.primary, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
     input: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, flex: 1, fontSize: 14, minHeight: 46, paddingHorizontal: spacing.md },
     primaryButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 18, flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 54 },
+    secondaryButton: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.xs,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+    },
+    secondaryButtonText: { color: colors.text, fontSize: 13, fontWeight: "800" },
     disabledButton: { opacity: 0.72 },
     primaryButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: "900" },
     error: { backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderRadius: 16, borderWidth: 1, color: colors.danger, lineHeight: 20, padding: spacing.md },
     results: { gap: spacing.md },
     kicker: { color: colors.primary, fontSize: 11, fontWeight: "900", letterSpacing: 0.9, textTransform: "uppercase" },
     resultTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
+    saveSummary: { color: colors.muted, fontSize: 12, lineHeight: 18 },
     sectionTitle: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },
     bodyText: { color: colors.text, flex: 1, fontSize: 14, lineHeight: 21 },
     mutedText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
@@ -310,5 +493,53 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     toolSource: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     emptyCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
     emptyTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
+    historyItem: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      padding: spacing.sm,
+    },
+    historyMainPress: {
+      alignItems: "center",
+      flex: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    historyCopy: { flex: 1, gap: 2 },
+    historyTitle: { color: colors.text, fontSize: 14, fontWeight: "800" },
+    historyMeta: { color: colors.muted, fontSize: 12 },
+    historyDate: { color: colors.muted, fontSize: 11 },
+    historySource: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
+    },
+    deleteButton: {
+      alignItems: "center",
+      borderColor: colors.danger,
+      borderRadius: 10,
+      borderWidth: 1,
+      height: 32,
+      justifyContent: "center",
+      width: 32,
+    },
   });
+}
+
+function formatDate(value: string | undefined): string {
+  if (!value) {
+    return "Unknown date";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }

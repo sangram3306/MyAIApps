@@ -13,6 +13,8 @@ router.get("/skill-trees", handleSkillTreesRequest);
 router.post("/skill-trees/save", handleSaveSkillTreeRequest);
 router.delete("/skill-trees/:id", handleDeleteSkillTreeRequest);
 router.get("/roadmaps", handleRoadmapsRequest);
+router.post("/roadmaps/save", handleSaveRoadmapRequest);
+router.delete("/roadmaps/:id", handleDeleteRoadmapRequest);
 
 const saveSkillTreePayloadSchema = z.object({
   skillName: z.string().min(1),
@@ -25,6 +27,21 @@ const saveSkillTreePayloadSchema = z.object({
   weeklyQuests: z.array(z.string()).default([]),
   milestones: z.array(z.string()).default([]),
   recommendedRoutine: z.array(z.string()).default([]),
+});
+
+const saveRoadmapPayloadSchema = z.object({
+  topic: z.string().min(1),
+  goal: z.string().default("learn the fundamentals"),
+  currentLevel: z.string().default("beginner"),
+  timeline: z.string().default("8 weeks"),
+  timePerWeek: z.string().default("3 hours/week"),
+  overview: z.string().default(""),
+  phases: z.array(z.any()).default([]),
+  weeklyPlan: z.array(z.string()).default([]),
+  practiceLoop: z.array(z.string()).default([]),
+  pitfalls: z.array(z.string()).default([]),
+  successMetrics: z.array(z.string()).default([]),
+  nextActions: z.array(z.string()).default([]),
 });
 
 export async function handleSkillTreeRequest(
@@ -213,6 +230,71 @@ export async function handleDeleteSkillTreeRequest(
     });
   } catch {
     return res.status(500).json({ error: "Could not delete this skill tree." });
+  }
+}
+
+export async function handleSaveRoadmapRequest(
+  req: { body: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const input = saveRoadmapPayloadSchema.parse(req.body);
+    const result = await callMcpTool<{
+      source: "static" | "llm" | "fallback";
+      summary: string;
+      roadmap?: unknown;
+    }>("saveLearningRoadmap", input, { timeoutMs: 8000, retries: 1 });
+
+    return res.json({
+      saved: Boolean(result.roadmap),
+      summary: result.summary,
+      source: result.source,
+      roadmap: result.roadmap || null,
+    });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: "Invalid request.",
+        details: error.flatten().fieldErrors,
+      });
+    }
+
+    return res.status(500).json({ error: "Could not save this learning roadmap." });
+  }
+}
+
+export async function handleDeleteRoadmapRequest(
+  req: { params?: Record<string, string | undefined> },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  const id = req.params?.id?.trim();
+  if (!id) {
+    return res.status(400).json({ error: "Roadmap id is required." });
+  }
+
+  try {
+    const result = await callMcpTool<{
+      source: "static" | "llm" | "fallback";
+      summary: string;
+      deletedCount?: number;
+      id?: string;
+    }>("deleteLearningRoadmap", { id }, { timeoutMs: 8000, retries: 1 });
+
+    return res.json({
+      deleted: (result.deletedCount || 0) > 0,
+      deletedCount: result.deletedCount || 0,
+      id: result.id || id,
+      summary: result.summary,
+      source: result.source,
+    });
+  } catch {
+    return res.status(500).json({ error: "Could not delete this learning roadmap." });
   }
 }
 

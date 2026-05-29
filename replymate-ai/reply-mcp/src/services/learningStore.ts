@@ -143,6 +143,13 @@ export async function listLearningRoadmaps(filter: { limit?: number; topic?: str
   return collection.find(query).sort({ createdAt: -1 }).limit(limit).toArray();
 }
 
+export async function deleteLearningRoadmap(id: string): Promise<{ deletedCount: number; id: string }> {
+  const collection = await getRoadmapCollection();
+  const normalizedId = normalizeSentence(id);
+  const result = await collection.deleteOne({ id: normalizedId });
+  return { deletedCount: result.deletedCount, id: normalizedId };
+}
+
 function sanitizeSkillTreeInput(input: SkillTreeInput): SkillTreeInput {
   return {
     skillName: normalizeSentence(input.skillName || "Untitled skill"),

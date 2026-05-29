@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createLearningRoadmap,
   createSkillTree,
+  deleteLearningRoadmap,
   deleteSkillTree,
   LearningRoadmap,
   listLearningRoadmaps,
@@ -78,6 +79,10 @@ const listRoadmapsInputSchema = z.object({
   limit: z.number().int().min(1).max(50).optional().default(10),
   topic: z.string().optional(),
 }).passthrough();
+
+const deleteRoadmapInputSchema = z.object({
+  id: z.string().min(1),
+});
 
 type LearningToolOutput = {
   source: z.infer<typeof sourceSchema>;
@@ -207,6 +212,30 @@ export async function listLearningRoadmapsTool(input: unknown): Promise<Learning
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     return fallback(`Learning roadmap history failed: ${message}`);
+  }
+}
+
+export async function deleteLearningRoadmapTool(input: unknown): Promise<LearningToolOutput> {
+  const parsed = deleteRoadmapInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fallback("Could not read the roadmap delete request.");
+  }
+
+  try {
+    const removed = await deleteLearningRoadmap(parsed.data.id);
+    return {
+      source: "static",
+      confidence: 0.97,
+      summary:
+        removed.deletedCount > 0
+          ? "Deleted learning roadmap."
+          : "No matching learning roadmap found to delete.",
+      deletedCount: removed.deletedCount,
+      id: removed.id,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Learning roadmap delete failed: ${message}`);
   }
 }
 
