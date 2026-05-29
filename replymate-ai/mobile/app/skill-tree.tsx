@@ -14,7 +14,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
-import { buildSkillTreeFromApi, SkillTreeResponse } from "../services/api";
+import {
+  buildSkillTreeFromApi,
+  getSkillTreeHistoryFromApi,
+  SkillTreeResponse,
+} from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
 
 export default function SkillTreeScreen() {
@@ -27,8 +31,29 @@ export default function SkillTreeScreen() {
   const [timeBudget, setTimeBudget] = useState("3 hours/week");
   const [focusAreas, setFocusAreas] = useState("");
   const [result, setResult] = useState<SkillTreeResponse | null>(null);
+  const [historyTrees, setHistoryTrees] = useState<SkillTreeResponse["recentSkillTrees"]>([]);
+  const [historySource, setHistorySource] = useState<"static" | "llm" | "fallback">("fallback");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const loadHistory = useCallback(async (url: string) => {
+    if (!url) {
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const history = await getSkillTreeHistoryFromApi({ backendUrl: url });
+      setHistoryTrees(history.skillTrees);
+      setHistorySource(history.source);
+    } catch {
+      setHistoryTrees([]);
+      setHistorySource("fallback");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,12 +61,13 @@ export default function SkillTreeScreen() {
       getBackendUrl().then((url) => {
         if (active) {
           setBackendUrl(url);
+          void loadHistory(url);
         }
       });
       return () => {
         active = false;
       };
-    }, []),
+    }, [loadHistory]),
   );
 
   async function handleBuild() {
@@ -67,6 +93,9 @@ export default function SkillTreeScreen() {
         focusAreas: parseList(focusAreas),
       });
       setResult(response);
+      if (response.saved) {
+        await loadHistory(backendUrl);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not build this skill tree.");
     } finally {
@@ -78,7 +107,7 @@ export default function SkillTreeScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.keyboard}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -163,6 +192,53 @@ export default function SkillTreeScreen() {
         ) : (
           <EmptyPreview styles={styles} />
         )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Saved skill trees</Text>
+          {historyLoading ? <Text style={styles.mutedText}>Loading history...</Text> : null}
+          {!historyLoading && historyTrees.length === 0 ? (
+            <Text style={styles.mutedText}>
+              No saved skill trees yet. If generation works but nothing appears here, your MongoDB
+              connection for learning tools may be unavailable.
+            </Text>
+          ) : null}
+          {historyTrees.slice(0, 6).map((savedTree) => (
+            <Pressable
+              key={savedTree.id}
+              onPress={() => {
+                setResult((current) => {
+                  if (!current) {
+                    return {
+                      assistantReply: `${savedTree.skillName} loaded from history.`,
+                      skillTree: savedTree,
+                      recentSkillTrees: historyTrees,
+                      saved: true,
+                      toolCalls: [],
+                      agentTrace: [],
+                    };
+                  }
+
+                  return {
+                    ...current,
+                    skillTree: savedTree,
+                    recentSkillTrees: historyTrees,
+                    saved: true,
+                  };
+                });
+              }}
+              style={styles.historyItem}
+            >
+              <View style={styles.historyCopy}>
+                <Text style={styles.historyTitle}>{savedTree.skillName}</Text>
+                <Text style={styles.historyMeta}>
+                  {savedTree.currentLevel} to {savedTree.targetLevel} | {savedTree.branches.length} branches
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" color={colors.muted} size={16} />
+            </Pressable>
+          ))}
+          <Text style={styles.historySource}>History source: {historySource}</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -304,5 +380,34 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     toolSource: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     emptyCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
     emptyTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
+    historyItem: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      padding: spacing.sm,
+    },
+    historyCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    historyTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    historyMeta: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    historySource: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
+    },
   });
 }

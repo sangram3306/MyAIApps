@@ -9,15 +9,19 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           backgroundColor: colors.ink,
           borderTopColor: colors.border,
-          height: 58,
+          height: 66,
           paddingBottom: 8,
-          paddingTop: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "700",
         },
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -30,15 +34,6 @@ export default function TabsLayout() {
           title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="tools"
-        options={{
-          title: "AI Tools",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles-outline" color={color} size={size} />
           ),
         }}
       />
@@ -84,6 +79,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="coach"
         options={{
+          href: null,
           title: "Coach",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sparkles-outline" color={color} size={size} />
@@ -115,6 +111,15 @@ export default function TabsLayout() {
           title: "Summary",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="tools"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="ellipsis-horizontal-circle-outline" color={color} size={size} />
           ),
         }}
       />

@@ -382,6 +382,12 @@ export type SkillTreeResponse = {
   agentTrace: string[];
 };
 
+export type SkillTreeHistoryResponse = {
+  skillTrees: SkillTree[];
+  count: number;
+  source: "static" | "llm" | "fallback";
+};
+
 export type LearningRoadmapPhase = {
   title: string;
   duration: string;
@@ -863,6 +869,33 @@ export async function buildLearningRoadmapFromApi(params: {
   }
 
   return data as LearningRoadmapResponse;
+}
+
+export async function getSkillTreeHistoryFromApi(params: {
+  backendUrl: string;
+}): Promise<SkillTreeHistoryResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/skill-trees`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<SkillTreeHistoryResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not load skill tree history.");
+  }
+
+  if (!Array.isArray(data?.skillTrees) || typeof data?.count !== "number") {
+    throw new Error("Backend returned an unexpected skill tree history response.");
+  }
+
+  return {
+    skillTrees: data.skillTrees as SkillTree[],
+    count: data.count,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+  };
 }
 
 export async function clearExpensesFromApi(params: {
