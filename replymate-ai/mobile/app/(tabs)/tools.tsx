@@ -34,6 +34,13 @@ const tools = [
     route: "/learning-roadmap",
     tag: "Roadmap",
   },
+  {
+    title: "Watch Tracker",
+    subtitle: "Log movies or series, enrich details with AI, and track status.",
+    icon: "film-outline",
+    route: "/watch-tracker",
+    tag: "Movies",
+  },
 ] as const;
 
 export default function AiToolsScreen() {

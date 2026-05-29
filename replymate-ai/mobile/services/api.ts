@@ -487,6 +487,40 @@ export type DeepSeekBalanceResponse = {
   }>;
 };
 
+export type WatchStatus = "planned" | "started" | "in_progress" | "completed" | "dropped";
+export type WatchType = "movie" | "series";
+
+export type WatchEntry = {
+  id: string;
+  title: string;
+  type: WatchType;
+  status: WatchStatus;
+  releaseYear: string;
+  director: string;
+  leadActors: string[];
+  budget: string;
+  boxOffice: string;
+  ratings: Array<{ source: string; value: string }>;
+  synopsis: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WatchLogResponse = {
+  assistantReply: string;
+  entry: WatchEntry;
+  entries: WatchEntry[];
+  agentTrace: string[];
+  toolCalls: Array<{ name: string; source: "static" | "llm" | "fallback"; summary: string }>;
+  metadata: {
+    toolSources: {
+      enrichment: "static" | "llm" | "fallback";
+      storage: "static" | "llm" | "fallback";
+    };
+  };
+};
+
 export async function analyzeCoachFromApi(params: {
   backendUrl: string;
   message: string;
@@ -1167,6 +1201,93 @@ export async function getDeepSeekBalanceFromApi(params: {
   }
 
   return data as DeepSeekBalanceResponse;
+}
+
+export async function logWatchItemFromApi(params: {
+  backendUrl: string;
+  title: string;
+  type: WatchType;
+  status: WatchStatus;
+  notes?: string;
+}): Promise<WatchLogResponse> {
+  const response = await fetch(`${params.backendUrl}/api/watch/log`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify(params),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<WatchLogResponse & { error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not log this watch item.");
+  }
+  if (!data?.entry || !Array.isArray(data.entries)) {
+    throw new Error("Backend returned an unexpected watch log response.");
+  }
+  return data as WatchLogResponse;
+}
+
+export async function listWatchItemsFromApi(params: {
+  backendUrl: string;
+}): Promise<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/items`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not load watch items.");
+  }
+  if (!Array.isArray(data?.entries)) {
+    throw new Error("Backend returned an unexpected watch list response.");
+  }
+  return {
+    entries: data.entries,
+    source: data.source || "fallback",
+  };
+}
+
+export async function updateWatchStatusFromApi(params: {
+  backendUrl: string;
+  id: string;
+  status: WatchStatus;
+}): Promise<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}/status`, {
+    method: "PATCH",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({ status: params.status }),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not update watch status.");
+  }
+  if (!Array.isArray(data?.entries)) {
+    throw new Error("Backend returned an unexpected watch status response.");
+  }
+  return {
+    entries: data.entries,
+    source: data.source || "fallback",
+  };
+}
+
+export async function deleteWatchItemFromApi(params: {
+  backendUrl: string;
+  id: string;
+}): Promise<{ deleted: boolean; entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}`, {
+    method: "DELETE",
+    headers: await getApiHeaders(),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<{ deleted: boolean; entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not delete watch item.");
+  }
+  if (typeof data?.deleted !== "boolean" || !Array.isArray(data?.entries)) {
+    throw new Error("Backend returned an unexpected watch delete response.");
+  }
+  return {
+    deleted: data.deleted,
+    entries: data.entries,
+    source: data.source || "fallback",
+  };
 }
 
 async function getApiHeaders(): Promise<Record<string, string>> {

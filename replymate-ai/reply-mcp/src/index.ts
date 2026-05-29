@@ -32,6 +32,13 @@ import {
   saveLearningRoadmapTool,
   saveSkillTreeTool,
 } from "./tools/learning.js";
+import {
+  deleteWatchEntryTool,
+  fetchWatchMetadataTool,
+  listWatchEntriesTool,
+  saveWatchEntryTool,
+  updateWatchEntryStatusTool,
+} from "./tools/watch.js";
 
 dotenv.config();
 
@@ -178,6 +185,26 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "deleteLearningRoadmap") {
       return res.json(await deleteLearningRoadmapTool(payload));
+    }
+
+    if (toolName === "saveWatchEntry") {
+      return res.json(await saveWatchEntryTool(payload));
+    }
+
+    if (toolName === "listWatchEntries") {
+      return res.json(await listWatchEntriesTool(payload));
+    }
+
+    if (toolName === "updateWatchEntryStatus") {
+      return res.json(await updateWatchEntryStatusTool(payload));
+    }
+
+    if (toolName === "deleteWatchEntry") {
+      return res.json(await deleteWatchEntryTool(payload));
+    }
+
+    if (toolName === "fetchWatchMetadata") {
+      return res.json(await fetchWatchMetadataTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });
