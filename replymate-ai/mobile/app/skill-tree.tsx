@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,7 +16,9 @@ import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
   buildSkillTreeFromApi,
+  deleteSkillTreeFromApi,
   getSkillTreeHistoryFromApi,
+  saveSkillTreeFromApi,
   SkillTreeResponse,
 } from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
@@ -35,7 +37,10 @@ export default function SkillTreeScreen() {
   const [historySource, setHistorySource] = useState<"static" | "llm" | "fallback">("fallback");
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const loadHistory = useCallback(async (url: string) => {
     if (!url) {
@@ -101,6 +106,68 @@ export default function SkillTreeScreen() {
     }
   }
 
+  async function handleSaveCurrentTree() {
+    if (!backendUrl) {
+      setError("Skill Tree needs the backend to be online.");
+      return;
+    }
+
+    if (!result?.skillTree) {
+      setError("Generate or open a skill tree first.");
+      return;
+    }
+
+    setSaveLoading(true);
+    setError("");
+    try {
+      const saved = await saveSkillTreeFromApi({
+        backendUrl,
+        skillTree: result.skillTree,
+      });
+      setResult((current) => {
+        if (!current) {
+          return current;
+        }
+        return {
+          ...current,
+          saved: saved.saved,
+          saveSummary: saved.summary,
+          skillTree: saved.skillTree || current.skillTree,
+        };
+      });
+      await loadHistory(backendUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save this skill tree.");
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
+  async function handleDeleteSkillTree(id: string) {
+    if (!backendUrl) {
+      setError("Skill Tree needs the backend to be online.");
+      return;
+    }
+
+    setDeletingId(id);
+    setError("");
+    try {
+      await deleteSkillTreeFromApi({ backendUrl, id });
+      setHistoryTrees((items) => items.filter((item) => item.id !== id));
+      setResult((current) => {
+        if (!current || current.skillTree.id !== id) {
+          return current;
+        }
+        return null;
+      });
+      await loadHistory(backendUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not delete this skill tree.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const tree = result?.skillTree;
 
   return (
@@ -108,7 +175,11 @@ export default function SkillTreeScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.keyboard}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        ref={scrollRef}
+      >
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" color={colors.text} size={18} />
           <Text style={styles.backText}>Back</Text>
@@ -161,6 +232,16 @@ export default function SkillTreeScreen() {
               <Text style={styles.resultTitle}>{tree.skillName}</Text>
               <Text style={styles.bodyText}>{tree.overview}</Text>
               {result.saveSummary ? <Text style={styles.saveSummary}>{result.saveSummary}</Text> : null}
+              <View style={styles.inlineActions}>
+                <Pressable
+                  disabled={saveLoading}
+                  onPress={handleSaveCurrentTree}
+                  style={[styles.secondaryButton, saveLoading && styles.disabledButton]}
+                >
+                  {saveLoading ? <ActivityIndicator color={colors.text} /> : <Ionicons name="save-outline" color={colors.text} size={16} />}
+                  <Text style={styles.secondaryButtonText}>Save this tree</Text>
+                </Pressable>
+              </View>
             </View>
 
             {tree.branches.map((branch) => (
@@ -202,40 +283,55 @@ export default function SkillTreeScreen() {
             </Text>
           ) : null}
           {historyTrees.slice(0, 6).map((savedTree) => (
-            <Pressable
-              key={savedTree.id}
-              onPress={() => {
-                setResult((current) => {
-                  if (!current) {
+            <View key={savedTree.id} style={styles.historyItem}>
+              <Pressable
+                onPress={() => {
+                  setResult((current) => {
+                    if (!current) {
+                      return {
+                        assistantReply: `${savedTree.skillName} loaded from history.`,
+                        skillTree: savedTree,
+                        recentSkillTrees: historyTrees,
+                        saved: true,
+                        saveSummary: "Loaded from saved history.",
+                        toolCalls: [],
+                        agentTrace: [],
+                      };
+                    }
+
                     return {
-                      assistantReply: `${savedTree.skillName} loaded from history.`,
+                      ...current,
                       skillTree: savedTree,
                       recentSkillTrees: historyTrees,
                       saved: true,
-                      toolCalls: [],
-                      agentTrace: [],
+                      saveSummary: "Loaded from saved history.",
                     };
-                  }
-
-                  return {
-                    ...current,
-                    skillTree: savedTree,
-                    recentSkillTrees: historyTrees,
-                    saved: true,
-                  };
-                });
-              }}
-              style={styles.historyItem}
-            >
-              <View style={styles.historyCopy}>
-                <Text style={styles.historyTitle}>{savedTree.skillName}</Text>
-                <Text style={styles.historyMeta}>
-                  {savedTree.currentLevel} to {savedTree.targetLevel} | {savedTree.branches.length} branches
-                </Text>
-                <Text style={styles.historyDate}>{formatDate(savedTree.updatedAt || savedTree.createdAt)}</Text>
-              </View>
-              <Ionicons name="chevron-forward" color={colors.muted} size={16} />
-            </Pressable>
+                  });
+                  scrollRef.current?.scrollTo({ y: 0, animated: true });
+                }}
+                style={styles.historyMainPress}
+              >
+                <View style={styles.historyCopy}>
+                  <Text style={styles.historyTitle}>{savedTree.skillName}</Text>
+                  <Text style={styles.historyMeta}>
+                    {savedTree.currentLevel} to {savedTree.targetLevel} | {savedTree.branches.length} branches
+                  </Text>
+                  <Text style={styles.historyDate}>{formatDate(savedTree.updatedAt || savedTree.createdAt)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" color={colors.muted} size={16} />
+              </Pressable>
+              <Pressable
+                disabled={deletingId === savedTree.id}
+                onPress={() => void handleDeleteSkillTree(savedTree.id)}
+                style={[styles.deleteButton, deletingId === savedTree.id && styles.disabledButton]}
+              >
+                {deletingId === savedTree.id ? (
+                  <ActivityIndicator color={colors.danger} size="small" />
+                ) : (
+                  <Ionicons name="trash-outline" color={colors.danger} size={16} />
+                )}
+              </Pressable>
+            </View>
           ))}
           <Text style={styles.historySource}>History source: {historySource}</Text>
         </View>
@@ -358,6 +454,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     label: { color: colors.primary, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
     input: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, flex: 1, fontSize: 14, minHeight: 46, paddingHorizontal: spacing.md },
     primaryButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 18, flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 54 },
+    inlineActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs },
+    secondaryButton: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.xs,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+    },
+    secondaryButtonText: { color: colors.text, fontSize: 13, fontWeight: "800" },
     disabledButton: { opacity: 0.72 },
     primaryButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: "900" },
     error: { backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderRadius: 16, borderWidth: 1, color: colors.danger, lineHeight: 20, padding: spacing.md },
@@ -395,9 +504,24 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
       padding: spacing.sm,
     },
+    historyMainPress: {
+      alignItems: "center",
+      flex: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
     historyCopy: {
       flex: 1,
       gap: 2,
+    },
+    deleteButton: {
+      alignItems: "center",
+      borderColor: colors.danger,
+      borderRadius: 10,
+      borderWidth: 1,
+      height: 32,
+      justifyContent: "center",
+      width: 32,
     },
     historyTitle: {
       color: colors.text,

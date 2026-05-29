@@ -25,6 +25,7 @@ import {
   saveDecisionSimulationTool,
 } from "./tools/decisions.js";
 import {
+  deleteSkillTreeTool,
   listLearningRoadmapsTool,
   listSkillTreesTool,
   saveLearningRoadmapTool,
@@ -160,6 +161,10 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "listSkillTrees") {
       return res.json(await listSkillTreesTool(payload));
+    }
+
+    if (toolName === "deleteSkillTree") {
+      return res.json(await deleteSkillTreeTool(payload));
     }
 
     if (toolName === "saveLearningRoadmap") {

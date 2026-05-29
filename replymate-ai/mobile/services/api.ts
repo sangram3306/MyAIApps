@@ -389,6 +389,21 @@ export type SkillTreeHistoryResponse = {
   source: "static" | "llm" | "fallback";
 };
 
+export type SaveSkillTreeResponse = {
+  saved: boolean;
+  summary: string;
+  source: "static" | "llm" | "fallback";
+  skillTree: SkillTree | null;
+};
+
+export type DeleteSkillTreeResponse = {
+  deleted: boolean;
+  deletedCount: number;
+  id: string;
+  summary: string;
+  source: "static" | "llm" | "fallback";
+};
+
 export type LearningRoadmapPhase = {
   title: string;
   duration: string;
@@ -896,6 +911,80 @@ export async function getSkillTreeHistoryFromApi(params: {
   return {
     skillTrees: data.skillTrees as SkillTree[],
     count: data.count,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+  };
+}
+
+export async function saveSkillTreeFromApi(params: {
+  backendUrl: string;
+  skillTree: SkillTree;
+}): Promise<SaveSkillTreeResponse> {
+  const response = await fetch(`${params.backendUrl}/api/learning/skill-trees/save`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      skillName: params.skillTree.skillName,
+      currentLevel: params.skillTree.currentLevel,
+      targetLevel: params.skillTree.targetLevel,
+      timeBudget: params.skillTree.timeBudget,
+      focusAreas: params.skillTree.focusAreas,
+      overview: params.skillTree.overview,
+      branches: params.skillTree.branches,
+      weeklyQuests: params.skillTree.weeklyQuests,
+      milestones: params.skillTree.milestones,
+      recommendedRoutine: params.skillTree.recommendedRoutine,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<SaveSkillTreeResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not save this skill tree.");
+  }
+
+  if (typeof data?.saved !== "boolean" || typeof data?.summary !== "string") {
+    throw new Error("Backend returned an unexpected save skill tree response.");
+  }
+
+  return {
+    saved: data.saved,
+    summary: data.summary,
+    source: (data.source as "static" | "llm" | "fallback") || "fallback",
+    skillTree: (data.skillTree as SkillTree | null) || null,
+  };
+}
+
+export async function deleteSkillTreeFromApi(params: {
+  backendUrl: string;
+  id: string;
+}): Promise<DeleteSkillTreeResponse> {
+  const response = await fetch(
+    `${params.backendUrl}/api/learning/skill-trees/${encodeURIComponent(params.id)}`,
+    {
+      method: "DELETE",
+      headers: await getApiHeaders(),
+    },
+  );
+
+  const data = (await response.json().catch(() => null)) as
+    | Partial<DeleteSkillTreeResponse & { error?: string }>
+    | null;
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not delete this skill tree.");
+  }
+
+  if (typeof data?.deleted !== "boolean" || typeof data?.deletedCount !== "number" || typeof data?.summary !== "string") {
+    throw new Error("Backend returned an unexpected delete skill tree response.");
+  }
+
+  return {
+    deleted: data.deleted,
+    deletedCount: data.deletedCount,
+    id: typeof data.id === "string" ? data.id : params.id,
+    summary: data.summary,
     source: (data.source as "static" | "llm" | "fallback") || "fallback",
   };
 }

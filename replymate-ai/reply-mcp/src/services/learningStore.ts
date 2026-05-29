@@ -115,6 +115,12 @@ export async function listSkillTrees(filter: { limit?: number; skillName?: strin
   return collection.find(query).sort({ createdAt: -1 }).limit(limit).toArray();
 }
 
+export async function deleteSkillTree(id: string): Promise<{ deletedCount: number; id: string }> {
+  const collection = await getSkillTreeCollection();
+  const result = await collection.deleteOne({ id: normalizeSentence(id) });
+  return { deletedCount: result.deletedCount, id: normalizeSentence(id) };
+}
+
 export async function createLearningRoadmap(input: LearningRoadmapInput): Promise<LearningRoadmap> {
   const now = new Date().toISOString();
   const roadmap: LearningRoadmap = {

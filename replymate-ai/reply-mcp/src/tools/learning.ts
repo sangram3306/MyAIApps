@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createLearningRoadmap,
   createSkillTree,
+  deleteSkillTree,
   LearningRoadmap,
   listLearningRoadmaps,
   listSkillTrees,
@@ -44,6 +45,10 @@ const listSkillTreesInputSchema = z.object({
   skillName: z.string().optional(),
 }).passthrough();
 
+const deleteSkillTreeInputSchema = z.object({
+  id: z.string().min(1),
+});
+
 const roadmapPhaseSchema = z.object({
   title: z.string().min(1),
   duration: z.string().default(""),
@@ -83,6 +88,8 @@ type LearningToolOutput = {
   roadmap?: LearningRoadmap;
   roadmaps?: LearningRoadmap[];
   count?: number;
+  deletedCount?: number;
+  id?: string;
 };
 
 export async function saveSkillTreeTool(input: unknown): Promise<LearningToolOutput> {
@@ -129,6 +136,30 @@ export async function listSkillTreesTool(input: unknown): Promise<LearningToolOu
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     return fallback(`Skill tree history failed: ${message}`);
+  }
+}
+
+export async function deleteSkillTreeTool(input: unknown): Promise<LearningToolOutput> {
+  const parsed = deleteSkillTreeInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fallback("Could not read the skill tree delete request.");
+  }
+
+  try {
+    const removed = await deleteSkillTree(parsed.data.id);
+    return {
+      source: "static",
+      confidence: 0.97,
+      summary:
+        removed.deletedCount > 0
+          ? "Deleted skill tree."
+          : "No matching skill tree found to delete.",
+      deletedCount: removed.deletedCount,
+      id: removed.id,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Skill tree delete failed: ${message}`);
   }
 }
 
