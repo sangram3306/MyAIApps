@@ -32,6 +32,7 @@ const saveWatchInputSchema = z.object({
   title: z.string().min(1),
   type: z.enum(["movie", "series"]).default("movie"),
   status: z.enum(["planned", "started", "in_progress", "completed", "dropped"]).default("planned"),
+  favorite: z.boolean().default(false),
   releaseYear: z.string().default("Unknown"),
   director: z.string().default("Unknown"),
   leadActors: z.array(z.string()).default([]),
@@ -89,6 +90,7 @@ type WatchToolOutput = {
     availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
     externalDetails: Array<{ label: string; value: string }>;
     synopsis: string;
+    favorite?: boolean;
   };
 };
 

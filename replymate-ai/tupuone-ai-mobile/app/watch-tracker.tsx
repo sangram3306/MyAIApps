@@ -61,6 +61,7 @@ export default function WatchTrackerScreen() {
   const [backendUrl, setBackendUrl] = useState("");
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<WatchStatus>("planned");
+  const [favorite, setFavorite] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState<WatchEntry[]>([]);
@@ -87,6 +88,7 @@ export default function WatchTrackerScreen() {
   const filteredEntries = typeScopedEntries.filter(
     (entry) => activeFilter === "all" || entry.status === activeFilter,
   );
+  const favoriteEntries = entries.filter((entry) => Boolean(entry.favorite));
   const selectedAvailabilityRegions = selectedEntry ? availabilityRegionsFor(selectedEntry.availability) : [];
   const selectedAvailability = selectedEntry
     ? filterAvailability(selectedEntry.availability, activeAvailabilityRegion)
@@ -139,12 +141,14 @@ export default function WatchTrackerScreen() {
         backendUrl,
         title: title.trim(),
         status,
+        favorite,
         notes: notes.trim(),
       });
       setEntries(result.entries);
       setEnrichmentSource(result.metadata.toolSources.enrichment);
       setTitle("");
       setNotes("");
+      setFavorite(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not add this title.");
     } finally {
@@ -181,6 +185,30 @@ export default function WatchTrackerScreen() {
       setError(caught instanceof Error ? caught.message : "Could not delete this item.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleFavoriteToggle(entry: WatchEntry) {
+    if (!backendUrl) {
+      return;
+    }
+    setUpdatingId(entry.id);
+    setError("");
+    try {
+      const result = await updateWatchDetailsFromApi({
+        backendUrl,
+        id: entry.id,
+        updates: { favorite: !Boolean(entry.favorite) },
+      });
+      setEntries(result.entries);
+      setSource(result.source);
+      if (selectedEntry?.id === entry.id && result.entry) {
+        setSelectedEntry(result.entry);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update favorite.");
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -330,6 +358,13 @@ export default function WatchTrackerScreen() {
             onChangeText={setNotes}
             multiline
           />
+          <Pressable
+            onPress={() => setFavorite((value) => !value)}
+            style={[styles.favoriteDraftToggle, favorite && styles.favoriteDraftToggleActive]}
+            accessibilityLabel={favorite ? "Remove favorite" : "Add favorite"}
+          >
+            <Ionicons name={favorite ? "heart" : "heart-outline"} size={16} color={favorite ? colors.danger : colors.muted} />
+          </Pressable>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Pressable onPress={handleAdd} disabled={saving} style={[styles.primaryButton, saving && styles.disabled]}>
             {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Add & enrich</Text>}
@@ -361,6 +396,39 @@ export default function WatchTrackerScreen() {
             </View>
           ) : (
             <Text style={styles.metaText}>Generate a taste profile from your saved movies and series.</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Favorites</Text>
+            <Text style={styles.sectionCount}>{favoriteEntries.length}</Text>
+          </View>
+          {favoriteEntries.length === 0 ? (
+            <Text style={styles.metaText}>No favorites yet. Tap heart on any title.</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.favoriteRow}
+            >
+              {favoriteEntries.map((entry) => (
+                <Pressable
+                  key={`favorite-${entry.id}`}
+                  onPress={() => openEntry(entry)}
+                  style={styles.favoriteCard}
+                >
+                  <PosterThumb entry={entry} styles={styles} />
+                  <View style={styles.favoriteCardBody}>
+                    <Text numberOfLines={1} style={styles.favoriteCardTitle}>{entry.title}</Text>
+                    <Text style={styles.favoriteCardMeta}>
+                      {entry.type} • {statusLabel(entry.status)}
+                    </Text>
+                  </View>
+                  <Ionicons name="heart" color={colors.danger} size={16} />
+                </Pressable>
+              ))}
+            </ScrollView>
           )}
         </View>
 
@@ -478,6 +546,20 @@ export default function WatchTrackerScreen() {
                   <Text style={styles.modalTitle}>{selectedEntry.title}</Text>
                   <Pressable
                     onPress={() => {
+                      void handleFavoriteToggle(selectedEntry);
+                    }}
+                    style={styles.iconBtn}
+                    disabled={updatingId === selectedEntry.id}
+                    accessibilityLabel={selectedEntry.favorite ? "Remove favorite" : "Add favorite"}
+                  >
+                    <Ionicons
+                      name={selectedEntry.favorite ? "heart" : "heart-outline"}
+                      color={selectedEntry.favorite ? colors.danger : colors.muted}
+                      size={18}
+                    />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
                       setIsEditingDetails((value) => !value);
                       setEditDraft(createEditDraft(selectedEntry));
                     }}
@@ -579,6 +661,25 @@ export default function WatchTrackerScreen() {
                   </>
                 )}
 
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Favorite</Text>
+                  <Pressable
+                    onPress={() => {
+                      void handleFavoriteToggle(selectedEntry);
+                    }}
+                    style={[styles.favoriteActionButton, Boolean(selectedEntry.favorite) && styles.favoriteActionButtonActive]}
+                    disabled={updatingId === selectedEntry.id}
+                  >
+                    <Ionicons
+                      name={Boolean(selectedEntry.favorite) ? "heart" : "heart-outline"}
+                      color={Boolean(selectedEntry.favorite) ? colors.danger : colors.muted}
+                      size={15}
+                    />
+                    <Text style={[styles.favoriteActionText, Boolean(selectedEntry.favorite) && styles.favoriteActionTextActive]}>
+                      {Boolean(selectedEntry.favorite) ? "Favorited" : "Add to favorites"}
+                    </Text>
+                  </Pressable>
+                </View>
                 <View style={styles.modalSection}>
                   <Text style={styles.modalSectionTitle}>Progress</Text>
                   <View style={styles.rowWrap}>
@@ -762,6 +863,21 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     input: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: 1, borderRadius: 12, paddingHorizontal: spacing.md, minHeight: 44, color: colors.text },
     helperText: { color: colors.muted, fontSize: 11, lineHeight: 16 },
     notesInput: { minHeight: 72, paddingTop: spacing.sm },
+    favoriteDraftToggle: {
+      alignSelf: "flex-start",
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      width: 34,
+      height: 34,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceElevated,
+    },
+    favoriteDraftToggleActive: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
     row: { flexDirection: "row", gap: spacing.sm },
     rowWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
     dropdownBlock: { gap: 6 },
@@ -862,6 +978,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.primary,
     },
     savedLayout: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
+    favoriteRow: { gap: spacing.sm, paddingRight: 2 },
+    favoriteCard: {
+      width: 188,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: spacing.sm,
+      backgroundColor: colors.surfaceElevated,
+      gap: spacing.xs,
+    },
+    favoriteCardBody: { gap: 2 },
+    favoriteCardTitle: { color: colors.text, fontSize: 13, fontWeight: "900" },
+    favoriteCardMeta: { color: colors.muted, fontSize: 11, textTransform: "capitalize" },
     savedListPane: { flex: 1, height: 347 },
     savedListContent: { gap: spacing.sm, paddingRight: 2 },
     filterRail: {
@@ -1088,6 +1217,24 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       backgroundColor: colors.dangerSoft,
     },
     deleteActionText: { color: colors.danger, fontSize: 13, fontWeight: "900" },
+    favoriteActionButton: {
+      alignSelf: "flex-start",
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      minHeight: 34,
+      paddingHorizontal: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.surfaceElevated,
+    },
+    favoriteActionButtonActive: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
+    favoriteActionText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+    favoriteActionTextActive: { color: colors.danger },
   });
 }
 

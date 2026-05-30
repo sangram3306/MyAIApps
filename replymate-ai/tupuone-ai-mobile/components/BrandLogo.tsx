@@ -15,14 +15,14 @@ export function BrandLogo({ compact = false }: Props) {
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       <Image
         resizeMode="contain"
-        source={require("../assets/brand/tupuchat_logo.png")}
+        source={require("../assets/brand/tupuz-logo.png")}
         style={[styles.logo, compact && styles.logoCompact]}
       />
       {!compact ? (
         <View style={styles.titleBlock}>
           <Image
             resizeMode="contain"
-            source={require("../assets/brand/tupuchat_title.png")}
+            source={require("../assets/brand/tupuz-title.png")}
             style={styles.title}
           />
           <Text style={styles.credit}>by Sangram</Text>
@@ -50,27 +50,27 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: 0,
     },
     logo: {
-      height: 82,
+      height: 50,
       transform: [{ translateX: -10 }],
-      width: 82,
+      width: 50,
     },
     logoCompact: {
       height: 42,
       width: 42,
     },
     title: {
-      height: 104,
-      width: 454,
+      height: 84,
+      width: 360,
     },
     titleBlock: {
-      transform: [{ translateX: -150 }, { translateY: -16 }],
+      transform: [{ translateX: -70 }, { translateY: -16 }],
     },
     credit: {
       color: colors.muted,
       fontSize: 9,
       fontStyle: "italic",
       fontWeight: "700",
-      marginTop: -40,
+      marginTop: -34,
       textAlign: "center",
     },
   });

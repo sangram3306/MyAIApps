@@ -18,6 +18,7 @@ export type WatchEntry = {
   title: string;
   type: WatchType;
   status: WatchStatus;
+  favorite: boolean;
   releaseYear: string;
   director: string;
   leadActors: string[];
@@ -42,7 +43,7 @@ type WatchToolResult = {
   count?: number;
   deletedCount?: number;
   id?: string;
-  metadata?: Omit<WatchEntry, "id" | "createdAt" | "updatedAt" | "status" | "notes">;
+  metadata?: Omit<WatchEntry, "id" | "createdAt" | "updatedAt" | "status" | "notes" | "favorite">;
 };
 
 type ToolCallSummary = {
@@ -86,6 +87,7 @@ export async function logWatchItem(input: {
   title: string;
   type?: WatchType;
   status: WatchStatus;
+  favorite?: boolean;
   notes: string;
 }): Promise<WatchLogResponse> {
   const trace = ["Received watch tracker request"];
@@ -96,7 +98,7 @@ export async function logWatchItem(input: {
     type: input.type,
   }).catch(() => null);
   const liveEnrichment = live?.metadata
-    ? { source: live.source as Source, data: { ...live.metadata, notes: input.notes || "" } }
+    ? { source: live.source as Source, data: { ...live.metadata, favorite: false, notes: input.notes || "" } }
     : null;
 
   const enrichment = liveEnrichment
@@ -114,6 +116,7 @@ export async function logWatchItem(input: {
   const saved = await callWatchTool("saveWatchEntry", {
     ...enrichment.data,
     status: input.status,
+    favorite: Boolean(input.favorite),
     notes: input.notes || enrichment.data.notes,
   });
   toolCalls.push({ name: "saveWatchEntry", source: saved.source, summary: saved.summary });
@@ -123,6 +126,7 @@ export async function logWatchItem(input: {
     ...enrichment.data,
     status: input.status,
     notes: input.notes || enrichment.data.notes,
+    favorite: Boolean(input.favorite),
     id: `local-watch-${Date.now()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -186,15 +190,16 @@ export async function buildWatcherProfile(): Promise<WatcherProfileResponse> {
 }
 
 async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<WatcherProfileResponse, "count">> {
+  const genreInsights = buildGenreInsights(entries);
   const completion = await callChatCompletion({
     temperature: 0.45,
-    maxTokens: 650,
+    maxTokens: 900,
     responseFormat: { type: "json_object" },
     messages: [
       {
         role: "system",
         content:
-          "Return only JSON. Create a fun but practical watcher profile from a user's movie/series watchlist. Avoid spoilers. Keep it concise.",
+          "Return only JSON. Create a practical watcher profile with concrete genre insights. Avoid spoilers. Keep it concise and specific.",
       },
       {
         role: "user",
@@ -203,11 +208,21 @@ async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<W
             title: entry.title,
             type: entry.type,
             status: entry.status,
+            favorite: Boolean(entry.favorite),
             releaseYear: entry.releaseYear,
             director: entry.director,
             leadActors: entry.leadActors,
             imdb: entry.ratings.find((rating) => rating.source.toLowerCase().includes("internet movie database") || rating.source.toLowerCase() === "imdb")?.value,
+            genres: getGenresForEntry(entry),
           })),
+          genreInsights,
+          instructions: [
+            "Reference the user's dominant genres and genre mix directly.",
+            "Treat favorite titles as a stronger preference signal than non-favorites.",
+            "Call out at least one genre completion pattern (planned vs completed).",
+            "Make suggestions genre-aware, not generic.",
+            "If genre data is sparse, say that briefly and infer carefully.",
+          ],
           outputSchema: {
             archetype: "string",
             summary: "string",
@@ -237,29 +252,37 @@ function localWatcherProfile(entries: WatchEntry[]): Omit<WatcherProfileResponse
   const completed = entries.filter((entry) => entry.status === "completed").length;
   const planned = entries.filter((entry) => entry.status === "planned").length;
   const olderTitles = entries.filter((entry) => Number(entry.releaseYear.slice(0, 4)) < 2010).length;
+  const genreInsights = buildGenreInsights(entries);
+  const topGenres = genreInsights.topGenres.slice(0, 3).map((item) => item.genre);
+  const strongestGenre = topGenres[0];
+  const topGenreText = topGenres.length ? topGenres.join(", ") : "mixed genres";
   const archetype = series > movies
     ? "Serial Story Explorer"
     : olderTitles >= Math.ceil(entries.length / 2)
       ? "Modern Classic Curator"
-      : "Blockbuster Pathfinder";
+      : strongestGenre
+        ? `${strongestGenre} Pathfinder`
+        : "Blockbuster Pathfinder";
 
   return {
     source: "fallback",
     profile: {
       archetype,
-      summary: `You lean toward ${movies >= series ? "movies" : "series"}, with ${planned} planned and ${completed} completed titles.`,
+      summary: `You lean toward ${movies >= series ? "movies" : "series"} and mostly watch ${topGenreText}, with ${planned} planned and ${completed} completed titles.`,
       traits: [
         movies >= series ? "Movie-first" : "Series-first",
         olderTitles ? "Comfortable with classics" : "Current-release curious",
         planned > completed ? "Watchlist builder" : "Completion-minded",
+        strongestGenre ? `${strongestGenre}-leaning taste` : "Broad genre sampler",
       ],
       patterns: [
         `${movies} movies and ${series} series saved`,
         `${completed} completed, ${planned} planned`,
+        genreInsights.patternLine,
       ],
       suggestions: [
-        "Mark more titles completed to improve your profile",
-        "Add notes after watching to make recommendations sharper",
+        genreInsights.suggestionLine,
+        "Add notes after watching to sharpen genre-level recommendations",
       ],
     },
   };
@@ -294,6 +317,7 @@ export async function updateWatchDetails(input: {
   title?: string;
   type?: WatchType;
   status?: WatchStatus;
+  favorite?: boolean;
   releaseYear?: string;
   director?: string;
   leadActors?: string[];
@@ -392,6 +416,7 @@ function fallbackEnrichment(input: {
       type: input.type || "movie",
       releaseYear: "Unknown",
       director: "Unknown",
+      favorite: false,
       leadActors: [],
       budget: "Unknown",
       boxOffice: "Unknown",
@@ -412,6 +437,7 @@ function normalizeEnrichment(
   return {
     title: typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : input.title,
     type: payload.type === "series" ? "series" : input.type || "movie",
+    favorite: false,
     releaseYear: typeof payload.releaseYear === "string" && payload.releaseYear.trim() ? payload.releaseYear.trim() : "Unknown",
     director: typeof payload.director === "string" && payload.director.trim() ? payload.director.trim() : "Unknown",
     leadActors: Array.isArray(payload.leadActors)
@@ -479,6 +505,72 @@ function normalizeAvailabilityType(value: string | undefined): "stream" | "rent"
     return value;
   }
   return "stream";
+}
+
+function getGenresForEntry(entry: WatchEntry): string[] {
+  const explicit = (entry.externalDetails || []).find((detail) => detail.label.trim().toLowerCase() === "genre")?.value || "";
+  return explicit
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function buildGenreInsights(entries: WatchEntry[]): {
+  topGenres: Array<{ genre: string; count: number; weightedScore: number; completed: number; planned: number; favorites: number }>;
+  patternLine: string;
+  suggestionLine: string;
+} {
+  const genreMap = new Map<string, { count: number; weightedScore: number; completed: number; planned: number; favorites: number }>();
+
+  for (const entry of entries) {
+    const genres = getGenresForEntry(entry);
+    const weight = entry.favorite ? 2 : 1;
+    for (const genre of genres) {
+      const current = genreMap.get(genre) || { count: 0, weightedScore: 0, completed: 0, planned: 0, favorites: 0 };
+      current.count += 1;
+      current.weightedScore += weight;
+      if (entry.favorite) {
+        current.favorites += 1;
+      }
+      if (entry.status === "completed") {
+        current.completed += 1;
+      }
+      if (entry.status === "planned") {
+        current.planned += 1;
+      }
+      genreMap.set(genre, current);
+    }
+  }
+
+  const topGenres = Array.from(genreMap.entries())
+    .map(([genre, value]) => ({
+      genre,
+      count: value.count,
+      weightedScore: value.weightedScore,
+      completed: value.completed,
+      planned: value.planned,
+      favorites: value.favorites,
+    }))
+    .sort((a, b) => b.weightedScore - a.weightedScore)
+    .slice(0, 4);
+
+  if (!topGenres.length) {
+    return {
+      topGenres: [],
+      patternLine: "Genre data is limited, so patterns are based more on title count and progress.",
+      suggestionLine: "Save titles with richer metadata to unlock more genre-specific insights.",
+    };
+  }
+
+  const lead = topGenres[0];
+  const patternLine = `${lead.genre} leads your profile (score ${lead.weightedScore}; ${lead.count} titles, ${lead.favorites} favorites), with ${lead.completed} completed and ${lead.planned} planned.`;
+  const suggestionLine =
+    lead.planned > lead.completed
+      ? `You queue many ${lead.genre} titles. Finish a few to improve precision for this genre.`
+      : `You complete many ${lead.genre} titles. Try adding an adjacent genre for broader discovery.`;
+
+  return { topGenres, patternLine, suggestionLine };
 }
 
 async function callWatchTool(toolName: WatchToolName, payload: unknown): Promise<WatchToolResult> {

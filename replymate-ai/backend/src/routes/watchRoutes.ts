@@ -32,6 +32,7 @@ export async function handleLogWatchRequest(
       title: input.title,
       type: input.type,
       status: input.status,
+      favorite: input.favorite,
       notes: input.notes,
     });
     return res.json(result);

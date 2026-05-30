@@ -495,6 +495,7 @@ export type WatchEntry = {
   title: string;
   type: WatchType;
   status: WatchStatus;
+  favorite: boolean;
   releaseYear: string;
   director: string;
   leadActors: string[];
@@ -1223,6 +1224,7 @@ export async function logWatchItemFromApi(params: {
   title: string;
   type?: WatchType;
   status: WatchStatus;
+  favorite?: boolean;
   notes?: string;
 }): Promise<WatchLogResponse> {
   const response = await fetch(`${params.backendUrl}/api/watch/log`, {

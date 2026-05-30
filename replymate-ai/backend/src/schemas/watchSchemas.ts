@@ -7,6 +7,7 @@ export const logWatchSchema = z.object({
   title: z.string().min(1, "Title is required."),
   type: watchTypeSchema.optional(),
   status: watchStatusSchema.default("planned"),
+  favorite: z.boolean().optional().default(false),
   notes: z.string().optional().default(""),
 });
 
@@ -35,6 +36,7 @@ export const updateWatchDetailsSchema = z.object({
   title: z.string().min(1).optional(),
   type: watchTypeSchema.optional(),
   status: watchStatusSchema.optional(),
+  favorite: z.boolean().optional(),
   releaseYear: z.string().optional(),
   director: z.string().optional(),
   leadActors: z.array(z.string()).optional(),

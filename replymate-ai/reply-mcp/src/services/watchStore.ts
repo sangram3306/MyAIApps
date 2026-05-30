@@ -26,6 +26,7 @@ export type WatchEntry = {
   title: string;
   type: WatchType;
   status: WatchStatus;
+  favorite: boolean;
   releaseYear: string;
   director: string;
   leadActors: string[];
@@ -106,6 +107,7 @@ export async function updateWatchEntry(id: string, input: WatchEntryUpdateInput)
     title: input.title ?? current.title,
     type: input.type ?? current.type,
     status: input.status ?? current.status,
+    favorite: input.favorite ?? current.favorite,
     releaseYear: input.releaseYear ?? current.releaseYear,
     director: input.director ?? current.director,
     leadActors: input.leadActors ?? current.leadActors,
@@ -139,6 +141,7 @@ function sanitizeWatchEntryInput(input: WatchEntryInput): WatchEntryInput {
     title: normalizeSentence(input.title || "Untitled"),
     type: input.type === "series" ? "series" : "movie",
     status: sanitizeStatus(input.status),
+    favorite: Boolean(input.favorite),
     releaseYear: normalizeSentence(input.releaseYear || "Unknown"),
     director: normalizeSentence(input.director || "Unknown"),
     leadActors: sanitizeList(input.leadActors, 8),
