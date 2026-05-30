@@ -9,6 +9,7 @@ type WatchToolName =
   | "saveWatchEntry"
   | "listWatchEntries"
   | "updateWatchEntryStatus"
+  | "updateWatchEntry"
   | "deleteWatchEntry"
   | "fetchWatchMetadata";
 
@@ -24,6 +25,7 @@ export type WatchEntry = {
   boxOffice: string;
   posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
+  availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
   synopsis: string;
   notes: string;
   createdAt: string;
@@ -144,6 +146,30 @@ export async function updateWatchStatus(input: { id: string; status: WatchStatus
   };
 }
 
+export async function updateWatchDetails(input: {
+  id: string;
+  title?: string;
+  type?: WatchType;
+  status?: WatchStatus;
+  releaseYear?: string;
+  director?: string;
+  leadActors?: string[];
+  budget?: string;
+  boxOffice?: string;
+  posterUrl?: string;
+  ratings?: Array<{ source: string; value: string }>;
+  availability?: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
+  synopsis?: string;
+  notes?: string;
+}): Promise<{ entry?: WatchEntry; entries: WatchEntry[]; source: Source }> {
+  const result = await callWatchTool("updateWatchEntry", input);
+  return {
+    entry: result.entry,
+    entries: result.entries || [],
+    source: result.source,
+  };
+}
+
 export async function removeWatchItem(id: string): Promise<{ deleted: boolean; entries: WatchEntry[]; source: Source }> {
   const result = await callWatchTool("deleteWatchEntry", { id });
   return {
@@ -186,6 +212,7 @@ async function enrichWithLlm(input: {
             boxOffice: "string",
             posterUrl: "string",
             ratings: [{ source: "IMDb|Rotten Tomatoes|Metacritic|Other", value: "string" }],
+            availability: [{ provider: "string", region: "string", type: "stream|rent|buy|free|ads", link: "string" }],
             synopsis: "string",
             notes: "string",
           },
@@ -225,6 +252,7 @@ function fallbackEnrichment(input: {
       boxOffice: "Unknown",
       posterUrl: undefined,
       ratings: [],
+      availability: [],
       synopsis: "",
       notes: input.notes || "",
     },
@@ -257,6 +285,19 @@ function normalizeEnrichment(
           }))
           .slice(0, 6)
       : [],
+    availability: Array.isArray(payload.availability)
+      ? payload.availability
+          .filter((item): item is { provider: string; region: string; type?: string; link?: string } =>
+            Boolean(item && typeof item === "object" && typeof (item as { provider?: unknown }).provider === "string"),
+          )
+          .map((item) => ({
+            provider: item.provider.trim(),
+            region: typeof item.region === "string" ? item.region.trim().toUpperCase() : "Unknown",
+            type: normalizeAvailabilityType(item.type),
+            link: typeof item.link === "string" && item.link.trim() ? item.link.trim() : undefined,
+          }))
+          .slice(0, 40)
+      : [],
     synopsis: typeof payload.synopsis === "string" ? payload.synopsis.trim() : "",
     notes: input.notes || (typeof payload.notes === "string" ? payload.notes.trim() : ""),
   };
@@ -268,6 +309,13 @@ function posterUrlOrUndefined(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized && normalized !== "N/A" ? normalized : undefined;
+}
+
+function normalizeAvailabilityType(value: string | undefined): "stream" | "rent" | "buy" | "free" | "ads" {
+  if (value === "stream" || value === "rent" || value === "buy" || value === "free" || value === "ads") {
+    return value;
+  }
+  return "stream";
 }
 
 async function callWatchTool(toolName: WatchToolName, payload: unknown): Promise<WatchToolResult> {

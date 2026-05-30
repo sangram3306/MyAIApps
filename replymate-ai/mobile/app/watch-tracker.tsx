@@ -20,6 +20,7 @@ import {
   deleteWatchItemFromApi,
   listWatchItemsFromApi,
   logWatchItemFromApi,
+  updateWatchDetailsFromApi,
   updateWatchStatusFromApi,
   WatchEntry,
   WatchStatus,
@@ -30,6 +31,21 @@ import { getBackendUrl } from "../storage/appStorage";
 const statusOptions: WatchStatus[] = ["planned", "started", "in_progress", "completed", "dropped"];
 const statusFilters: Array<"all" | WatchStatus> = ["all", ...statusOptions];
 const typeFilters: Array<"all" | WatchType> = ["all", "movie", "series"];
+
+type WatchEditDraft = {
+  title: string;
+  type: WatchType;
+  releaseYear: string;
+  director: string;
+  leadActors: string;
+  budget: string;
+  boxOffice: string;
+  posterUrl: string;
+  ratings: string;
+  availability: string;
+  synopsis: string;
+  notes: string;
+};
 
 export default function WatchTrackerScreen() {
   const { colors } = useAppTheme();
@@ -48,6 +64,9 @@ export default function WatchTrackerScreen() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<WatchEntry | null>(null);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editDraft, setEditDraft] = useState<WatchEditDraft | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [activeTypeFilter, setActiveTypeFilter] = useState<"all" | WatchType>("all");
   const [activeFilter, setActiveFilter] = useState<"all" | WatchStatus>("all");
 
@@ -148,6 +167,52 @@ export default function WatchTrackerScreen() {
       setError(caught instanceof Error ? caught.message : "Could not delete this item.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function openEntry(entry: WatchEntry) {
+    setSelectedEntry(entry);
+    setIsEditingDetails(false);
+    setEditDraft(createEditDraft(entry));
+  }
+
+  async function handleSaveDetails() {
+    if (!backendUrl || !selectedEntry || !editDraft) {
+      return;
+    }
+
+    setSavingEdit(true);
+    setError("");
+    try {
+      const result = await updateWatchDetailsFromApi({
+        backendUrl,
+        id: selectedEntry.id,
+        updates: {
+          title: editDraft.title.trim(),
+          type: editDraft.type,
+          releaseYear: editDraft.releaseYear.trim(),
+          director: editDraft.director.trim(),
+          leadActors: parseList(editDraft.leadActors),
+          budget: editDraft.budget.trim(),
+          boxOffice: editDraft.boxOffice.trim(),
+          posterUrl: editDraft.posterUrl.trim() || undefined,
+          ratings: parseRatings(editDraft.ratings),
+          availability: parseAvailability(editDraft.availability),
+          synopsis: editDraft.synopsis.trim(),
+          notes: editDraft.notes.trim(),
+        },
+      });
+      setEntries(result.entries);
+      setSource(result.source);
+      if (result.entry) {
+        setSelectedEntry(result.entry);
+        setEditDraft(createEditDraft(result.entry));
+      }
+      setIsEditingDetails(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update details.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -262,7 +327,7 @@ export default function WatchTrackerScreen() {
                 <View key={entry.id} style={styles.entryCard}>
                   <View style={styles.entryHeader}>
                     <PosterThumb entry={entry} styles={styles} />
-                    <Pressable style={{ flex: 1 }} onPress={() => setSelectedEntry(entry)}>
+                    <Pressable style={{ flex: 1 }} onPress={() => openEntry(entry)}>
                       <Text style={styles.entryTitle}>{entry.title}</Text>
                       <View style={styles.entryMetaRow}>
                         <View style={styles.typePill}>
@@ -328,34 +393,89 @@ export default function WatchTrackerScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             {selectedEntry ? (
-              <>
+              <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.modalPosterWrap}>
                   <PosterLarge entry={selectedEntry} styles={styles} />
                 </View>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{selectedEntry.title}</Text>
+                  <Pressable
+                    onPress={() => {
+                      setIsEditingDetails((value) => !value);
+                      setEditDraft(createEditDraft(selectedEntry));
+                    }}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons name={isEditingDetails ? "close-outline" : "create-outline"} color={colors.text} size={18} />
+                  </Pressable>
                   <Pressable onPress={() => setSelectedEntry(null)} style={styles.iconBtn}>
                     <Ionicons name="close-outline" color={colors.text} size={18} />
                   </Pressable>
                 </View>
-                <Text style={styles.metaText}>
-                  {selectedEntry.type} | {selectedEntry.releaseYear}
-                </Text>
-                <View style={styles.infoRow}>
-                  <Ionicons name="videocam-outline" color={colors.muted} size={13} />
-                  <Text style={styles.metaText}>Director: {selectedEntry.director}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="people-outline" color={colors.muted} size={13} />
-                  <Text style={styles.metaText}>Lead: {selectedEntry.leadActors.join(", ") || "Unknown"}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="cash-outline" color={colors.muted} size={13} />
-                  <Text style={styles.metaText}>Budget: {selectedEntry.budget} | Box office: {selectedEntry.boxOffice}</Text>
-                </View>
-                <Text style={styles.ratingsText}>
-                  Ratings: {selectedEntry.ratings.length ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
-                </Text>
+
+                {isEditingDetails && editDraft ? (
+                  <View style={styles.editForm}>
+                    <EditField label="Title" value={editDraft.title} onChangeText={(value) => setEditDraft({ ...editDraft, title: value })} styles={styles} />
+                    <View style={styles.row}>
+                      <Pressable onPress={() => setEditDraft({ ...editDraft, type: "movie" })} style={[styles.pill, editDraft.type === "movie" && styles.pillActive]}>
+                        <Text style={[styles.pillText, editDraft.type === "movie" && styles.pillTextActive]}>Movie</Text>
+                      </Pressable>
+                      <Pressable onPress={() => setEditDraft({ ...editDraft, type: "series" })} style={[styles.pill, editDraft.type === "series" && styles.pillActive]}>
+                        <Text style={[styles.pillText, editDraft.type === "series" && styles.pillTextActive]}>Series</Text>
+                      </Pressable>
+                    </View>
+                    <EditField label="Year" value={editDraft.releaseYear} onChangeText={(value) => setEditDraft({ ...editDraft, releaseYear: value })} styles={styles} />
+                    <EditField label="Director" value={editDraft.director} onChangeText={(value) => setEditDraft({ ...editDraft, director: value })} styles={styles} />
+                    <EditField label="Lead actors" value={editDraft.leadActors} onChangeText={(value) => setEditDraft({ ...editDraft, leadActors: value })} styles={styles} />
+                    <EditField label="Budget" value={editDraft.budget} onChangeText={(value) => setEditDraft({ ...editDraft, budget: value })} styles={styles} />
+                    <EditField label="Box office" value={editDraft.boxOffice} onChangeText={(value) => setEditDraft({ ...editDraft, boxOffice: value })} styles={styles} />
+                    <EditField label="Poster URL" value={editDraft.posterUrl} onChangeText={(value) => setEditDraft({ ...editDraft, posterUrl: value })} styles={styles} />
+                    <EditField label="Ratings" value={editDraft.ratings} onChangeText={(value) => setEditDraft({ ...editDraft, ratings: value })} multiline styles={styles} />
+                    <EditField label="Availability" value={editDraft.availability} onChangeText={(value) => setEditDraft({ ...editDraft, availability: value })} multiline styles={styles} />
+                    <EditField label="Synopsis" value={editDraft.synopsis} onChangeText={(value) => setEditDraft({ ...editDraft, synopsis: value })} multiline styles={styles} />
+                    <EditField label="Notes" value={editDraft.notes} onChangeText={(value) => setEditDraft({ ...editDraft, notes: value })} multiline styles={styles} />
+                    <Pressable onPress={handleSaveDetails} style={[styles.primaryButton, savingEdit && styles.disabled]} disabled={savingEdit}>
+                      {savingEdit ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Save changes</Text>}
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.metaText}>
+                      {selectedEntry.type} | {selectedEntry.releaseYear}
+                    </Text>
+                    <View style={styles.infoRow}>
+                      <Ionicons name="videocam-outline" color={colors.muted} size={13} />
+                      <Text style={styles.metaText}>Director: {selectedEntry.director}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Ionicons name="people-outline" color={colors.muted} size={13} />
+                      <Text style={styles.metaText}>Lead: {selectedEntry.leadActors.join(", ") || "Unknown"}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Ionicons name="cash-outline" color={colors.muted} size={13} />
+                      <Text style={styles.metaText}>Budget: {selectedEntry.budget} | Box office: {selectedEntry.boxOffice}</Text>
+                    </View>
+                    <Text style={styles.ratingsText}>
+                      Ratings: {selectedEntry.ratings.length ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
+                    </Text>
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>Where to watch</Text>
+                      {selectedEntry.availability.length ? (
+                        <View style={styles.availabilityWrap}>
+                          {selectedEntry.availability.map((item) => (
+                            <View key={`${item.provider}-${item.region}-${item.type}`} style={styles.availabilityPill}>
+                              <Text style={styles.availabilityProvider}>{item.provider}</Text>
+                              <Text style={styles.availabilityMeta}>{item.region} | {item.type}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.metaText}>No streaming availability found for selected regions.</Text>
+                      )}
+                    </View>
+                  </>
+                )}
+
                 <View style={styles.modalSection}>
                   <Text style={styles.modalSectionTitle}>Progress</Text>
                   <View style={styles.rowWrap}>
@@ -380,8 +500,8 @@ export default function WatchTrackerScreen() {
                     ))}
                   </View>
                 </View>
-                {selectedEntry.synopsis ? <Text style={styles.synopsis}>{selectedEntry.synopsis}</Text> : null}
-                {selectedEntry.notes ? <Text style={styles.notesText}>Notes: {selectedEntry.notes}</Text> : null}
+                {!isEditingDetails && selectedEntry.synopsis ? <Text style={styles.synopsis}>{selectedEntry.synopsis}</Text> : null}
+                {!isEditingDetails && selectedEntry.notes ? <Text style={styles.notesText}>Notes: {selectedEntry.notes}</Text> : null}
                 <Pressable
                   onPress={async () => {
                     await handleDelete(selectedEntry.id);
@@ -399,7 +519,7 @@ export default function WatchTrackerScreen() {
                     </>
                   )}
                 </Pressable>
-              </>
+              </ScrollView>
             ) : null}
           </View>
         </View>
@@ -426,6 +546,33 @@ function PosterLarge({ entry, styles }: { entry: WatchEntry; styles: ReturnType<
   return (
     <View style={styles.posterLargeFallback}>
       <Text style={styles.posterLargeFallbackText}>{initials(entry.title)}</Text>
+    </View>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChangeText,
+  multiline,
+  styles,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  multiline?: boolean;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.editField}>
+      <Text style={styles.editLabel}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        multiline={multiline}
+        textAlignVertical={multiline ? "top" : "center"}
+        style={[styles.editInput, multiline && styles.editInputMultiline]}
+      />
     </View>
   );
 }
@@ -628,6 +775,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     infoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     iconBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: 10, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
     ratingsText: { color: colors.text, fontSize: 12, lineHeight: 18, fontWeight: "600" },
+    availabilityWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+    availabilityPill: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      gap: 2,
+    },
+    availabilityProvider: { color: colors.text, fontSize: 12, fontWeight: "800" },
+    availabilityMeta: { color: colors.primary, fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
     synopsis: { color: colors.text, fontSize: 13, lineHeight: 19 },
     notesText: { color: colors.muted, fontSize: 12, lineHeight: 18 },
     modalBackdrop: {
@@ -645,7 +804,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       padding: spacing.md,
       gap: spacing.sm,
       minHeight: "44%",
+      maxHeight: "86%",
     },
+    modalContent: { gap: spacing.sm, paddingBottom: spacing.md },
     modalPosterWrap: { alignItems: "center" },
     posterLarge: {
       width: 120,
@@ -682,6 +843,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     modalTitle: { color: colors.text, fontSize: 20, fontWeight: "900", flex: 1 },
     modalSection: { gap: spacing.xs, marginTop: spacing.xs },
     modalSectionTitle: { color: colors.text, fontSize: 13, fontWeight: "800", textTransform: "uppercase" },
+    editForm: { gap: spacing.sm },
+    editField: { gap: 5 },
+    editLabel: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+    editInput: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      color: colors.text,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+    },
+    editInputMultiline: {
+      minHeight: 78,
+      paddingTop: spacing.sm,
+    },
     deleteActionButton: {
       marginTop: spacing.sm,
       borderColor: colors.danger,
@@ -706,6 +883,72 @@ function formatWatchSource(source: "static" | "llm" | "fallback"): string {
     return "LLM";
   }
   return "Fallback";
+}
+
+function createEditDraft(entry: WatchEntry): WatchEditDraft {
+  return {
+    title: entry.title,
+    type: entry.type,
+    releaseYear: entry.releaseYear,
+    director: entry.director,
+    leadActors: entry.leadActors.join(", "),
+    budget: entry.budget,
+    boxOffice: entry.boxOffice,
+    posterUrl: entry.posterUrl || "",
+    ratings: entry.ratings.map((rating) => `${rating.source}: ${rating.value}`).join("\n"),
+    availability: entry.availability.map((item) => `${item.provider} | ${item.region} | ${item.type}${item.link ? ` | ${item.link}` : ""}`).join("\n"),
+    synopsis: entry.synopsis,
+    notes: entry.notes,
+  };
+}
+
+function parseAvailability(value: string): Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }> {
+  return value
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [provider = "", region = "Unknown", rawType = "stream", link] = line.split("|").map((part) => part.trim());
+      return {
+        provider,
+        region: region.toUpperCase(),
+        type: normalizeAvailabilityType(rawType),
+        link: link || undefined,
+      };
+    })
+    .filter((item) => item.provider)
+    .slice(0, 40);
+}
+
+function normalizeAvailabilityType(value: string): "stream" | "rent" | "buy" | "free" | "ads" {
+  if (value === "stream" || value === "rent" || value === "buy" || value === "free" || value === "ads") {
+    return value;
+  }
+  return "stream";
+}
+
+function parseList(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function parseRatings(value: string): Array<{ source: string; value: string }> {
+  return value
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [source, ...rest] = line.split(":");
+      return {
+        source: source.trim(),
+        value: rest.join(":").trim() || "Unknown",
+      };
+    })
+    .filter((rating) => rating.source)
+    .slice(0, 6);
 }
 
 function getImdbRating(ratings: Array<{ source: string; value: string }>): string {

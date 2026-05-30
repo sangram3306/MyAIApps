@@ -37,6 +37,7 @@ import {
   fetchWatchMetadataTool,
   listWatchEntriesTool,
   saveWatchEntryTool,
+  updateWatchEntryTool,
   updateWatchEntryStatusTool,
 } from "./tools/watch.js";
 
@@ -197,6 +198,10 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "updateWatchEntryStatus") {
       return res.json(await updateWatchEntryStatusTool(payload));
+    }
+
+    if (toolName === "updateWatchEntry") {
+      return res.json(await updateWatchEntryTool(payload));
     }
 
     if (toolName === "deleteWatchEntry") {

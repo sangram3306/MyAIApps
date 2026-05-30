@@ -502,6 +502,7 @@ export type WatchEntry = {
   boxOffice: string;
   posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
+  availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
   synopsis: string;
   notes: string;
   createdAt: string;
@@ -1264,6 +1265,30 @@ export async function updateWatchStatusFromApi(params: {
     throw new Error("Backend returned an unexpected watch status response.");
   }
   return {
+    entries: data.entries,
+    source: data.source || "fallback",
+  };
+}
+
+export async function updateWatchDetailsFromApi(params: {
+  backendUrl: string;
+  id: string;
+  updates: Partial<Omit<WatchEntry, "id" | "createdAt" | "updatedAt">>;
+}): Promise<{ entry?: WatchEntry; entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}`, {
+    method: "PATCH",
+    headers: await getApiHeaders(),
+    body: JSON.stringify(params.updates),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<{ entry?: WatchEntry; entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not update watch details.");
+  }
+  if (!Array.isArray(data?.entries)) {
+    throw new Error("Backend returned an unexpected watch details response.");
+  }
+  return {
+    entry: data.entry,
     entries: data.entries,
     source: data.source || "fallback",
   };

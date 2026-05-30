@@ -3,6 +3,7 @@ import {
   createWatchEntry,
   deleteWatchEntry,
   listWatchEntries,
+  updateWatchEntry,
   updateWatchEntryStatus,
   WatchEntry,
   WatchStatus,
@@ -13,6 +14,13 @@ const sourceSchema = z.enum(["static", "llm", "fallback"]);
 const watchRatingSchema = z.object({
   source: z.string().min(1),
   value: z.string().default("Unknown"),
+});
+
+const watchAvailabilitySchema = z.object({
+  provider: z.string().min(1),
+  region: z.string().min(2),
+  type: z.enum(["stream", "rent", "buy", "free", "ads"]).default("stream"),
+  link: z.string().optional(),
 });
 
 const saveWatchInputSchema = z.object({
@@ -26,6 +34,7 @@ const saveWatchInputSchema = z.object({
   boxOffice: z.string().default("Unknown"),
   posterUrl: z.string().optional(),
   ratings: z.array(watchRatingSchema).default([]),
+  availability: z.array(watchAvailabilitySchema).default([]),
   synopsis: z.string().default(""),
   notes: z.string().default(""),
 });
@@ -37,6 +46,10 @@ const listWatchInputSchema = z.object({
 const updateWatchStatusInputSchema = z.object({
   id: z.string().min(1),
   status: z.enum(["planned", "started", "in_progress", "completed", "dropped"]),
+});
+
+const updateWatchInputSchema = saveWatchInputSchema.partial().extend({
+  id: z.string().min(1),
 });
 
 const deleteWatchInputSchema = z.object({
@@ -67,6 +80,7 @@ type WatchToolOutput = {
     boxOffice: string;
     posterUrl?: string;
     ratings: Array<{ source: string; value: string }>;
+    availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
     synopsis: string;
   };
 };
@@ -138,6 +152,30 @@ export async function updateWatchEntryStatusTool(input: unknown): Promise<WatchT
   }
 }
 
+export async function updateWatchEntryTool(input: unknown): Promise<WatchToolOutput> {
+  const parsed = updateWatchInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fallback("Could not read watch details update request.");
+  }
+
+  try {
+    const { id, ...updates } = parsed.data;
+    const entry = await updateWatchEntry(id, updates);
+    const entries = await listWatchEntries(30);
+    return {
+      source: "static",
+      confidence: 0.97,
+      summary: entry ? `Updated details for ${entry.title}.` : "No matching entry found.",
+      entry: entry || undefined,
+      entries,
+      count: entries.length,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return fallback(`Watch details update failed: ${message}`);
+  }
+}
+
 export async function deleteWatchEntryTool(input: unknown): Promise<WatchToolOutput> {
   const parsed = deleteWatchInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -171,6 +209,7 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
   const title = parsed.data.title.trim();
   const type = parsed.data.type;
   try {
+    const availability = await fetchAvailabilityFromTmdb(title, type);
     const omdb = await fetchFromOmdb(title, type);
     if (omdb) {
       return {
@@ -178,7 +217,7 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
         confidence: 0.95,
         summary: `Fetched live metadata for ${omdb.title}.`,
         entries: [],
-        metadata: omdb,
+        metadata: { ...omdb, availability },
       };
     }
 
@@ -188,7 +227,7 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
       confidence: wiki ? 0.8 : 0.35,
       summary: wiki ? `Fetched partial metadata from Wikipedia for ${wiki.title}.` : "Could not fetch live metadata.",
       entries: [],
-      metadata: wiki || undefined,
+      metadata: wiki ? { ...wiki, availability } : undefined,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
@@ -239,8 +278,107 @@ async function fetchFromOmdb(
     boxOffice: stringOr(data.BoxOffice, "Unknown"),
     posterUrl: posterUrlOrUndefined(data.Poster),
     ratings,
+    availability: [],
     synopsis: stringOr(data.Plot, ""),
   };
+}
+
+async function fetchAvailabilityFromTmdb(
+  title: string,
+  type: "movie" | "series",
+): Promise<Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>> {
+  const apiKey = process.env.TMDB_API_KEY?.trim();
+  const bearerToken = process.env.TMDB_READ_ACCESS_TOKEN?.trim();
+  if (!apiKey && !bearerToken) {
+    return [];
+  }
+
+  const mediaType = type === "series" ? "tv" : "movie";
+  const searchUrl = new URL(`https://api.themoviedb.org/3/search/${mediaType}`);
+  if (apiKey) {
+    searchUrl.searchParams.set("api_key", apiKey);
+  }
+  searchUrl.searchParams.set("query", title);
+  searchUrl.searchParams.set("include_adult", "false");
+
+  const headers = bearerToken ? { Authorization: `Bearer ${bearerToken}` } : undefined;
+  const searchResponse = await fetch(searchUrl.toString(), { headers });
+  if (!searchResponse.ok) {
+    return [];
+  }
+
+  const searchData = (await searchResponse.json()) as { results?: Array<{ id?: number }> };
+  const tmdbId = searchData.results?.[0]?.id;
+  if (!tmdbId) {
+    return [];
+  }
+
+  const providersUrl = new URL(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/watch/providers`);
+  if (apiKey) {
+    providersUrl.searchParams.set("api_key", apiKey);
+  }
+  const providersResponse = await fetch(providersUrl.toString(), { headers });
+  if (!providersResponse.ok) {
+    return [];
+  }
+
+  const providersData = (await providersResponse.json()) as {
+    results?: Record<string, { link?: string; flatrate?: Provider[]; rent?: Provider[]; buy?: Provider[]; free?: Provider[]; ads?: Provider[] }>;
+  };
+  const regions = configuredRegions();
+  const availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }> = [];
+
+  for (const region of regions) {
+    const regionData = providersData.results?.[region];
+    if (!regionData) {
+      continue;
+    }
+    availability.push(...providersFor(regionData.flatrate, region, "stream", regionData.link));
+    availability.push(...providersFor(regionData.rent, region, "rent", regionData.link));
+    availability.push(...providersFor(regionData.buy, region, "buy", regionData.link));
+    availability.push(...providersFor(regionData.free, region, "free", regionData.link));
+    availability.push(...providersFor(regionData.ads, region, "ads", regionData.link));
+  }
+
+  return dedupeAvailability(availability).slice(0, 40);
+}
+
+type Provider = { provider_name?: string };
+
+function providersFor(providers: Provider[] | undefined, region: string, type: "stream" | "rent" | "buy" | "free" | "ads", link?: string) {
+  return Array.isArray(providers)
+    ? providers
+        .filter((provider) => typeof provider.provider_name === "string" && provider.provider_name.trim())
+        .map((provider) => ({
+          provider: provider.provider_name || "Unknown",
+          region,
+          type,
+          link,
+        }))
+    : [];
+}
+
+function configuredRegions(): string[] {
+  const raw = process.env.TMDB_REGIONS || process.env.TMDB_REGION || "AE,IN,US,GB";
+  return raw
+    .split(",")
+    .map((region) => region.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function dedupeAvailability(
+  values: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>,
+) {
+  const seen = new Set<string>();
+  return values.filter((item) => {
+    const key = `${item.provider.toLowerCase()}-${item.region}-${item.type}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 async function fetchFromWikipedia(
@@ -285,6 +423,7 @@ async function fetchFromWikipedia(
     boxOffice: "Unknown",
     posterUrl: thumbnailSource(summary),
     ratings: [],
+    availability: [],
     synopsis: extract,
   };
 }

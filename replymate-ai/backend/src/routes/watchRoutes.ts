@@ -4,14 +4,16 @@ import {
   listWatchItems,
   logWatchItem,
   removeWatchItem,
+  updateWatchDetails,
   updateWatchStatus,
 } from "../agents/watchAgent";
-import { logWatchSchema, updateWatchStatusSchema } from "../schemas/watchSchemas";
+import { logWatchSchema, updateWatchDetailsSchema, updateWatchStatusSchema } from "../schemas/watchSchemas";
 
 const router = Router();
 
 router.post("/log", handleLogWatchRequest);
 router.get("/items", handleListWatchRequest);
+router.patch("/items/:id", handleUpdateWatchDetailsRequest);
 router.patch("/items/:id/status", handleUpdateWatchStatusRequest);
 router.delete("/items/:id", handleDeleteWatchRequest);
 
@@ -84,6 +86,33 @@ export async function handleUpdateWatchStatusRequest(
   }
 }
 
+export async function handleUpdateWatchDetailsRequest(
+  req: { body: unknown; params?: Record<string, string | undefined> },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  const id = req.params?.id?.trim();
+  if (!id) {
+    return res.status(400).json({ error: "Watch item id is required." });
+  }
+
+  try {
+    const input = updateWatchDetailsSchema.parse(req.body);
+    const result = await updateWatchDetails({ id, ...input });
+    return res.json(result);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: "Invalid request.",
+        details: error.flatten().fieldErrors,
+      });
+    }
+    return res.status(500).json({ error: "Could not update watch details." });
+  }
+}
+
 export async function handleDeleteWatchRequest(
   req: { params?: Record<string, string | undefined> },
   res: {
@@ -105,4 +134,3 @@ export async function handleDeleteWatchRequest(
 }
 
 export default router;
-

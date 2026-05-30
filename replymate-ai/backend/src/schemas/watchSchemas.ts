@@ -14,3 +14,30 @@ export const updateWatchStatusSchema = z.object({
   status: watchStatusSchema,
 });
 
+export const watchRatingSchema = z.object({
+  source: z.string().min(1),
+  value: z.string().default("Unknown"),
+});
+
+export const watchAvailabilitySchema = z.object({
+  provider: z.string().min(1),
+  region: z.string().min(2),
+  type: z.enum(["stream", "rent", "buy", "free", "ads"]).default("stream"),
+  link: z.string().optional(),
+});
+
+export const updateWatchDetailsSchema = z.object({
+  title: z.string().min(1).optional(),
+  type: watchTypeSchema.optional(),
+  status: watchStatusSchema.optional(),
+  releaseYear: z.string().optional(),
+  director: z.string().optional(),
+  leadActors: z.array(z.string()).optional(),
+  budget: z.string().optional(),
+  boxOffice: z.string().optional(),
+  posterUrl: z.string().optional(),
+  ratings: z.array(watchRatingSchema).optional(),
+  availability: z.array(watchAvailabilitySchema).optional(),
+  synopsis: z.string().optional(),
+  notes: z.string().optional(),
+});
