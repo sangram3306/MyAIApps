@@ -22,6 +22,7 @@ export type WatchEntry = {
   leadActors: string[];
   budget: string;
   boxOffice: string;
+  posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
   synopsis: string;
   notes: string;
@@ -183,6 +184,7 @@ async function enrichWithLlm(input: {
             leadActors: ["string"],
             budget: "string",
             boxOffice: "string",
+            posterUrl: "string",
             ratings: [{ source: "IMDb|Rotten Tomatoes|Metacritic|Other", value: "string" }],
             synopsis: "string",
             notes: "string",
@@ -221,6 +223,7 @@ function fallbackEnrichment(input: {
       leadActors: [],
       budget: "Unknown",
       boxOffice: "Unknown",
+      posterUrl: undefined,
       ratings: [],
       synopsis: "",
       notes: input.notes || "",
@@ -242,6 +245,7 @@ function normalizeEnrichment(
       : [],
     budget: typeof payload.budget === "string" && payload.budget.trim() ? payload.budget.trim() : "Unknown",
     boxOffice: typeof payload.boxOffice === "string" && payload.boxOffice.trim() ? payload.boxOffice.trim() : "Unknown",
+    posterUrl: posterUrlOrUndefined(payload.posterUrl),
     ratings: Array.isArray(payload.ratings)
       ? payload.ratings
           .filter((item): item is { source: string; value: string } =>
@@ -256,6 +260,14 @@ function normalizeEnrichment(
     synopsis: typeof payload.synopsis === "string" ? payload.synopsis.trim() : "",
     notes: input.notes || (typeof payload.notes === "string" ? payload.notes.trim() : ""),
   };
+}
+
+function posterUrlOrUndefined(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized && normalized !== "N/A" ? normalized : undefined;
 }
 
 async function callWatchTool(toolName: WatchToolName, payload: unknown): Promise<WatchToolResult> {

@@ -24,6 +24,7 @@ const saveWatchInputSchema = z.object({
   leadActors: z.array(z.string()).default([]),
   budget: z.string().default("Unknown"),
   boxOffice: z.string().default("Unknown"),
+  posterUrl: z.string().optional(),
   ratings: z.array(watchRatingSchema).default([]),
   synopsis: z.string().default(""),
   notes: z.string().default(""),
@@ -64,6 +65,7 @@ type WatchToolOutput = {
     leadActors: string[];
     budget: string;
     boxOffice: string;
+    posterUrl?: string;
     ratings: Array<{ source: string; value: string }>;
     synopsis: string;
   };
@@ -235,6 +237,7 @@ async function fetchFromOmdb(
     leadActors: splitList(stringOr(data.Actors, "")),
     budget: "Unknown",
     boxOffice: stringOr(data.BoxOffice, "Unknown"),
+    posterUrl: posterUrlOrUndefined(data.Poster),
     ratings,
     synopsis: stringOr(data.Plot, ""),
   };
@@ -280,6 +283,7 @@ async function fetchFromWikipedia(
     leadActors: [],
     budget: "Unknown",
     boxOffice: "Unknown",
+    posterUrl: thumbnailSource(summary),
     ratings: [],
     synopsis: extract,
   };
@@ -295,6 +299,19 @@ function splitList(value: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 8);
+}
+
+function posterUrlOrUndefined(value: unknown): string | undefined {
+  const poster = stringOr(value, "");
+  return poster && poster !== "N/A" ? poster : undefined;
+}
+
+function thumbnailSource(summary: Record<string, unknown>): string | undefined {
+  const thumbnail = summary.thumbnail;
+  if (!thumbnail || typeof thumbnail !== "object") {
+    return undefined;
+  }
+  return posterUrlOrUndefined((thumbnail as { source?: unknown }).source);
 }
 
 async function fallback(summary: string): Promise<WatchToolOutput> {

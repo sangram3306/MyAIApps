@@ -19,6 +19,7 @@ export type WatchEntry = {
   leadActors: string[];
   budget: string;
   boxOffice: string;
+  posterUrl?: string;
   ratings: WatchRating[];
   synopsis: string;
   notes: string;
@@ -94,10 +95,19 @@ function sanitizeWatchEntryInput(input: WatchEntryInput): WatchEntryInput {
     leadActors: sanitizeList(input.leadActors, 8),
     budget: normalizeSentence(input.budget || "Unknown"),
     boxOffice: normalizeSentence(input.boxOffice || "Unknown"),
+    posterUrl: sanitizePosterUrl(input.posterUrl),
     ratings: sanitizeRatings(input.ratings),
     synopsis: normalizeSentence(input.synopsis || ""),
     notes: normalizeSentence(input.notes || ""),
   };
+}
+
+function sanitizePosterUrl(value: string | undefined): string | undefined {
+  const normalized = normalizeSentence(value || "");
+  if (!normalized || normalized === "N/A") {
+    return undefined;
+  }
+  return normalized;
 }
 
 function sanitizeStatus(value: WatchStatus): WatchStatus {
@@ -131,4 +141,3 @@ function sanitizeList(values: string[], limit: number): string[] {
 function normalizeSentence(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
-

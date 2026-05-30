@@ -500,6 +500,7 @@ export type WatchEntry = {
   leadActors: string[];
   budget: string;
   boxOffice: string;
+  posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
   synopsis: string;
   notes: string;
