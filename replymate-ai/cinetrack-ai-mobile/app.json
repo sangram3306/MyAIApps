@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "CineTrack AI",
+    "slug": "cinetrack-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "cinetrackai",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#050506"
+    },
+    "android": {
+      "package": "com.cinetrack.ai"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

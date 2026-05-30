@@ -1,0 +1,59 @@
+export type Role =
+  | "none"
+  | "friend"
+  | "best_friend"
+  | "partner"
+  | "customer_support"
+  | "manager"
+  | "professional_writer"
+  | "sales_expert"
+  | "marketing_expert"
+  | "influencer"
+  | "startup_founder"
+  | "comedian"
+  | "savage_friend"
+  | "poet"
+  | "teacher"
+  | "pirate"
+  | "five_year_old"
+  | "doctor"
+  | "ai_engineer"
+  | "thief"
+  | "cowboy"
+  | "astronaut"
+  | "shakespeare"
+  | "grandma"
+  | "lawyer"
+  | "gym_coach"
+  | "detective";
+
+export const replyRoles: Array<{ label: string; value: Role }> = [
+  { label: "None", value: "none" },
+  { label: "Friend", value: "friend" },
+  { label: "Best Friend", value: "best_friend" },
+  { label: "Partner", value: "partner" },
+  { label: "Customer Support", value: "customer_support" },
+  { label: "Manager", value: "manager" },
+  { label: "Teacher", value: "teacher" },
+  { label: "Comedian", value: "comedian" },
+  { label: "Savage Friend", value: "savage_friend" },
+  { label: "Poet", value: "poet" },
+  { label: "Pirate", value: "pirate" },
+  { label: "5 Year Old Kid", value: "five_year_old" },
+  { label: "Doctor", value: "doctor" },
+  { label: "AI Engineer", value: "ai_engineer" },
+  { label: "Thief", value: "thief" },
+  { label: "Cowboy", value: "cowboy" },
+  { label: "Astronaut", value: "astronaut" },
+  { label: "Shakespeare", value: "shakespeare" },
+  { label: "Grandma", value: "grandma" },
+  { label: "Lawyer", value: "lawyer" },
+  { label: "Gym Coach", value: "gym_coach" },
+  { label: "Detective", value: "detective" },
+];
+
+export const rewriteRoles: Array<{ label: string; value: Role }> = [
+  ...replyRoles,
+];
+
+export const roles = replyRoles;

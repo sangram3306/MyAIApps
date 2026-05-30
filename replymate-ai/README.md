@@ -35,7 +35,7 @@ Mobile Expenses tab
 
 ```text
 replymate-ai/
-  mobile/
+  tupuone-ai-mobile/
   backend/
   reply-mcp/
   README.md
@@ -265,7 +265,7 @@ MONGODB_EXPENSES_COLLECTION=expenses
 ### 3. Mobile
 
 ```bash
-cd mobile
+cd tupuone-ai-mobile
 npm install
 npx expo start
 ```
@@ -308,7 +308,7 @@ The mobile app continues to point at the backend only. No API keys are exposed t
 
 ### Expo Go
 
-1. Run `npx expo start` in `mobile/`.
+1. Run `npx expo start` in `tupuone-ai-mobile/`.
 2. Open Expo Go on your Android phone.
 3. Scan the QR code.
 
