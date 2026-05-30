@@ -523,6 +523,18 @@ export type WatchLogResponse = {
   };
 };
 
+export type WatcherProfileResponse = {
+  source: "static" | "llm" | "fallback";
+  count: number;
+  profile: {
+    archetype: string;
+    summary: string;
+    traits: string[];
+    patterns: string[];
+    suggestions: string[];
+  };
+};
+
 export async function analyzeCoachFromApi(params: {
   backendUrl: string;
   message: string;
@@ -1245,6 +1257,23 @@ export async function listWatchItemsFromApi(params: {
     entries: data.entries,
     source: data.source || "fallback",
   };
+}
+
+export async function getWatcherProfileFromApi(params: {
+  backendUrl: string;
+}): Promise<WatcherProfileResponse> {
+  const response = await fetch(`${params.backendUrl}/api/watch/profile`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<WatcherProfileResponse & { error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not build watcher profile.");
+  }
+  if (typeof data?.profile?.archetype !== "string" || !Array.isArray(data.profile.traits)) {
+    throw new Error("Backend returned an unexpected watcher profile response.");
+  }
+  return data as WatcherProfileResponse;
 }
 
 export async function updateWatchStatusFromApi(params: {

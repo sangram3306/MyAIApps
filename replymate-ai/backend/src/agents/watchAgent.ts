@@ -69,6 +69,18 @@ export type WatchListResponse = {
   source: Source;
 };
 
+export type WatcherProfileResponse = {
+  source: Source;
+  profile: {
+    archetype: string;
+    summary: string;
+    traits: string[];
+    patterns: string[];
+    suggestions: string[];
+  };
+  count: number;
+};
+
 export async function logWatchItem(input: {
   title: string;
   type: WatchType;
@@ -136,6 +148,136 @@ export async function listWatchItems(): Promise<WatchListResponse> {
     entries: result.entries || [],
     source: result.source,
   };
+}
+
+export async function buildWatcherProfile(): Promise<WatcherProfileResponse> {
+  const result = await callWatchTool("listWatchEntries", { limit: 100 });
+  const entries = result.entries || [];
+  if (!entries.length) {
+    return {
+      source: "fallback",
+      count: 0,
+      profile: {
+        archetype: "Fresh Watcher",
+        summary: "Your watchlist is just getting started.",
+        traits: ["Exploratory", "Open-ended"],
+        patterns: ["No saved titles yet"],
+        suggestions: ["Add a few movies or series to unlock a more personal profile"],
+      },
+    };
+  }
+
+  if (hasConfiguredLlmApiKey()) {
+    const profile = await buildWatcherProfileWithLlm(entries).catch(() => localWatcherProfile(entries));
+    return {
+      source: profile.source,
+      count: entries.length,
+      profile: profile.profile,
+    };
+  }
+
+  const profile = localWatcherProfile(entries);
+  return {
+    source: profile.source,
+    count: entries.length,
+    profile: profile.profile,
+  };
+}
+
+async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<WatcherProfileResponse, "count">> {
+  const completion = await callChatCompletion({
+    temperature: 0.45,
+    maxTokens: 650,
+    responseFormat: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "Return only JSON. Create a fun but practical watcher profile from a user's movie/series watchlist. Avoid spoilers. Keep it concise.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          watchlist: entries.slice(0, 80).map((entry) => ({
+            title: entry.title,
+            type: entry.type,
+            status: entry.status,
+            releaseYear: entry.releaseYear,
+            director: entry.director,
+            leadActors: entry.leadActors,
+            imdb: entry.ratings.find((rating) => rating.source.toLowerCase().includes("internet movie database") || rating.source.toLowerCase() === "imdb")?.value,
+          })),
+          outputSchema: {
+            archetype: "string",
+            summary: "string",
+            traits: ["string"],
+            patterns: ["string"],
+            suggestions: ["string"],
+          },
+        }),
+      },
+    ],
+  });
+
+  const parsed = safeParseJson<Record<string, unknown>>(completion.content);
+  if (!parsed) {
+    throw new Error("Could not parse watcher profile.");
+  }
+
+  return {
+    source: "llm",
+    profile: normalizeWatcherProfile(parsed),
+  };
+}
+
+function localWatcherProfile(entries: WatchEntry[]): Omit<WatcherProfileResponse, "count"> {
+  const movies = entries.filter((entry) => entry.type === "movie").length;
+  const series = entries.filter((entry) => entry.type === "series").length;
+  const completed = entries.filter((entry) => entry.status === "completed").length;
+  const planned = entries.filter((entry) => entry.status === "planned").length;
+  const olderTitles = entries.filter((entry) => Number(entry.releaseYear.slice(0, 4)) < 2010).length;
+  const archetype = series > movies
+    ? "Serial Story Explorer"
+    : olderTitles >= Math.ceil(entries.length / 2)
+      ? "Modern Classic Curator"
+      : "Blockbuster Pathfinder";
+
+  return {
+    source: "fallback",
+    profile: {
+      archetype,
+      summary: `You lean toward ${movies >= series ? "movies" : "series"}, with ${planned} planned and ${completed} completed titles.`,
+      traits: [
+        movies >= series ? "Movie-first" : "Series-first",
+        olderTitles ? "Comfortable with classics" : "Current-release curious",
+        planned > completed ? "Watchlist builder" : "Completion-minded",
+      ],
+      patterns: [
+        `${movies} movies and ${series} series saved`,
+        `${completed} completed, ${planned} planned`,
+      ],
+      suggestions: [
+        "Mark more titles completed to improve your profile",
+        "Add notes after watching to make recommendations sharper",
+      ],
+    },
+  };
+}
+
+function normalizeWatcherProfile(payload: Record<string, unknown>): WatcherProfileResponse["profile"] {
+  return {
+    archetype: typeof payload.archetype === "string" && payload.archetype.trim() ? payload.archetype.trim() : "Curious Watcher",
+    summary: typeof payload.summary === "string" && payload.summary.trim() ? payload.summary.trim() : "Your watchlist shows a developing taste profile.",
+    traits: stringList(payload.traits, 5),
+    patterns: stringList(payload.patterns, 5),
+    suggestions: stringList(payload.suggestions, 5),
+  };
+}
+
+function stringList(value: unknown, limit: number): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim()).slice(0, limit)
+    : [];
 }
 
 export async function updateWatchStatus(input: { id: string; status: WatchStatus }): Promise<WatchListResponse> {

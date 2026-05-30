@@ -18,6 +18,7 @@ import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
   deleteWatchItemFromApi,
+  getWatcherProfileFromApi,
   listWatchItemsFromApi,
   logWatchItemFromApi,
   updateWatchDetailsFromApi,
@@ -25,6 +26,7 @@ import {
   WatchEntry,
   WatchStatus,
   WatchType,
+  WatcherProfileResponse,
 } from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
 
@@ -67,6 +69,8 @@ export default function WatchTrackerScreen() {
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editDraft, setEditDraft] = useState<WatchEditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [watcherProfile, setWatcherProfile] = useState<WatcherProfileResponse | null>(null);
   const [activeTypeFilter, setActiveTypeFilter] = useState<"all" | WatchType>("all");
   const [activeFilter, setActiveFilter] = useState<"all" | WatchStatus>("all");
 
@@ -216,6 +220,23 @@ export default function WatchTrackerScreen() {
     }
   }
 
+  async function handleBuildWatcherProfile() {
+    if (!backendUrl) {
+      setError("Watch Tracker needs the backend to be online.");
+      return;
+    }
+    setProfileLoading(true);
+    setError("");
+    try {
+      const result = await getWatcherProfileFromApi({ backendUrl });
+      setWatcherProfile(result);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not build watcher profile.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -285,6 +306,34 @@ export default function WatchTrackerScreen() {
           <Pressable onPress={handleAdd} disabled={saving} style={[styles.primaryButton, saving && styles.disabled]}>
             {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Add & enrich</Text>}
           </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Watcher profile</Text>
+            <Pressable onPress={handleBuildWatcherProfile} disabled={profileLoading} style={styles.profileButton}>
+              {profileLoading ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles-outline" color={colors.primary} size={14} />
+                  <Text style={styles.profileButtonText}>Analyze</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+          {watcherProfile ? (
+            <View style={styles.profileCard}>
+              <Text style={styles.profileSource}>{formatWatchSource(watcherProfile.source)} | {watcherProfile.count} titles</Text>
+              <Text style={styles.profileTitle}>{watcherProfile.profile.archetype}</Text>
+              <Text style={styles.synopsis}>{watcherProfile.profile.summary}</Text>
+              <ProfileList title="Traits" items={watcherProfile.profile.traits} styles={styles} />
+              <ProfileList title="Patterns" items={watcherProfile.profile.patterns} styles={styles} />
+              <ProfileList title="Suggestions" items={watcherProfile.profile.suggestions} styles={styles} />
+            </View>
+          ) : (
+            <Text style={styles.metaText}>Generate a taste profile from your saved movies and series.</Text>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -577,6 +626,28 @@ function EditField({
   );
 }
 
+function ProfileList({
+  title,
+  items,
+  styles,
+}: {
+  title: string;
+  items: string[];
+  styles: ReturnType<typeof createStyles>;
+}) {
+  if (!items.length) {
+    return null;
+  }
+  return (
+    <View style={styles.profileList}>
+      <Text style={styles.modalSectionTitle}>{title}</Text>
+      {items.map((item) => (
+        <Text key={`${title}-${item}`} style={styles.metaText}>- {item}</Text>
+      ))}
+    </View>
+  );
+}
+
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
     keyboard: { flex: 1, backgroundColor: colors.background },
@@ -647,6 +718,30 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderWidth: 1, borderRadius: 12, padding: spacing.sm },
     primaryButton: { backgroundColor: colors.primary, borderRadius: 14, minHeight: 46, alignItems: "center", justifyContent: "center" },
     primaryButtonText: { color: colors.onPrimary, fontWeight: "900" },
+    profileButton: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      minHeight: 32,
+    },
+    profileButtonText: { color: colors.primary, fontSize: 12, fontWeight: "900" },
+    profileCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: spacing.sm,
+      gap: spacing.xs,
+    },
+    profileSource: { color: colors.primary, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+    profileTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+    profileList: { gap: 3, marginTop: spacing.xs },
     disabled: { opacity: 0.65 },
     sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ZodError } from "zod";
 import {
+  buildWatcherProfile,
   listWatchItems,
   logWatchItem,
   removeWatchItem,
@@ -13,6 +14,7 @@ const router = Router();
 
 router.post("/log", handleLogWatchRequest);
 router.get("/items", handleListWatchRequest);
+router.get("/profile", handleWatcherProfileRequest);
 router.patch("/items/:id", handleUpdateWatchDetailsRequest);
 router.patch("/items/:id/status", handleUpdateWatchStatusRequest);
 router.delete("/items/:id", handleDeleteWatchRequest);
@@ -56,6 +58,21 @@ export async function handleListWatchRequest(
     return res.json(result);
   } catch {
     return res.status(500).json({ error: "Could not load watch items." });
+  }
+}
+
+export async function handleWatcherProfileRequest(
+  _req: unknown,
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const result = await buildWatcherProfile();
+    return res.json(result);
+  } catch {
+    return res.status(500).json({ error: "Could not build watcher profile." });
   }
 }
 
