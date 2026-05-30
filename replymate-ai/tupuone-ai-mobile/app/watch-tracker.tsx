@@ -88,7 +88,6 @@ export default function WatchTrackerScreen() {
   const filteredEntries = typeScopedEntries.filter(
     (entry) => activeFilter === "all" || entry.status === activeFilter,
   );
-  const favoriteEntries = entries.filter((entry) => Boolean(entry.favorite));
   const selectedAvailabilityRegions = selectedEntry ? availabilityRegionsFor(selectedEntry.availability) : [];
   const selectedAvailability = selectedEntry
     ? filterAvailability(selectedEntry.availability, activeAvailabilityRegion)
@@ -401,41 +400,16 @@ export default function WatchTrackerScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Favorites</Text>
-            <Text style={styles.sectionCount}>{favoriteEntries.length}</Text>
-          </View>
-          {favoriteEntries.length === 0 ? (
-            <Text style={styles.metaText}>No favorites yet. Tap heart on any title.</Text>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.favoriteRow}
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={styles.sectionTitle}>Saved titles</Text>
+              <Text style={styles.sectionCount}>({filteredEntries.length})</Text>
+            </View>
+            <Pressable
+              onPress={() => router.push("/watch-favorites")}
+              style={styles.favouritesCornerButton}
             >
-              {favoriteEntries.map((entry) => (
-                <Pressable
-                  key={`favorite-${entry.id}`}
-                  onPress={() => openEntry(entry)}
-                  style={styles.favoriteCard}
-                >
-                  <PosterThumb entry={entry} styles={styles} />
-                  <View style={styles.favoriteCardBody}>
-                    <Text numberOfLines={1} style={styles.favoriteCardTitle}>{entry.title}</Text>
-                    <Text style={styles.favoriteCardMeta}>
-                      {entry.type} • {statusLabel(entry.status)}
-                    </Text>
-                  </View>
-                  <Ionicons name="heart" color={colors.danger} size={16} />
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Saved titles</Text>
-            <Text style={styles.sectionCount}>{filteredEntries.length}</Text>
+              <Text style={styles.favouritesCornerText}>Favourites</Text>
+            </Pressable>
           </View>
           <View style={styles.typeTabsRow}>
             {typeFilters.map((item) => (
@@ -945,8 +919,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     profileList: { gap: 3, marginTop: spacing.xs },
     disabled: { opacity: 0.65 },
     sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
     sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
     sectionCount: { color: colors.primary, fontSize: 13, fontWeight: "900" },
+    favouritesCornerButton: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    favouritesCornerText: { color: colors.primary, fontSize: 12, fontWeight: "900" },
     typeTabsRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.xs },
     typeTab: {
       flex: 1,
@@ -978,19 +962,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.primary,
     },
     savedLayout: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
-    favoriteRow: { gap: spacing.sm, paddingRight: 2 },
-    favoriteCard: {
-      width: 188,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: 14,
-      padding: spacing.sm,
-      backgroundColor: colors.surfaceElevated,
-      gap: spacing.xs,
-    },
-    favoriteCardBody: { gap: 2 },
-    favoriteCardTitle: { color: colors.text, fontSize: 13, fontWeight: "900" },
-    favoriteCardMeta: { color: colors.muted, fontSize: 11, textTransform: "capitalize" },
     savedListPane: { flex: 1, height: 347 },
     savedListContent: { gap: spacing.sm, paddingRight: 2 },
     filterRail: {

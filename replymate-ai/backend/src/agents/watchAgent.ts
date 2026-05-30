@@ -73,6 +73,7 @@ export type WatchListResponse = {
 
 export type WatcherProfileResponse = {
   source: Source;
+  fallbackReason?: string;
   profile: {
     archetype: string;
     summary: string;
@@ -161,6 +162,7 @@ export async function buildWatcherProfile(): Promise<WatcherProfileResponse> {
   if (!entries.length) {
     return {
       source: "fallback",
+      fallbackReason: "no_saved_titles",
       count: 0,
       profile: {
         archetype: "Fresh Watcher",
@@ -173,23 +175,34 @@ export async function buildWatcherProfile(): Promise<WatcherProfileResponse> {
   }
 
   if (hasConfiguredLlmApiKey()) {
-    const profile = await buildWatcherProfileWithLlm(entries).catch(() => localWatcherProfile(entries));
-    return {
-      source: profile.source,
-      count: entries.length,
-      profile: profile.profile,
-    };
+    try {
+      const profile = await buildWatcherProfileWithLlm(entries);
+      return {
+        source: profile.source,
+        count: entries.length,
+        profile: profile.profile,
+      };
+    } catch (error) {
+      const profile = localWatcherProfile(entries);
+      return {
+        source: profile.source,
+        fallbackReason: error instanceof Error ? error.message : "llm_profile_failed",
+        count: entries.length,
+        profile: profile.profile,
+      };
+    }
   }
 
   const profile = localWatcherProfile(entries);
   return {
     source: profile.source,
+    fallbackReason: "missing_llm_api_key",
     count: entries.length,
     profile: profile.profile,
   };
 }
 
-async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<WatcherProfileResponse, "count">> {
+async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<WatcherProfileResponse, "count" | "fallbackReason">> {
   const genreInsights = buildGenreInsights(entries);
   const completion = await callChatCompletion({
     temperature: 0.45,
@@ -237,7 +250,7 @@ async function buildWatcherProfileWithLlm(entries: WatchEntry[]): Promise<Omit<W
 
   const parsed = safeParseJson<Record<string, unknown>>(completion.content);
   if (!parsed) {
-    throw new Error("Could not parse watcher profile.");
+    throw new Error("llm_profile_json_parse_failed");
   }
 
   return {
