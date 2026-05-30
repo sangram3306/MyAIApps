@@ -503,6 +503,7 @@ export type WatchEntry = {
   posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
   availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
+  externalDetails?: Array<{ label: string; value: string }>;
   synopsis: string;
   notes: string;
   createdAt: string;
@@ -1220,7 +1221,7 @@ export async function getDeepSeekBalanceFromApi(params: {
 export async function logWatchItemFromApi(params: {
   backendUrl: string;
   title: string;
-  type: WatchType;
+  type?: WatchType;
   status: WatchStatus;
   notes?: string;
 }): Promise<WatchLogResponse> {

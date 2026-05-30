@@ -23,6 +23,11 @@ const watchAvailabilitySchema = z.object({
   link: z.string().optional(),
 });
 
+const watchExternalDetailSchema = z.object({
+  label: z.string().min(1),
+  value: z.string().min(1),
+});
+
 const saveWatchInputSchema = z.object({
   title: z.string().min(1),
   type: z.enum(["movie", "series"]).default("movie"),
@@ -35,6 +40,7 @@ const saveWatchInputSchema = z.object({
   posterUrl: z.string().optional(),
   ratings: z.array(watchRatingSchema).default([]),
   availability: z.array(watchAvailabilitySchema).default([]),
+  externalDetails: z.array(watchExternalDetailSchema).default([]),
   synopsis: z.string().default(""),
   notes: z.string().default(""),
 });
@@ -58,7 +64,7 @@ const deleteWatchInputSchema = z.object({
 
 const fetchWatchMetadataInputSchema = z.object({
   title: z.string().min(1),
-  type: z.enum(["movie", "series"]).default("movie"),
+  type: z.enum(["movie", "series"]).optional(),
 }).passthrough();
 
 type WatchToolOutput = {
@@ -81,6 +87,7 @@ type WatchToolOutput = {
     posterUrl?: string;
     ratings: Array<{ source: string; value: string }>;
     availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
+    externalDetails: Array<{ label: string; value: string }>;
     synopsis: string;
   };
 };
@@ -207,10 +214,11 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
   }
 
   const title = parsed.data.title.trim();
-  const type = parsed.data.type;
+  const requestedType = parsed.data.type;
   try {
-    const availability = await fetchAvailabilityFromTmdb(title, type);
-    const omdb = await fetchFromOmdb(title, type);
+    const omdb = await fetchFromOmdb(title, requestedType);
+    const resolvedType = omdb?.type || requestedType || "movie";
+    const availability = await fetchAvailabilityFromTmdb(title, resolvedType);
     if (omdb) {
       return {
         source: "static",
@@ -221,7 +229,7 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
       };
     }
 
-    const wiki = await fetchFromWikipedia(title, type);
+    const wiki = await fetchFromWikipedia(title, resolvedType);
     return {
       source: wiki ? "static" : "fallback",
       confidence: wiki ? 0.8 : 0.35,
@@ -237,7 +245,7 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
 
 async function fetchFromOmdb(
   title: string,
-  type: "movie" | "series",
+  type?: "movie" | "series",
 ): Promise<WatchToolOutput["metadata"] | null> {
   const omdbKey = process.env.OMDB_API_KEY?.trim();
   if (!omdbKey) {
@@ -247,7 +255,9 @@ async function fetchFromOmdb(
   const url = new URL("https://www.omdbapi.com/");
   url.searchParams.set("apikey", omdbKey);
   url.searchParams.set("t", title);
-  url.searchParams.set("type", type === "series" ? "series" : "movie");
+  if (type) {
+    url.searchParams.set("type", type === "series" ? "series" : "movie");
+  }
   url.searchParams.set("plot", "short");
 
   const response = await fetch(url.toString());
@@ -268,9 +278,10 @@ async function fetchFromOmdb(
         .map((item) => ({ source: item.Source, value: item.Value }))
     : [];
 
+  const inferredType = data.Type === "series" ? "series" : "movie";
   return {
     title: stringOr(data.Title, title),
-    type,
+    type: type || inferredType,
     releaseYear: stringOr(data.Year, "Unknown"),
     director: stringOr(data.Director, "Unknown"),
     leadActors: splitList(stringOr(data.Actors, "")),
@@ -279,8 +290,42 @@ async function fetchFromOmdb(
     posterUrl: posterUrlOrUndefined(data.Poster),
     ratings,
     availability: [],
+    externalDetails: omdbDetails(data),
     synopsis: stringOr(data.Plot, ""),
   };
+}
+
+function omdbDetails(data: Record<string, unknown>): Array<{ label: string; value: string }> {
+  const fields: Array<[string, string]> = [
+    ["Title", "Title"],
+    ["Year", "Year"],
+    ["Rated", "Rated"],
+    ["Released", "Released"],
+    ["Runtime", "Runtime"],
+    ["Genre", "Genre"],
+    ["Director", "Director"],
+    ["Writer", "Writer"],
+    ["Actors", "Actors"],
+    ["Plot", "Plot"],
+    ["Language", "Language"],
+    ["Country", "Country"],
+    ["Awards", "Awards"],
+    ["Metascore", "Metascore"],
+    ["IMDb rating", "imdbRating"],
+    ["IMDb votes", "imdbVotes"],
+    ["IMDb ID", "imdbID"],
+    ["Type", "Type"],
+    ["DVD", "DVD"],
+    ["Box office", "BoxOffice"],
+    ["Production", "Production"],
+    ["Website", "Website"],
+    ["Total seasons", "totalSeasons"],
+  ];
+
+  return fields
+    .map(([label, key]) => ({ label, value: stringOr(data[key], "") }))
+    .filter((item) => item.value && item.value !== "N/A")
+    .slice(0, 30);
 }
 
 async function fetchAvailabilityFromTmdb(
@@ -424,6 +469,7 @@ async function fetchFromWikipedia(
     posterUrl: thumbnailSource(summary),
     ratings: [],
     availability: [],
+    externalDetails: [],
     synopsis: extract,
   };
 }

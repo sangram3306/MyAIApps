@@ -16,6 +16,11 @@ export type WatchAvailability = {
   link?: string;
 };
 
+export type WatchExternalDetail = {
+  label: string;
+  value: string;
+};
+
 export type WatchEntry = {
   id: string;
   title: string;
@@ -29,6 +34,7 @@ export type WatchEntry = {
   posterUrl?: string;
   ratings: WatchRating[];
   availability: WatchAvailability[];
+  externalDetails: WatchExternalDetail[];
   synopsis: string;
   notes: string;
   createdAt: string;
@@ -108,6 +114,7 @@ export async function updateWatchEntry(id: string, input: WatchEntryUpdateInput)
     posterUrl: input.posterUrl ?? current.posterUrl,
     ratings: input.ratings ?? current.ratings,
     availability: input.availability ?? current.availability ?? [],
+    externalDetails: input.externalDetails ?? current.externalDetails ?? [],
     synopsis: input.synopsis ?? current.synopsis,
     notes: input.notes ?? current.notes,
   });
@@ -140,9 +147,22 @@ function sanitizeWatchEntryInput(input: WatchEntryInput): WatchEntryInput {
     posterUrl: sanitizePosterUrl(input.posterUrl),
     ratings: sanitizeRatings(input.ratings),
     availability: sanitizeAvailability(input.availability),
+    externalDetails: sanitizeExternalDetails(input.externalDetails),
     synopsis: normalizeSentence(input.synopsis || ""),
     notes: normalizeSentence(input.notes || ""),
   };
+}
+
+function sanitizeExternalDetails(values: WatchExternalDetail[] | undefined): WatchExternalDetail[] {
+  return Array.isArray(values)
+    ? values
+        .filter((item) => item && typeof item.label === "string" && item.label.trim() && typeof item.value === "string" && item.value.trim())
+        .map((item) => ({
+          label: normalizeSentence(item.label),
+          value: normalizeSentence(item.value),
+        }))
+        .slice(0, 30)
+    : [];
 }
 
 function sanitizeAvailability(values: WatchAvailability[] | undefined): WatchAvailability[] {

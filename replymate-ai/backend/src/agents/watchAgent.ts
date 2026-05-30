@@ -26,6 +26,7 @@ export type WatchEntry = {
   posterUrl?: string;
   ratings: Array<{ source: string; value: string }>;
   availability: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
+  externalDetails: Array<{ label: string; value: string }>;
   synopsis: string;
   notes: string;
   createdAt: string;
@@ -83,7 +84,7 @@ export type WatcherProfileResponse = {
 
 export async function logWatchItem(input: {
   title: string;
-  type: WatchType;
+  type?: WatchType;
   status: WatchStatus;
   notes: string;
 }): Promise<WatchLogResponse> {
@@ -301,6 +302,7 @@ export async function updateWatchDetails(input: {
   posterUrl?: string;
   ratings?: Array<{ source: string; value: string }>;
   availability?: Array<{ provider: string; region: string; type: "stream" | "rent" | "buy" | "free" | "ads"; link?: string }>;
+  externalDetails?: Array<{ label: string; value: string }>;
   synopsis?: string;
   notes?: string;
 }): Promise<{ entry?: WatchEntry; entries: WatchEntry[]; source: Source }> {
@@ -323,7 +325,7 @@ export async function removeWatchItem(id: string): Promise<{ deleted: boolean; e
 
 async function enrichWithLlm(input: {
   title: string;
-  type: WatchType;
+  type?: WatchType;
   notes: string;
 }): Promise<{
   source: Source;
@@ -355,6 +357,7 @@ async function enrichWithLlm(input: {
             posterUrl: "string",
             ratings: [{ source: "IMDb|Rotten Tomatoes|Metacritic|Other", value: "string" }],
             availability: [{ provider: "string", region: "string", type: "stream|rent|buy|free|ads", link: "string" }],
+            externalDetails: [{ label: "string", value: "string" }],
             synopsis: "string",
             notes: "string",
           },
@@ -376,7 +379,7 @@ async function enrichWithLlm(input: {
 
 function fallbackEnrichment(input: {
   title: string;
-  type: WatchType;
+  type?: WatchType;
   notes: string;
 }): {
   source: Source;
@@ -386,7 +389,7 @@ function fallbackEnrichment(input: {
     source: "fallback",
     data: {
       title: input.title,
-      type: input.type,
+      type: input.type || "movie",
       releaseYear: "Unknown",
       director: "Unknown",
       leadActors: [],
@@ -395,6 +398,7 @@ function fallbackEnrichment(input: {
       posterUrl: undefined,
       ratings: [],
       availability: [],
+      externalDetails: [],
       synopsis: "",
       notes: input.notes || "",
     },
@@ -403,11 +407,11 @@ function fallbackEnrichment(input: {
 
 function normalizeEnrichment(
   payload: Record<string, unknown>,
-  input: { title: string; type: WatchType; notes: string },
+  input: { title: string; type?: WatchType; notes: string },
 ): Omit<WatchEntry, "id" | "createdAt" | "updatedAt" | "status"> {
   return {
     title: typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : input.title,
-    type: payload.type === "series" ? "series" : input.type,
+    type: payload.type === "series" ? "series" : input.type || "movie",
     releaseYear: typeof payload.releaseYear === "string" && payload.releaseYear.trim() ? payload.releaseYear.trim() : "Unknown",
     director: typeof payload.director === "string" && payload.director.trim() ? payload.director.trim() : "Unknown",
     leadActors: Array.isArray(payload.leadActors)
@@ -439,6 +443,23 @@ function normalizeEnrichment(
             link: typeof item.link === "string" && item.link.trim() ? item.link.trim() : undefined,
           }))
           .slice(0, 40)
+      : [],
+    externalDetails: Array.isArray(payload.externalDetails)
+      ? payload.externalDetails
+          .filter((item): item is { label: string; value: string } =>
+            Boolean(
+              item
+                && typeof item === "object"
+                && typeof (item as { label?: unknown }).label === "string"
+                && typeof (item as { value?: unknown }).value === "string",
+            ),
+          )
+          .map((item) => ({
+            label: item.label.trim(),
+            value: item.value.trim(),
+          }))
+          .filter((item) => item.label && item.value)
+          .slice(0, 30)
       : [],
     synopsis: typeof payload.synopsis === "string" ? payload.synopsis.trim() : "",
     notes: input.notes || (typeof payload.notes === "string" ? payload.notes.trim() : ""),

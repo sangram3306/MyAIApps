@@ -54,8 +54,8 @@ export default function WatchTrackerScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [backendUrl, setBackendUrl] = useState("");
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<WatchType>("movie");
   const [status, setStatus] = useState<WatchStatus>("planned");
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState<WatchEntry[]>([]);
   const [source, setSource] = useState<"static" | "llm" | "fallback">("fallback");
@@ -73,6 +73,7 @@ export default function WatchTrackerScreen() {
   const [watcherProfile, setWatcherProfile] = useState<WatcherProfileResponse | null>(null);
   const [activeTypeFilter, setActiveTypeFilter] = useState<"all" | WatchType>("all");
   const [activeFilter, setActiveFilter] = useState<"all" | WatchStatus>("all");
+  const [activeAvailabilityRegion, setActiveAvailabilityRegion] = useState<"all" | string>("all");
 
   const typeScopedEntries = entries.filter(
     (entry) => activeTypeFilter === "all" || entry.type === activeTypeFilter,
@@ -80,6 +81,10 @@ export default function WatchTrackerScreen() {
   const filteredEntries = typeScopedEntries.filter(
     (entry) => activeFilter === "all" || entry.status === activeFilter,
   );
+  const selectedAvailabilityRegions = selectedEntry ? availabilityRegionsFor(selectedEntry.availability) : [];
+  const selectedAvailability = selectedEntry
+    ? filterAvailability(selectedEntry.availability, activeAvailabilityRegion)
+    : [];
 
   const loadEntries = useCallback(async (url: string) => {
     if (!url) {
@@ -127,7 +132,6 @@ export default function WatchTrackerScreen() {
       const result = await logWatchItemFromApi({
         backendUrl,
         title: title.trim(),
-        type,
         status,
         notes: notes.trim(),
       });
@@ -177,6 +181,7 @@ export default function WatchTrackerScreen() {
   function openEntry(entry: WatchEntry) {
     setSelectedEntry(entry);
     setIsEditingDetails(false);
+    setActiveAvailabilityRegion("all");
     setEditDraft(createEditDraft(entry));
   }
 
@@ -279,20 +284,34 @@ export default function WatchTrackerScreen() {
             value={title}
             onChangeText={setTitle}
           />
-          <View style={styles.row}>
-            <Pressable onPress={() => setType("movie")} style={[styles.pill, type === "movie" && styles.pillActive]}>
-              <Text style={[styles.pillText, type === "movie" && styles.pillTextActive]}>Movie</Text>
+          <Text style={styles.helperText}>Movie or series is detected automatically from OMDb when available.</Text>
+          <View style={styles.dropdownBlock}>
+            <Text style={styles.dropdownLabel}>Progress</Text>
+            <Pressable
+              onPress={() => setStatusDropdownOpen((value) => !value)}
+              style={styles.dropdownTrigger}
+            >
+              <Text style={styles.dropdownValue}>{statusLabel(status)}</Text>
+              <Ionicons name={statusDropdownOpen ? "chevron-up" : "chevron-down"} color={colors.muted} size={16} />
             </Pressable>
-            <Pressable onPress={() => setType("series")} style={[styles.pill, type === "series" && styles.pillActive]}>
-              <Text style={[styles.pillText, type === "series" && styles.pillTextActive]}>Series</Text>
-            </Pressable>
-          </View>
-          <View style={styles.rowWrap}>
-            {statusOptions.map((item) => (
-              <Pressable key={item} onPress={() => setStatus(item)} style={[styles.pill, status === item && styles.pillActive]}>
-                <Text style={[styles.pillText, status === item && styles.pillTextActive]}>{item.replace("_", " ")}</Text>
-              </Pressable>
-            ))}
+            {statusDropdownOpen ? (
+              <View style={styles.dropdownMenu}>
+                {statusOptions.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => {
+                      setStatus(item);
+                      setStatusDropdownOpen(false);
+                    }}
+                    style={[styles.dropdownOption, status === item && styles.dropdownOptionActive]}
+                  >
+                    <Text style={[styles.dropdownOptionText, status === item && styles.dropdownOptionTextActive]}>
+                      {statusLabel(item)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
           <TextInput
             style={[styles.input, styles.notesInput]}
@@ -507,17 +526,57 @@ export default function WatchTrackerScreen() {
                     <Text style={styles.ratingsText}>
                       Ratings: {selectedEntry.ratings.length ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
                     </Text>
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalSectionTitle}>Where to watch</Text>
-                      {selectedEntry.availability.length ? (
-                        <View style={styles.availabilityWrap}>
-                          {selectedEntry.availability.map((item) => (
-                            <View key={`${item.provider}-${item.region}-${item.type}`} style={styles.availabilityPill}>
-                              <Text style={styles.availabilityProvider}>{item.provider}</Text>
-                              <Text style={styles.availabilityMeta}>{item.region} | {item.type}</Text>
+                    {selectedEntry.externalDetails?.length ? (
+                      <View style={styles.modalSection}>
+                        <Text style={styles.modalSectionTitle}>OMDb details</Text>
+                        <View style={styles.detailsGrid}>
+                          {selectedEntry.externalDetails.map((detail) => (
+                            <View key={`${detail.label}-${detail.value}`} style={styles.detailRow}>
+                              <Text style={styles.detailLabel}>{detail.label}</Text>
+                              <Text style={styles.detailValue}>{detail.value}</Text>
                             </View>
                           ))}
                         </View>
+                      </View>
+                    ) : null}
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>Where to watch</Text>
+                      {selectedEntry.availability.length ? (
+                        <>
+                          <View style={styles.availabilityFilterRow}>
+                            {["all", ...selectedAvailabilityRegions].map((region) => (
+                              <Pressable
+                                key={region}
+                                onPress={() => setActiveAvailabilityRegion(region)}
+                                style={[
+                                  styles.availabilityFilterChip,
+                                  activeAvailabilityRegion === region && styles.availabilityFilterChipActive,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.availabilityFilterText,
+                                    activeAvailabilityRegion === region && styles.availabilityFilterTextActive,
+                                  ]}
+                                >
+                                  {region === "all" ? "All" : region}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                          {selectedAvailability.length ? (
+                            <View style={styles.availabilityWrap}>
+                              {selectedAvailability.map((item) => (
+                                <View key={`${item.provider}-${item.region}-${item.type}`} style={styles.availabilityPill}>
+                                  <Text style={styles.availabilityProvider}>{item.provider}</Text>
+                                  <Text style={styles.availabilityMeta}>{item.region} | {item.type}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={styles.metaText}>No providers found for this country.</Text>
+                          )}
+                        </>
                       ) : (
                         <Text style={styles.metaText}>No streaming availability found for selected regions.</Text>
                       )}
@@ -706,9 +765,40 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     metricValue: { color: colors.text, fontSize: 11, fontWeight: "900", textTransform: "capitalize" },
     inputSectionTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
     input: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: 1, borderRadius: 12, paddingHorizontal: spacing.md, minHeight: 44, color: colors.text },
+    helperText: { color: colors.muted, fontSize: 11, lineHeight: 16 },
     notesInput: { minHeight: 72, paddingTop: spacing.sm },
     row: { flexDirection: "row", gap: spacing.sm },
     rowWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+    dropdownBlock: { gap: 6 },
+    dropdownLabel: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+    dropdownTrigger: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 12,
+      minHeight: 44,
+      paddingHorizontal: spacing.md,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    dropdownValue: { color: colors.text, fontSize: 13, fontWeight: "800" },
+    dropdownMenu: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 5,
+      gap: 4,
+    },
+    dropdownOption: {
+      borderRadius: 10,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 9,
+    },
+    dropdownOptionActive: { backgroundColor: colors.primarySoft },
+    dropdownOptionText: { color: colors.muted, fontSize: 13, fontWeight: "800" },
+    dropdownOptionTextActive: { color: colors.primary },
     pill: { borderColor: colors.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: colors.surfaceElevated },
     pillSmall: { borderColor: colors.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: colors.surfaceElevated },
     pillActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
@@ -870,6 +960,26 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     infoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     iconBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: 10, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
     ratingsText: { color: colors.text, fontSize: 12, lineHeight: 18, fontWeight: "600" },
+    availabilityFilterRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+    availabilityFilterChip: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    availabilityFilterChipActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    availabilityFilterText: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    availabilityFilterTextActive: { color: colors.primary },
     availabilityWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
     availabilityPill: {
       backgroundColor: colors.surfaceElevated,
@@ -882,6 +992,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     availabilityProvider: { color: colors.text, fontSize: 12, fontWeight: "800" },
     availabilityMeta: { color: colors.primary, fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
+    detailsGrid: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceElevated,
+    },
+    detailRow: {
+      borderBottomColor: colors.border,
+      borderBottomWidth: 1,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 8,
+      gap: 2,
+    },
+    detailLabel: { color: colors.primary, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+    detailValue: { color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: "600" },
     synopsis: { color: colors.text, fontSize: 13, lineHeight: 19 },
     notesText: { color: colors.muted, fontSize: 12, lineHeight: 18 },
     modalBackdrop: {
@@ -1015,6 +1141,17 @@ function parseAvailability(value: string): Array<{ provider: string; region: str
     .slice(0, 40);
 }
 
+function availabilityRegionsFor(items: WatchEntry["availability"]): string[] {
+  return Array.from(new Set(items.map((item) => item.region).filter(Boolean))).sort();
+}
+
+function filterAvailability(items: WatchEntry["availability"], region: "all" | string): WatchEntry["availability"] {
+  if (region === "all") {
+    return items;
+  }
+  return items.filter((item) => item.region === region);
+}
+
 function normalizeAvailabilityType(value: string): "stream" | "rent" | "buy" | "free" | "ads" {
   if (value === "stream" || value === "rent" || value === "buy" || value === "free" || value === "ads") {
     return value;
@@ -1078,6 +1215,10 @@ function shortStatusLabel(status: WatchStatus): string {
     return "Start";
   }
   return "Drop";
+}
+
+function statusLabel(status: WatchStatus): string {
+  return status.replace("_", " ");
 }
 
 function statusPillStyle(status: WatchStatus, colors: ReturnType<typeof useAppTheme>["colors"]) {
