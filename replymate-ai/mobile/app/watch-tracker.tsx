@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { type ComponentProps, useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -47,6 +47,12 @@ type WatchEditDraft = {
   availability: string;
   synopsis: string;
   notes: string;
+};
+
+type WatchInfoRow = {
+  label?: string;
+  value: string;
+  icon: ComponentProps<typeof Ionicons>["name"];
 };
 
 export default function WatchTrackerScreen() {
@@ -181,7 +187,7 @@ export default function WatchTrackerScreen() {
   function openEntry(entry: WatchEntry) {
     setSelectedEntry(entry);
     setIsEditingDetails(false);
-    setActiveAvailabilityRegion("all");
+    setActiveAvailabilityRegion(defaultAvailabilityRegion(entry.availability));
     setEditDraft(createEditDraft(entry));
   }
 
@@ -193,23 +199,26 @@ export default function WatchTrackerScreen() {
     setSavingEdit(true);
     setError("");
     try {
+      const updates: Parameters<typeof updateWatchDetailsFromApi>[0]["updates"] = {
+        title: editDraft.title.trim(),
+        type: editDraft.type,
+        releaseYear: editDraft.releaseYear.trim(),
+        director: editDraft.director.trim(),
+        leadActors: parseList(editDraft.leadActors),
+        budget: editDraft.budget.trim(),
+        boxOffice: editDraft.boxOffice.trim(),
+        posterUrl: editDraft.posterUrl.trim() || undefined,
+        ratings: parseRatings(editDraft.ratings),
+        synopsis: editDraft.synopsis.trim(),
+        notes: editDraft.notes.trim(),
+      };
+      if (!selectedEntry.availability.length) {
+        updates.availability = parseAvailability(editDraft.availability);
+      }
       const result = await updateWatchDetailsFromApi({
         backendUrl,
         id: selectedEntry.id,
-        updates: {
-          title: editDraft.title.trim(),
-          type: editDraft.type,
-          releaseYear: editDraft.releaseYear.trim(),
-          director: editDraft.director.trim(),
-          leadActors: parseList(editDraft.leadActors),
-          budget: editDraft.budget.trim(),
-          boxOffice: editDraft.boxOffice.trim(),
-          posterUrl: editDraft.posterUrl.trim() || undefined,
-          ratings: parseRatings(editDraft.ratings),
-          availability: parseAvailability(editDraft.availability),
-          synopsis: editDraft.synopsis.trim(),
-          notes: editDraft.notes.trim(),
-        },
+        updates,
       });
       setEntries(result.entries);
       setSource(result.source);
@@ -499,7 +508,9 @@ export default function WatchTrackerScreen() {
                     <EditField label="Box office" value={editDraft.boxOffice} onChangeText={(value) => setEditDraft({ ...editDraft, boxOffice: value })} styles={styles} />
                     <EditField label="Poster URL" value={editDraft.posterUrl} onChangeText={(value) => setEditDraft({ ...editDraft, posterUrl: value })} styles={styles} />
                     <EditField label="Ratings" value={editDraft.ratings} onChangeText={(value) => setEditDraft({ ...editDraft, ratings: value })} multiline styles={styles} />
-                    <EditField label="Availability" value={editDraft.availability} onChangeText={(value) => setEditDraft({ ...editDraft, availability: value })} multiline styles={styles} />
+                    {!selectedEntry.availability.length ? (
+                      <EditField label="Availability" value={editDraft.availability} onChangeText={(value) => setEditDraft({ ...editDraft, availability: value })} multiline styles={styles} />
+                    ) : null}
                     <EditField label="Synopsis" value={editDraft.synopsis} onChangeText={(value) => setEditDraft({ ...editDraft, synopsis: value })} multiline styles={styles} />
                     <EditField label="Notes" value={editDraft.notes} onChangeText={(value) => setEditDraft({ ...editDraft, notes: value })} multiline styles={styles} />
                     <Pressable onPress={handleSaveDetails} style={[styles.primaryButton, savingEdit && styles.disabled]} disabled={savingEdit}>
@@ -511,34 +522,18 @@ export default function WatchTrackerScreen() {
                     <Text style={styles.metaText}>
                       {selectedEntry.type} | {selectedEntry.releaseYear}
                     </Text>
-                    <View style={styles.infoRow}>
-                      <Ionicons name="videocam-outline" color={colors.muted} size={13} />
-                      <Text style={styles.metaText}>Director: {selectedEntry.director}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                      <Ionicons name="people-outline" color={colors.muted} size={13} />
-                      <Text style={styles.metaText}>Lead: {selectedEntry.leadActors.join(", ") || "Unknown"}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                      <Ionicons name="cash-outline" color={colors.muted} size={13} />
-                      <Text style={styles.metaText}>Budget: {selectedEntry.budget} | Box office: {selectedEntry.boxOffice}</Text>
-                    </View>
+                    {watchInfoRowsFor(selectedEntry).map((item) => (
+                      <View key={`${item.label || "detail"}-${item.value}`} style={styles.infoRow}>
+                        <Ionicons name={item.icon} color={colors.muted} size={13} />
+                        <Text style={styles.metaText}>
+                          {item.label ? `${item.label}: ` : ""}
+                          {item.value}
+                        </Text>
+                      </View>
+                    ))}
                     <Text style={styles.ratingsText}>
                       Ratings: {selectedEntry.ratings.length ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
                     </Text>
-                    {selectedEntry.externalDetails?.length ? (
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>OMDb details</Text>
-                        <View style={styles.detailsGrid}>
-                          {selectedEntry.externalDetails.map((detail) => (
-                            <View key={`${detail.label}-${detail.value}`} style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>{detail.label}</Text>
-                              <Text style={styles.detailValue}>{detail.value}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    ) : null}
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>Where to watch</Text>
                       {selectedEntry.availability.length ? (
@@ -1145,11 +1140,81 @@ function availabilityRegionsFor(items: WatchEntry["availability"]): string[] {
   return Array.from(new Set(items.map((item) => item.region).filter(Boolean))).sort();
 }
 
+function defaultAvailabilityRegion(items: WatchEntry["availability"]): "all" | string {
+  return items.some((item) => item.region === "IN") ? "IN" : "all";
+}
+
 function filterAvailability(items: WatchEntry["availability"], region: "all" | string): WatchEntry["availability"] {
   if (region === "all") {
     return items;
   }
   return items.filter((item) => item.region === region);
+}
+
+function watchInfoRowsFor(entry: WatchEntry): WatchInfoRow[] {
+  const details = new Map(
+    (entry.externalDetails || [])
+      .filter((detail) => !["title", "year", "plot", "type", "imdb id"].includes(detail.label.trim().toLowerCase()))
+      .map((detail) => [detail.label.trim().toLowerCase(), detail.value.trim()]),
+  );
+  const rows: WatchInfoRow[] = [
+    {
+      value: compactDetailParts([
+        ["Released", details.get("released") || entry.releaseYear],
+        ["Runtime", details.get("runtime")],
+        ["Rated", details.get("rated")],
+      ]),
+      icon: "calendar-outline",
+    },
+    { value: compactDetailParts([["Genre", details.get("genre")]]), icon: "pricetag-outline" },
+    {
+      value: compactDetailParts([
+        ["Director", entry.director],
+        ["Writer", details.get("writer")],
+      ]),
+      icon: "videocam-outline",
+    },
+    { value: compactDetailParts([["Cast", entry.leadActors.join(", ")]]), icon: "people-outline" },
+    {
+      value: compactDetailParts([
+        ["Language", details.get("language")],
+        ["Country", details.get("country")],
+      ]),
+      icon: "globe-outline",
+    },
+    {
+      value: compactDetailParts([
+        ["Awards", details.get("awards")],
+        ["Metascore", details.get("metascore")],
+        ["IMDb votes", details.get("imdb votes")],
+      ]),
+      icon: "trophy-outline",
+    },
+    {
+      value: compactDetailParts([
+        ["Budget", entry.budget],
+        ["Box office", entry.boxOffice],
+      ]),
+      icon: "cash-outline",
+    },
+    {
+      value: compactDetailParts([
+        ["Production", details.get("production")],
+        ["Website", details.get("website")],
+      ]),
+      icon: "business-outline",
+    },
+    { value: compactDetailParts([["Total seasons", details.get("total seasons")]]), icon: "albums-outline" },
+  ];
+
+  return rows.filter((row) => row.value && row.value !== "Unknown" && row.value !== "N/A").slice(0, 16);
+}
+
+function compactDetailParts(parts: Array<[string, string | undefined]>): string {
+  return parts
+    .filter(([, value]) => value && value !== "Unknown" && value !== "N/A")
+    .map(([label, value]) => `${label}: ${value}`)
+    .join(" | ");
 }
 
 function normalizeAvailabilityType(value: string): "stream" | "rent" | "buy" | "free" | "ads" {

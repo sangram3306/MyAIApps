@@ -313,7 +313,6 @@ function omdbDetails(data: Record<string, unknown>): Array<{ label: string; valu
     ["Metascore", "Metascore"],
     ["IMDb rating", "imdbRating"],
     ["IMDb votes", "imdbVotes"],
-    ["IMDb ID", "imdbID"],
     ["Type", "Type"],
     ["DVD", "DVD"],
     ["Box office", "BoxOffice"],
