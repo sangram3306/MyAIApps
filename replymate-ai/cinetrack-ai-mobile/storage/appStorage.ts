@@ -15,6 +15,7 @@ const keys = {
   quickActionsEnabled: "replymate.quickActionsEnabled",
   oneHandedMode: "replymate.oneHandedMode",
   libraryAwareChat: "replymate.libraryAwareChat",
+  alwaysUseLlmChat: "replymate.alwaysUseLlmChat",
   appLockMode: "replymate.appLockMode",
   budgetTarget: "replymate.expenses.budgetTarget",
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
@@ -43,6 +44,7 @@ export type ExportPayload = {
     quickActionsEnabled: boolean;
     oneHandedMode: boolean;
     libraryAwareChat: boolean;
+    alwaysUseLlmChat: boolean;
     appLockMode: AppLockMode;
     budgetTarget: number | null;
     budgetWarningThreshold: number;
@@ -110,6 +112,14 @@ export async function getLibraryAwareChatPreference(): Promise<boolean> {
 
 export async function saveLibraryAwareChatPreference(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(keys.libraryAwareChat, JSON.stringify(enabled));
+}
+
+export async function getAlwaysUseLlmChatPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.alwaysUseLlmChat, false);
+}
+
+export async function saveAlwaysUseLlmChatPreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.alwaysUseLlmChat, JSON.stringify(enabled));
 }
 
 export async function getAppLockModePreference(): Promise<AppLockMode> {
@@ -194,6 +204,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     quickActionsEnabled,
     oneHandedMode,
     libraryAwareChat,
+    alwaysUseLlmChat,
     appLockMode,
     budgetTarget,
     budgetWarningThreshold,
@@ -209,6 +220,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getQuickActionsPreference(),
       getOneHandedModePreference(),
       getLibraryAwareChatPreference(),
+      getAlwaysUseLlmChatPreference(),
       getAppLockModePreference(),
       getBudgetTargetPreference(),
       getBudgetWarningThresholdPreference(),
@@ -227,6 +239,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       quickActionsEnabled,
       oneHandedMode,
       libraryAwareChat,
+      alwaysUseLlmChat,
       appLockMode,
       budgetTarget,
       budgetWarningThreshold,

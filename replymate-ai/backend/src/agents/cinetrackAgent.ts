@@ -124,18 +124,31 @@ export async function handleCineTrackChatMessage(message: string): Promise<CineT
 }
 
 function buildWatchContext(entries: WatchEntry[]): string {
-  return entries
-    .slice(0, 60)
-    .map((entry, index) => {
-      const imdb = imdbFromEntry(entry);
-      const genres = extractGenres(entry).join(", ") || "unknown";
-      const providers = (entry.availability || [])
-        .slice(0, 4)
-        .map((item) => `${item.provider}:${item.region}:${item.type}`)
-        .join("; ");
-      return `${index + 1}. ${entry.title} | ${entry.type} | ${entry.status} | ${entry.releaseYear || "unknown"} | imdb:${imdb} | genres:${genres} | favorite:${Boolean(entry.favorite)} | availability:${providers || "unknown"}`;
-    })
-    .join("\n");
+  const detailedEntries = entries.map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+    type: entry.type,
+    status: entry.status,
+    favorite: Boolean(entry.favorite),
+    releaseYear: entry.releaseYear,
+    director: entry.director,
+    leadActors: Array.isArray(entry.leadActors) ? entry.leadActors : [],
+    budget: entry.budget,
+    boxOffice: entry.boxOffice,
+    posterUrl: entry.posterUrl,
+    ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
+    availability: Array.isArray(entry.availability) ? entry.availability : [],
+    externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
+    genres: extractGenres(entry),
+    languages: extractLanguages(entry),
+    imdb: imdbFromEntry(entry),
+    synopsis: entry.synopsis,
+    notes: entry.notes,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  }));
+
+  return JSON.stringify(detailedEntries, null, 2);
 }
 
 function imdbFromEntry(entry: WatchEntry): string {
@@ -156,6 +169,20 @@ function extractGenres(entry: WatchEntry): string[] {
     return [];
   }
   return detail.value.split(",").map((value) => value.trim()).filter(Boolean);
+}
+
+function extractLanguages(entry: WatchEntry): string[] {
+  const detail = (entry.externalDetails || []).find((item) => {
+    const label = String(item.label || "").trim().toLowerCase();
+    return label === "language" || label === "languages" || label === "spoken languages";
+  });
+  if (!detail?.value) {
+    return [];
+  }
+  return detail.value
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function fallbackCineAnswer(message: string, entries: WatchEntry[]): string {

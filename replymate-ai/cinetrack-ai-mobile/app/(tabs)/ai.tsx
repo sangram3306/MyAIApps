@@ -4,7 +4,7 @@ import { useFocusEffect } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { listWatchItemsFromApi, sendChatMessageFromApi, WatchEntry } from "../../services/api";
-import { getBackendUrl, getLibraryAwareChatPreference } from "../../storage/appStorage";
+import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference } from "../../storage/appStorage";
 
 export default function AiWorkspaceScreen() {
   const { colors } = useAppTheme();
@@ -12,6 +12,7 @@ export default function AiWorkspaceScreen() {
   const [backendUrl, setBackendUrl] = useState("");
   const [entries, setEntries] = useState<WatchEntry[]>([]);
   const [libraryAware, setLibraryAware] = useState(true);
+  const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState("");
@@ -28,10 +29,12 @@ export default function AiWorkspaceScreen() {
             listWatchItemsFromApi({ backendUrl: url }),
             getLibraryAwareChatPreference(),
           ]);
+          const alwaysUseLlm = await getAlwaysUseLlmChatPreference();
           if (!active) return;
           setBackendUrl(url);
           setEntries(watchResult.entries);
           setLibraryAware(preference);
+          setAlwaysUseLlmChat(alwaysUseLlm);
         } catch (caught) {
           if (!active) return;
           setError(caught instanceof Error ? caught.message : "Could not load AI workspace data.");
@@ -48,19 +51,30 @@ export default function AiWorkspaceScreen() {
   const favoriteTitles = entries.filter((item) => item.favorite).length;
 
   async function askAgent(question: string) {
-    if (!backendUrl) {
-      setError("Backend URL not available.");
-      return;
-    }
     const prompt = question.trim();
     if (!prompt) {
       setError("Type a question first.");
       return;
     }
+    let resolvedBackendUrl = backendUrl;
+    if (!resolvedBackendUrl) {
+      try {
+        resolvedBackendUrl = await getBackendUrl();
+        setBackendUrl(resolvedBackendUrl);
+      } catch {
+        setError("Backend URL not available.");
+        return;
+      }
+    }
     setLoading(true);
     setError("");
     try {
-      if (libraryAware) {
+      if (libraryAware && !alwaysUseLlmChat) {
+        const genreCountResponse = buildLocalGenreCountAnswer(prompt, entries);
+        if (genreCountResponse) {
+          setResponse(genreCountResponse);
+          return;
+        }
         const genreResponse = buildLocalGenreStatsAnswer(prompt, entries);
         if (genreResponse) {
           setResponse(genreResponse);
@@ -97,14 +111,14 @@ export default function AiWorkspaceScreen() {
       let result;
       try {
         result = await sendChatMessageFromApi({
-          backendUrl,
+          backendUrl: resolvedBackendUrl,
           message: primaryMessage,
         });
       } catch (caught) {
         const reason = caught instanceof Error ? caught.message : "";
         if (libraryAware && /invalid request/i.test(reason)) {
           result = await sendChatMessageFromApi({
-            backendUrl,
+            backendUrl: resolvedBackendUrl,
             message: prompt,
           });
         } else {
@@ -175,25 +189,33 @@ export default function AiWorkspaceScreen() {
 }
 
 function buildContext(entries: WatchEntry[]): string {
-  const compactTitles = entries
-    .slice(0, 60)
-    .map((entry) => {
-      const genres = Array.isArray(entry.genres) ? entry.genres.join(", ") : "";
-      const ratings = Array.isArray(entry.ratings) ? entry.ratings : [];
-      const availabilityItems = Array.isArray(entry.availability) ? entry.availability : [];
-      const imdb = getImdb(ratings);
-      const availability = availabilityItems
-        .slice(0, 4)
-        .map((item) => `${item.provider} (${item.region}, ${item.type})`)
-        .join("; ");
-      return `${entry.title} | ${entry.type} | ${entry.releaseYear} | ${entry.status} | imdb:${imdb} | genres:${genres || "unknown"} | favorite:${Boolean(entry.favorite)} | availability:${availability || "unknown"}`;
-    })
-    .join("\n");
+  const detailedEntries = entries.map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+    type: entry.type,
+    status: entry.status,
+    favorite: Boolean(entry.favorite),
+    releaseYear: entry.releaseYear,
+    director: entry.director,
+    leadActors: Array.isArray(entry.leadActors) ? entry.leadActors : [],
+    budget: entry.budget,
+    boxOffice: entry.boxOffice,
+    posterUrl: entry.posterUrl,
+    ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
+    availability: Array.isArray(entry.availability) ? entry.availability : [],
+    externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
+    genres: Array.isArray(entry.genres) ? entry.genres : [],
+    languages: getLanguages(entry),
+    synopsis: entry.synopsis,
+    notes: entry.notes,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  }));
   return `CineTrack DB Context
-Saved titles:
-${compactTitles || "none"}
+Saved titles JSON:
+${JSON.stringify(detailedEntries.length ? detailedEntries : [], null, 2)}
 
-Return concise but practical answers.`;
+Use only this context. If data is missing in context, clearly say it is missing. Return concise but practical answers.`;
 }
 
 function getImdb(ratings: WatchEntry["ratings"] | Array<{ source: string; value: string }>): string {
@@ -203,6 +225,21 @@ function getImdb(ratings: WatchEntry["ratings"] | Array<{ source: string; value:
     return source === "imdb" || source === "internet movie database";
   });
   return imdb?.value || "unknown";
+}
+
+function getLanguages(entry: WatchEntry): string[] {
+  const externalDetails = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
+  const languageDetail = externalDetails.find((detail) => {
+    const label = String(detail.label || "").trim().toLowerCase();
+    return label === "language" || label === "languages" || label === "spoken languages";
+  });
+  if (!languageDetail?.value) {
+    return [];
+  }
+  return String(languageDetail.value)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function buildLocalAvailabilityAnswer(query: string, entries: WatchEntry[]): string | null {
@@ -282,6 +319,9 @@ function buildLocalAvailabilityAnswer(query: string, entries: WatchEntry[]): str
 
 function buildLocalStatsAnswer(query: string, entries: WatchEntry[]): string | null {
   const lower = query.toLowerCase();
+  if (extractRequestedGenre(lower)) {
+    return null;
+  }
   const asksCount =
     /(how many|count|total|number of)/.test(lower) &&
     /(movie|movies|series|title|titles|planned|started|in progress|completed|dropped)/.test(lower);
@@ -402,6 +442,8 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
   const targetCountMatch = lower.match(/(\d+)\s+(titles|movies|shows|series|recommendations?)/);
   const targetCount = targetCountMatch ? Math.max(1, Math.min(20, Number.parseInt(targetCountMatch[1], 10))) : 10;
   const typeIntent = extractTypeIntent(lower);
+  const ratingConstraint = extractImdbConstraint(lower);
+  const statusIntent = extractStatusIntent(lower);
 
   const normalizedEntries = dedupeEntries(entries).map((entry) => ({
     ...entry,
@@ -421,7 +463,7 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
   );
 
   const candidatePool = normalizedEntries.filter((entry) => {
-    if (entry.status !== "planned") {
+    if (statusIntent !== "any" && entry.status !== statusIntent) {
       return false;
     }
     const normalizedType = normalizeType(entry.type);
@@ -434,12 +476,17 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
     return true;
   });
   if (!candidatePool.length) {
-    return "You have no planned titles right now. Add some planned movies/series and I will rank your best next 10.";
+    return statusIntent !== "any"
+      ? `No titles found with status "${statusIntent.replace("_", " ")}" for your current filters.`
+      : "No titles match your current recommendation filters.";
   }
 
   const ranked = candidatePool
     .map((entry) => {
       const imdb = entryImdbScore(entry);
+      if (ratingConstraint && !ratingConstraint.compare(imdb)) {
+        return null;
+      }
       const genres = entry.genres.map((genre) => genre.toLowerCase());
       const sharedGenres = genres.filter((genre) => favoriteGenreSet.has(genre)).length;
       const favoriteBoost = entry.favorite ? 2 : 0;
@@ -447,14 +494,22 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
       const score = sharedGenres * 3 + favoriteBoost + unseenBoost + (imdb > 0 ? imdb / 10 : 0);
       return { entry, imdb, sharedGenres, score };
     })
+    .filter(Boolean)
     .sort((left, right) => right.score - left.score)
-    .slice(0, targetCount);
+    .slice(0, targetCount) as Array<{ entry: WatchEntry; imdb: number; sharedGenres: number; score: number }>;
+
+  if (!ranked.length) {
+    if (ratingConstraint) {
+      return `No planned ${typeIntent === "movie" ? "movies" : typeIntent === "series" ? "series" : "titles"} match IMDb ${ratingConstraint.label}.`;
+    }
+    return "No planned titles match your recommendation filters.";
+  }
 
   const lines = ranked.map(({ entry, imdb, sharedGenres }, index) => {
     const imdbLabel = imdb > 0 ? imdb.toFixed(1) : "NA";
     const reason = sharedGenres > 0
       ? `${sharedGenres} shared favorite genre${sharedGenres > 1 ? "s" : ""}`
-      : "strong planned candidate";
+      : `status match: ${String(entry.status || "planned").replace(/_/g, " ")}`;
     return `${index + 1}. ${entry.title} (${entry.releaseYear || "Unknown"}) • IMDb ${imdbLabel} • ${reason}`;
   });
 
@@ -488,6 +543,7 @@ function buildLocalImdbFilterAnswer(query: string, entries: WatchEntry[]): strin
   }
 
   const typeIntent = extractTypeIntent(lower);
+  const statusIntent = extractStatusIntent(lower);
 
   const compare = (value: number) => {
     if (lower.includes("at least") || opToken === ">=") return value >= threshold;
@@ -502,6 +558,7 @@ function buildLocalImdbFilterAnswer(query: string, entries: WatchEntry[]): strin
       const normalizedType = normalizeType(entry.type);
       if (typeIntent === "movie" && normalizedType !== "movie") return null;
       if (typeIntent === "series" && normalizedType !== "series") return null;
+      if (statusIntent !== "any" && entry.status !== statusIntent) return null;
       const imdb = entryImdbScore(entry);
       if (!imdb || !compare(imdb)) return null;
       return { entry, imdb };
@@ -551,6 +608,37 @@ function buildLocalGenreStatsAnswer(query: string, entries: WatchEntry[]): strin
 
   const lines = top.map(([genre, count], index) => `${index + 1}. ${toTitle(genre)} (${count})`);
   return `Top ${top.length} genres in your library:\n${lines.join("\n")}`;
+}
+
+function buildLocalGenreCountAnswer(query: string, entries: WatchEntry[]): string | null {
+  const lower = query.toLowerCase();
+  const asksCount = /(how many|count|number of|total|many)/.test(lower);
+  const mentionsGenre = /(genre|genres|action|adventure|animation|biography|comedy|crime|documentary|drama|family|fantasy|history|horror|music|musical|mystery|romance|sci[- ]?fi|sport|thriller|war|western)/.test(lower);
+  if (!asksCount || !mentionsGenre) {
+    return null;
+  }
+
+  const typeIntent = extractTypeIntent(lower);
+  const requestedGenre = extractRequestedGenre(lower);
+  if (!requestedGenre) {
+    return null;
+  }
+
+  const matched = entries.filter((entry) => {
+    const normalizedType = normalizeType(entry.type);
+    if (typeIntent === "movie" && normalizedType !== "movie") return false;
+    if (typeIntent === "series" && normalizedType !== "series") return false;
+    const genres = extractGenres(entry).map((genre) => genre.toLowerCase());
+    return genres.includes(requestedGenre);
+  });
+
+  if (typeIntent === "movie") {
+    return `You have ${matched.length} ${toTitle(requestedGenre)} movie${matched.length === 1 ? "" : "s"} in your library.`;
+  }
+  if (typeIntent === "series") {
+    return `You have ${matched.length} ${toTitle(requestedGenre)} series in your library.`;
+  }
+  return `You have ${matched.length} ${toTitle(requestedGenre)} title${matched.length === 1 ? "" : "s"} in your library.`;
 }
 
 function releaseYearGuess(value: string): number {
@@ -606,6 +694,86 @@ function toTitle(value: string): string {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function extractRequestedGenre(lowerQuery: string): string | null {
+  const knownGenres = [
+    "action",
+    "adventure",
+    "animation",
+    "biography",
+    "comedy",
+    "crime",
+    "documentary",
+    "drama",
+    "family",
+    "fantasy",
+    "history",
+    "horror",
+    "music",
+    "musical",
+    "mystery",
+    "romance",
+    "sci-fi",
+    "sport",
+    "thriller",
+    "war",
+    "western",
+  ];
+
+  if (/\bsci[- ]?fi\b/.test(lowerQuery)) {
+    return "sci-fi";
+  }
+
+  for (const genre of knownGenres) {
+    const pattern = new RegExp(`\\b${genre}\\b`, "i");
+    if (pattern.test(lowerQuery)) {
+      return genre;
+    }
+  }
+  return null;
+}
+
+function extractImdbConstraint(lowerQuery: string): { label: string; compare: (value: number) => boolean } | null {
+  if (!/(imdb|rating)/.test(lowerQuery)) {
+    return null;
+  }
+  const match =
+    lowerQuery.match(/(?:at least|more than|greater than|greater|above)\s*(\d+(\.\d+)?)/)
+    || lowerQuery.match(/(?:at most|less than|below|under)\s*(\d+(\.\d+)?)/)
+    || lowerQuery.match(/(>=|>|<=|<)\s*(\d+(\.\d+)?)/)
+    || lowerQuery.match(/(\d+(\.\d+)?)\s*\+/);
+  if (!match) {
+    return null;
+  }
+
+  const raw = Number.parseFloat(match[2] || match[1]);
+  if (!Number.isFinite(raw)) {
+    return null;
+  }
+
+  if (match[1] === "<" || match[1] === "<=" || /at most|less than|below|under/.test(lowerQuery)) {
+    const inclusive = match[1] === "<=" || /at most/.test(lowerQuery);
+    return {
+      label: `${inclusive ? "<=" : "<"} ${raw}`,
+      compare: (value) => inclusive ? value <= raw : value < raw,
+    };
+  }
+
+  const inclusive = match[1] === ">=" || /\+/.test(match[0]) || /at least/.test(lowerQuery);
+  return {
+    label: `${inclusive ? ">=" : ">"} ${raw}`,
+    compare: (value) => inclusive ? value >= raw : value > raw,
+  };
+}
+
+function extractStatusIntent(lowerQuery: string): WatchEntry["status"] | "any" {
+  if (/\bplanned\b/.test(lowerQuery)) return "planned";
+  if (/\bstarted\b/.test(lowerQuery)) return "started";
+  if (/\bin progress\b|\bin_progress\b|\bongoing\b/.test(lowerQuery)) return "in_progress";
+  if (/\bcompleted\b|\bfinished\b|\bdone\b/.test(lowerQuery)) return "completed";
+  if (/\bdropped\b|\babandoned\b/.test(lowerQuery)) return "dropped";
+  return "any";
 }
 
 function extractTypeIntent(lowerQuery: string): "movie" | "series" | "all" {

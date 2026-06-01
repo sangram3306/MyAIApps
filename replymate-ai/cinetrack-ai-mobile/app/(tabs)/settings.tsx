@@ -6,10 +6,12 @@ import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import {
   DefaultTabId,
+  getAlwaysUseLlmChatPreference,
   getDefaultTabPreference,
   getLibraryAwareChatPreference,
   getLlmPreference,
   getOneHandedModePreference,
+  saveAlwaysUseLlmChatPreference,
   saveDefaultTabPreference,
   saveLibraryAwareChatPreference,
   saveOneHandedModePreference,
@@ -36,6 +38,7 @@ export default function SettingsScreen() {
   const [modelLabel, setModelLabel] = useState("");
   const [oneHandedMode, setOneHandedMode] = useState(false);
   const [libraryAwareChat, setLibraryAwareChat] = useState(true);
+  const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
   const [defaultLaunchTab, setDefaultLaunchTab] = useState<DefaultTabId>("library");
 
   useFocusEffect(
@@ -48,6 +51,7 @@ export default function SettingsScreen() {
       });
       getOneHandedModePreference().then(setOneHandedMode);
       getLibraryAwareChatPreference().then(setLibraryAwareChat);
+      getAlwaysUseLlmChatPreference().then(setAlwaysUseLlmChat);
       getDefaultTabPreference().then((tab) => {
         setDefaultLaunchTab(tab === "home" ? "library" : tab);
       });
@@ -67,6 +71,11 @@ export default function SettingsScreen() {
   function handleLibraryAwareChatChange(enabled: boolean) {
     setLibraryAwareChat(enabled);
     void saveLibraryAwareChatPreference(enabled);
+  }
+
+  function handleAlwaysUseLlmChatChange(enabled: boolean) {
+    setAlwaysUseLlmChat(enabled);
+    void saveAlwaysUseLlmChatPreference(enabled);
   }
 
   return (
@@ -159,6 +168,24 @@ export default function SettingsScreen() {
               onValueChange={handleLibraryAwareChatChange}
               trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
               thumbColor={libraryAwareChat ? colors.primary : colors.muted}
+            />
+          </View>
+        </View>
+
+        <View style={styles.switchRow}>
+          <View style={styles.switchMain}>
+            <Ionicons name="sparkles-outline" color={colors.primary} size={16} />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>Always use LLM</Text>
+              <Text style={styles.rowMeta}>Bypass local rules and call LLM for every message.</Text>
+            </View>
+          </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={alwaysUseLlmChat}
+              onValueChange={handleAlwaysUseLlmChatChange}
+              trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
+              thumbColor={alwaysUseLlmChat ? colors.primary : colors.muted}
             />
           </View>
         </View>
