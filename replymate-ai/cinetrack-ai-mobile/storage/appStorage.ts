@@ -13,14 +13,26 @@ const keys = {
   themeMode: "replymate.themeMode",
   defaultTab: "replymate.defaultTab",
   quickActionsEnabled: "replymate.quickActionsEnabled",
+  oneHandedMode: "replymate.oneHandedMode",
+  libraryAwareChat: "replymate.libraryAwareChat",
   appLockMode: "replymate.appLockMode",
   budgetTarget: "replymate.expenses.budgetTarget",
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
   quickAddCategories: "replymate.expenses.quickAddCategories",
+  watchJournals: "replymate.watch.journals",
 };
 
-export type DefaultTabId = "home" | "coach" | "chat" | "expenses" | "settings";
+export type WatchJournalEntry = {
+  id: string;
+  watchId?: string;
+  title: string;
+  mood: "loved" | "liked" | "mixed" | "disliked";
+  notes: string;
+  createdAt: string;
+};
+
+export type DefaultTabId = "home" | "library" | "favorites" | "add" | "ai" | "settings" | "coach" | "chat" | "expenses";
 
 export type ExportPayload = {
   exportedAt: string;
@@ -29,6 +41,8 @@ export type ExportPayload = {
     themeMode: ThemeMode;
     defaultTab: DefaultTabId;
     quickActionsEnabled: boolean;
+    oneHandedMode: boolean;
+    libraryAwareChat: boolean;
     appLockMode: AppLockMode;
     budgetTarget: number | null;
     budgetWarningThreshold: number;
@@ -80,6 +94,22 @@ export async function getQuickActionsPreference(): Promise<boolean> {
 
 export async function saveQuickActionsPreference(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(keys.quickActionsEnabled, JSON.stringify(enabled));
+}
+
+export async function getOneHandedModePreference(): Promise<boolean> {
+  return readJson<boolean>(keys.oneHandedMode, false);
+}
+
+export async function saveOneHandedModePreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.oneHandedMode, JSON.stringify(enabled));
+}
+
+export async function getLibraryAwareChatPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.libraryAwareChat, true);
+}
+
+export async function saveLibraryAwareChatPreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.libraryAwareChat, JSON.stringify(enabled));
 }
 
 export async function getAppLockModePreference(): Promise<AppLockMode> {
@@ -162,6 +192,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     themeMode,
     defaultTab,
     quickActionsEnabled,
+    oneHandedMode,
+    libraryAwareChat,
     appLockMode,
     budgetTarget,
     budgetWarningThreshold,
@@ -175,6 +207,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getThemeModePreference(),
       getDefaultTabPreference(),
       getQuickActionsPreference(),
+      getOneHandedModePreference(),
+      getLibraryAwareChatPreference(),
       getAppLockModePreference(),
       getBudgetTargetPreference(),
       getBudgetWarningThresholdPreference(),
@@ -191,6 +225,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       themeMode,
       defaultTab,
       quickActionsEnabled,
+      oneHandedMode,
+      libraryAwareChat,
       appLockMode,
       budgetTarget,
       budgetWarningThreshold,
@@ -206,6 +242,15 @@ export async function clearAllLocalAppData(): Promise<void> {
   await Promise.all(
     Object.values(keys).map((key) => AsyncStorage.removeItem(key)),
   );
+}
+
+export async function getWatchJournals(): Promise<WatchJournalEntry[]> {
+  return readJson<WatchJournalEntry[]>(keys.watchJournals, []);
+}
+
+export async function saveWatchJournal(entry: WatchJournalEntry): Promise<void> {
+  const current = await getWatchJournals();
+  await AsyncStorage.setItem(keys.watchJournals, JSON.stringify([entry, ...current].slice(0, 200)));
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {

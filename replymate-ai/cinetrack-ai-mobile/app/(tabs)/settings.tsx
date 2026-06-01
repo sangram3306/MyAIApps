@@ -1,10 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { getLlmPreference } from "../../storage/appStorage";
+import {
+  DefaultTabId,
+  getDefaultTabPreference,
+  getLibraryAwareChatPreference,
+  getLlmPreference,
+  getOneHandedModePreference,
+  saveDefaultTabPreference,
+  saveLibraryAwareChatPreference,
+  saveOneHandedModePreference,
+} from "../../storage/appStorage";
 import { llmProviders } from "../../constants/llm";
 
 const themeOptions = [
@@ -12,12 +21,22 @@ const themeOptions = [
   { label: "Light", value: "light" as const },
   { label: "Dark", value: "dark" as const },
 ];
+const launchOptions: Array<{ label: string; value: DefaultTabId }> = [
+  { label: "Library", value: "library" },
+  { label: "Favorites", value: "favorites" },
+  { label: "Add", value: "add" },
+  { label: "AI", value: "ai" },
+  { label: "Settings", value: "settings" },
+];
 
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [providerLabel, setProviderLabel] = useState("Loading...");
   const [modelLabel, setModelLabel] = useState("");
+  const [oneHandedMode, setOneHandedMode] = useState(false);
+  const [libraryAwareChat, setLibraryAwareChat] = useState(true);
+  const [defaultLaunchTab, setDefaultLaunchTab] = useState<DefaultTabId>("library");
 
   useFocusEffect(
     useCallback(() => {
@@ -27,8 +46,28 @@ export default function SettingsScreen() {
         setProviderLabel(provider.label);
         setModelLabel(model?.label || pref.model);
       });
+      getOneHandedModePreference().then(setOneHandedMode);
+      getLibraryAwareChatPreference().then(setLibraryAwareChat);
+      getDefaultTabPreference().then((tab) => {
+        setDefaultLaunchTab(tab === "home" ? "library" : tab);
+      });
     }, []),
   );
+
+  function handleOneHandedModeChange(enabled: boolean) {
+    setOneHandedMode(enabled);
+    void saveOneHandedModePreference(enabled);
+  }
+
+  function handleDefaultLaunchTabChange(tab: DefaultTabId) {
+    setDefaultLaunchTab(tab);
+    void saveDefaultTabPreference(tab);
+  }
+
+  function handleLibraryAwareChatChange(enabled: boolean) {
+    setLibraryAwareChat(enabled);
+    void saveLibraryAwareChatPreference(enabled);
+  }
 
   return (
     <View style={styles.screen}>
@@ -70,6 +109,59 @@ export default function SettingsScreen() {
           ))}
         </View>
         <Text style={styles.helper}>Current: {resolvedTheme}</Text>
+
+        <Text style={styles.label}>Default screen on launch</Text>
+        <View style={styles.wrapRow}>
+          {launchOptions.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => handleDefaultLaunchTabChange(option.value)}
+              style={[styles.tagButton, defaultLaunchTab === option.value && styles.tagButtonActive]}
+            >
+              <Text style={[styles.tagText, defaultLaunchTab === option.value && styles.tagTextActive]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Reachability</Text>
+        <View style={styles.switchRow}>
+          <View style={styles.switchMain}>
+            <Ionicons name="phone-portrait-outline" color={colors.secondary} size={16} />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>One-handed mode</Text>
+              <Text style={styles.rowMeta}>Move Library filters to the bottom.</Text>
+            </View>
+          </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={oneHandedMode}
+              onValueChange={handleOneHandedModeChange}
+              trackColor={{ false: colors.borderStrong, true: colors.secondarySoft }}
+              thumbColor={oneHandedMode ? colors.secondary : colors.muted}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.label}>AI chat</Text>
+        <View style={styles.switchRow}>
+          <View style={styles.switchMain}>
+            <Ionicons name="library-outline" color={colors.primary} size={16} />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>Library-aware</Text>
+              <Text style={styles.rowMeta}>Use your saved titles as context in AI chat.</Text>
+            </View>
+          </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={libraryAwareChat}
+              onValueChange={handleLibraryAwareChatChange}
+              trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
+              thumbColor={libraryAwareChat ? colors.primary : colors.muted}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -110,8 +202,23 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       backgroundColor: colors.surfaceElevated,
     },
     rowMain: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    switchMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, minWidth: 0 },
+    rowCopy: { flex: 1, gap: 2, minWidth: 0 },
     rowTitle: { color: colors.text, fontSize: 14, fontWeight: "800" },
     rowMeta: { color: colors.muted, fontSize: 12 },
+    switchWrap: { flexShrink: 0, alignItems: "flex-end" },
+    switchRow: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 12,
+      minHeight: 58,
+      paddingHorizontal: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+      backgroundColor: colors.surfaceElevated,
+    },
     segmentRow: {
       flexDirection: "row",
       borderColor: colors.border,
@@ -130,7 +237,27 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     segmentText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
     segmentTextActive: { color: colors.primary, fontWeight: "900" },
+    wrapRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xs,
+    },
+    tagButton: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      minHeight: 34,
+      paddingHorizontal: spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceElevated,
+    },
+    tagButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    tagText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+    tagTextActive: { color: colors.primary, fontWeight: "900" },
     helper: { color: colors.muted, fontSize: 12, textTransform: "capitalize" },
   });
 }
-

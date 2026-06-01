@@ -1,1 +1,5 @@
-export { default } from "../watch-tracker";
+import { Redirect } from "expo-router";
+
+export default function TabsIndex() {
+  return <Redirect href="/(tabs)/library" />;
+}

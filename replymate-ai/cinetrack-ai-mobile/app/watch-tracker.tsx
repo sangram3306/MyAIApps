@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -280,7 +281,22 @@ export default function WatchTrackerScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            onRefresh={() => {
+              if (backendUrl) {
+                void loadEntries(backendUrl);
+              }
+            }}
+          />
+        }
+      >
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" color={colors.text} size={18} />
           <Text style={styles.backText}>Back</Text>

@@ -3,7 +3,11 @@ import { router } from "expo-router";
 import { getDefaultTabPreference } from "../storage/appStorage";
 
 const tabRoutes: Record<string, string> = {
-  home: "/(tabs)",
+  home: "/(tabs)/library",
+  library: "/(tabs)/library",
+  favorites: "/(tabs)/favorites",
+  add: "/(tabs)/add",
+  ai: "/(tabs)/ai",
   settings: "/(tabs)/settings",
 };
 
@@ -15,7 +19,7 @@ export default function Index() {
         return;
       }
 
-      router.replace((tabRoutes[tab] || "/(tabs)") as never);
+      router.replace((tabRoutes[tab] || "/(tabs)/library") as never);
     });
 
     return () => {
