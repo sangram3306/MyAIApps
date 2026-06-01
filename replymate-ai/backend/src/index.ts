@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import chatRouter from "./routes/chatRoutes";
+import cinetrackRouter from "./routes/cinetrackRoutes";
 import creatorRouter from "./routes/creatorRoutes";
 import coachRouter from "./routes/coachRoutes";
 import decisionRouter from "./routes/decisionRoutes";
@@ -64,6 +65,7 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use("/api/replies", repliesRouter);
 app.use("/api/coach", coachRouter);
 app.use("/api/chat", chatRouter);
+app.use("/api/cinetrack", cinetrackRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/creator", creatorRouter);
 app.use("/api/decisions", decisionRouter);

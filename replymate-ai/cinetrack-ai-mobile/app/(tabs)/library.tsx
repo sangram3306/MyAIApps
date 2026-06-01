@@ -98,10 +98,10 @@ export default function LibraryScreen() {
     : [];
 
   function openEntry(entry: WatchEntry) {
-    setSelectedEntry(entry);
+    setSelectedEntry(normalizeWatchEntry(entry));
     setIsEditingDetails(false);
-    setEditDraft(createEditDraft(entry));
-    setActiveAvailabilityRegion(defaultAvailabilityRegion(entry.availability));
+    setEditDraft(createEditDraft(normalizeWatchEntry(entry)));
+    setActiveAvailabilityRegion(defaultAvailabilityRegion(normalizeWatchEntry(entry).availability));
   }
 
   const loadEntries = useCallback(async () => {
@@ -111,7 +111,7 @@ export default function LibraryScreen() {
       const url = await getBackendUrl();
       setBackendUrl(url);
       const result = await listWatchItemsFromApi({ backendUrl: url });
-      setEntries(result.entries);
+      setEntries(result.entries.map(normalizeWatchEntry));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load saved titles.");
     } finally {
@@ -149,9 +149,9 @@ export default function LibraryScreen() {
         id: entry.id,
         updates: { favorite: !entry.favorite },
       });
-      setEntries(result.entries);
+      setEntries(result.entries.map(normalizeWatchEntry));
       if (selectedEntry?.id === entry.id && result.entry) {
-        setSelectedEntry(result.entry);
+        setSelectedEntry(normalizeWatchEntry(result.entry));
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update favorite.");
@@ -167,8 +167,8 @@ export default function LibraryScreen() {
     setUpdatingId(entry.id);
     try {
       const result = await updateWatchStatusFromApi({ backendUrl, id: entry.id, status });
-      setEntries(result.entries);
-      setSelectedEntry((current) => current && current.id === entry.id ? { ...current, status } : current);
+      setEntries(result.entries.map(normalizeWatchEntry));
+      setSelectedEntry((current) => current && current.id === entry.id ? normalizeWatchEntry({ ...current, status }) : current);
       if (status === "completed" && entry.status !== "completed") {
         setJournalPromptEntry({ ...entry, status: "completed" });
         setJournalMood("liked");
@@ -205,7 +205,7 @@ export default function LibraryScreen() {
     setUpdatingId(entry.id);
     try {
       const result = await deleteWatchItemFromApi({ backendUrl, id: entry.id });
-      setEntries(result.entries);
+      setEntries(result.entries.map(normalizeWatchEntry));
       setSelectedEntry(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not delete title.");
@@ -243,11 +243,12 @@ export default function LibraryScreen() {
         id: selectedEntry.id,
         updates,
       });
-      setEntries(result.entries);
+      setEntries(result.entries.map(normalizeWatchEntry));
       if (result.entry) {
-        setSelectedEntry(result.entry);
-        setEditDraft(createEditDraft(result.entry));
-        setActiveAvailabilityRegion(defaultAvailabilityRegion(result.entry.availability));
+        const normalized = normalizeWatchEntry(result.entry);
+        setSelectedEntry(normalized);
+        setEditDraft(createEditDraft(normalized));
+        setActiveAvailabilityRegion(defaultAvailabilityRegion(normalized.availability));
       }
       setIsEditingDetails(false);
     } catch (caught) {
@@ -727,8 +728,24 @@ function compactStatusLabel(status: "all" | WatchStatus): string {
   return status;
 }
 
+function normalizeWatchEntry(entry: WatchEntry): WatchEntry {
+  return {
+    ...entry,
+    leadActors: Array.isArray(entry.leadActors) ? entry.leadActors : [],
+    ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
+    availability: Array.isArray(entry.availability) ? entry.availability : [],
+    genres: Array.isArray(entry.genres) ? entry.genres : [],
+    externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
+  };
+}
+
 function genresForEntry(entry: WatchEntry): string[] {
-  const genreDetail = (entry.externalDetails || []).find((detail) => detail.label.trim().toLowerCase() === "genre");
+  const primary = Array.isArray(entry.genres) ? entry.genres.map((item) => item.trim()).filter(Boolean) : [];
+  if (primary.length) {
+    return primary;
+  }
+  const detailList = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
+  const genreDetail = detailList.find((detail) => detail.label.trim().toLowerCase() === "genre");
   if (!genreDetail?.value) {
     return [];
   }
@@ -757,7 +774,7 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
-function imdbRatingNumber(ratings: Array<{ source: string; value: string }>): number {
+function imdbRatingNumber(ratings: Array<{ source: string; value: string }> | undefined): number {
   const imdb = getImdbRating(ratings);
   const parsed = Number.parseFloat(imdb);
   return Number.isFinite(parsed) ? parsed : -1;
@@ -800,24 +817,26 @@ function EditField({
 }
 
 function createEditDraft(entry: WatchEntry): WatchEditDraft {
+  const normalized = normalizeWatchEntry(entry);
   return {
-    title: entry.title,
-    type: entry.type,
-    releaseYear: entry.releaseYear,
-    director: entry.director,
-    leadActors: entry.leadActors.join(", "),
-    budget: entry.budget,
-    boxOffice: entry.boxOffice,
-    posterUrl: entry.posterUrl || "",
-    ratings: entry.ratings.map((rating) => `${rating.source}: ${rating.value}`).join("\n"),
-    availability: entry.availability.map((item) => `${item.provider} | ${item.region} | ${item.type}${item.link ? ` | ${item.link}` : ""}`).join("\n"),
-    synopsis: entry.synopsis,
-    notes: entry.notes,
+    title: normalized.title,
+    type: normalized.type,
+    releaseYear: normalized.releaseYear,
+    director: normalized.director,
+    leadActors: normalized.leadActors.join(", "),
+    budget: normalized.budget,
+    boxOffice: normalized.boxOffice,
+    posterUrl: normalized.posterUrl || "",
+    ratings: normalized.ratings.map((rating) => `${rating.source}: ${rating.value}`).join("\n"),
+    availability: normalized.availability.map((item) => `${item.provider} | ${item.region} | ${item.type}${item.link ? ` | ${item.link}` : ""}`).join("\n"),
+    synopsis: normalized.synopsis,
+    notes: normalized.notes,
   };
 }
 
-function getImdbRating(ratings: Array<{ source: string; value: string }>): string {
-  const match = ratings.find((item) => {
+function getImdbRating(ratings: Array<{ source: string; value: string }> | undefined): string {
+  const normalized = Array.isArray(ratings) ? ratings : [];
+  const match = normalized.find((item) => {
     const normalized = item.source.trim().toLowerCase();
     return normalized === "imdb" || normalized === "internet movie database";
   });

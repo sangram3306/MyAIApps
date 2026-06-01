@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { logWatchItemFromApi, WatchStatus } from "../../services/api";
+import { listWatchItemsFromApi, logWatchItemFromApi, WatchStatus } from "../../services/api";
 import { getBackendUrl } from "../../storage/appStorage";
 
 const statusOptions: WatchStatus[] = ["planned", "started", "in_progress", "completed", "dropped"];
@@ -20,7 +20,8 @@ export default function AddTitleScreen() {
   const [error, setError] = useState("");
 
   async function handleAdd() {
-    if (!title.trim()) {
+    const cleanedTitle = title.trim();
+    if (!cleanedTitle) {
       setError("Enter a movie or series name first.");
       return;
     }
@@ -29,9 +30,16 @@ export default function AddTitleScreen() {
     setError("");
     try {
       const backendUrl = await getBackendUrl();
+      const current = await listWatchItemsFromApi({ backendUrl });
+      const nextKey = normalizeTitle(cleanedTitle);
+      const hasDuplicate = current.entries.some((entry) => normalizeTitle(entry.title) === nextKey);
+      if (hasDuplicate) {
+        setError("This title already exists in your library.");
+        return;
+      }
       await logWatchItemFromApi({
         backendUrl,
-        title: title.trim(),
+        title: cleanedTitle,
         status,
         favorite,
         notes: notes.trim(),
@@ -96,6 +104,14 @@ export default function AddTitleScreen() {
       </View>
     </ScrollView>
   );
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ");
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {

@@ -580,7 +580,7 @@ export async function sendChatMessageFromApi(params: {
   backendUrl: string;
   message: string;
 }): Promise<ChatMessageResponse> {
-  const response = await fetch(`${params.backendUrl}/api/chat/message`, {
+  const response = await fetch(`${params.backendUrl}/api/cinetrack/chat`, {
     method: "POST",
     headers: await getApiHeaders(),
     body: JSON.stringify({
