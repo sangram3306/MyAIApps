@@ -68,6 +68,34 @@ test("parseRepliesFromModel recovers nested Gemini grammar arrays", () => {
   ]);
 });
 
+test("parseRepliesFromModel unwraps Gemini grammar objects in arrays", () => {
+  const replies = parseRepliesFromModel(JSON.stringify({
+    replies: [
+      { corrected: "Hey, I am going to the cinema tomorrow. Are you coming?" },
+      { corrected_text: "Hey, I'm going to the cinema tomorrow. Are you coming?" },
+      { text: "Hey, I am going to the cinema tomorrow; are you coming?" },
+    ],
+  }));
+
+  assert.deepEqual(replies, [
+    "Hey, I am going to the cinema tomorrow. Are you coming?",
+    "Hey, I'm going to the cinema tomorrow. Are you coming?",
+    "Hey, I am going to the cinema tomorrow; are you coming?",
+  ]);
+});
+
+test("parseRepliesFromModel unwraps numbered grammar object fields", () => {
+  const replies = parseRepliesFromModel(JSON.stringify({
+    correction1: { text: "Hey, I am going to the cinema tomorrow. Are you coming?" },
+    correction2: { value: "Hey, I'm going to the cinema tomorrow. Are you coming?" },
+  }));
+
+  assert.deepEqual(replies, [
+    "Hey, I am going to the cinema tomorrow. Are you coming?",
+    "Hey, I'm going to the cinema tomorrow. Are you coming?",
+  ]);
+});
+
 test("parseRepliesFromModel does not return JSON syntax as replies", () => {
   const replies = parseRepliesFromModel(`{
     "replies": [

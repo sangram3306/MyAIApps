@@ -86,6 +86,23 @@ const arrayKeys = [
   "options",
   "variants",
 ];
+const textKeys = [
+  "text",
+  "reply",
+  "response",
+  "message",
+  "rewrite",
+  "correction",
+  "corrected",
+  "correctedText",
+  "corrected_text",
+  "fixed",
+  "fixedText",
+  "fixed_text",
+  "version",
+  "value",
+  "option",
+];
 
 function extractKnownStringArray(text: string): string[] {
   for (const key of arrayKeys) {
@@ -185,7 +202,7 @@ function extractQuotedStrings(text: string): string[] {
         return match[1];
       }
     })
-    .filter((value) => !arrayKeys.includes(value));
+    .filter((value) => !arrayKeys.includes(value) && !textKeys.includes(value));
 
   return normalizeReplies(matches);
 }
@@ -200,8 +217,40 @@ function isJsonSyntaxLine(line: string): boolean {
 
 function normalizeReplies(values: unknown[]): string[] {
   return values
+    .map(replyTextFromValue)
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
     .filter(Boolean)
     .slice(0, 5);
+}
+
+function replyTextFromValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of textKeys) {
+    const nested = record[key];
+    if (typeof nested === "string" && nested.trim()) {
+      return nested;
+    }
+  }
+
+  for (const nested of Object.values(record)) {
+    if (typeof nested === "string" && looksLikeSentence(nested)) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function looksLikeSentence(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length > 12 && /\s/.test(trimmed) && !arrayKeys.includes(trimmed) && !textKeys.includes(trimmed);
 }
