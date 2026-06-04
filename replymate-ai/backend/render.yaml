@@ -13,6 +13,12 @@ services:
         value: meta/llama-3.1-8b-instruct
       - key: NVIDIA_API_KEY
         sync: false
+      - key: GEMINI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: GEMINI_API_KEY
+        sync: false
       - key: MCP_SERVER_URL
         sync: false
       - key: MCP_SHARED_SECRET

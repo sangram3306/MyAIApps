@@ -1,4 +1,4 @@
-export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic";
+export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini";
 
 export type LlmModelOption = {
   label: string;
@@ -45,6 +45,25 @@ export const llmProviders: LlmProviderOption[] = [
       {
         label: "DeepSeek V4 Pro",
         value: "deepseek-v4-pro",
+      },
+    ],
+  },
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    enabled: true,
+    models: [
+      {
+        label: "Gemini 2.5 Flash",
+        value: "gemini-2.5-flash",
+      },
+      {
+        label: "Gemini Flash Latest",
+        value: "gemini-flash-latest",
+      },
+      {
+        label: "Gemini 2.5 Flash Lite",
+        value: "gemini-2.5-flash-lite",
       },
     ],
   },

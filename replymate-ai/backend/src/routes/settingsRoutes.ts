@@ -48,6 +48,25 @@ router.get("/llm-options", (_req, res) => {
         ],
       },
       {
+        id: "gemini",
+        label: "Google Gemini",
+        enabled: true,
+        models: [
+          {
+            label: "Gemini 2.5 Flash",
+            value: "gemini-2.5-flash",
+          },
+          {
+            label: "Gemini Flash Latest",
+            value: "gemini-flash-latest",
+          },
+          {
+            label: "Gemini 2.5 Flash Lite",
+            value: "gemini-2.5-flash-lite",
+          },
+        ],
+      },
+      {
         id: "openai",
         label: "OpenAI",
         enabled: false,
