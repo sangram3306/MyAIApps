@@ -18,3 +18,13 @@ services:
         sync: false
       - key: MCP_SHARED_SECRET
         sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: replymate_ai
+      - key: MONGODB_TODOS_COLLECTION
+        value: todos
+      - key: MONGODB_EXPENSES_COLLECTION
+        value: expenses
+      - key: MONGODB_WATCH_COLLECTION
+        value: watch_tracker

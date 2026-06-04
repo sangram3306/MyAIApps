@@ -67,6 +67,9 @@ app.get("/health", (_req: Request, res: Response) => {
     ok: true,
     service: "reply-mcp",
     nvidiaApiKeyLoaded: Boolean(process.env.NVIDIA_API_KEY?.trim()),
+    mongoDbUriLoaded: Boolean(process.env.MONGODB_URI?.trim()),
+    mongoDbName: process.env.MONGODB_DB_NAME?.trim() || "replymate_ai",
+    watchCollection: process.env.MONGODB_WATCH_COLLECTION?.trim() || "watch_tracker",
   });
 });
 

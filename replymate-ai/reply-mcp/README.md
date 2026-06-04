@@ -53,6 +53,7 @@ MONGODB_URI=
 MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
+MONGODB_WATCH_COLLECTION=watch_tracker
 ```
 
 ## Render Deployment
@@ -71,6 +72,7 @@ MONGODB_EXPENSES_COLLECTION=expenses
    - `MONGODB_DB_NAME`
    - `MONGODB_TODOS_COLLECTION`
    - `MONGODB_EXPENSES_COLLECTION`
+   - `MONGODB_WATCH_COLLECTION`
 6. Deploy the service.
 7. Copy the deployed URL.
 8. Set that URL in the backend `MCP_SERVER_URL`.

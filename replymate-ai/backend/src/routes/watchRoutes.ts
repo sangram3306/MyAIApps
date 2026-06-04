@@ -57,8 +57,10 @@ export async function handleListWatchRequest(
   try {
     const result = await listWatchItems();
     return res.json(result);
-  } catch {
-    return res.status(500).json({ error: "Could not load watch items." });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    console.error("[watch] list failed", detail);
+    return res.status(500).json({ error: `Could not load watch items: ${detail}` });
   }
 }
 

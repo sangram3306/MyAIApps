@@ -1230,7 +1230,7 @@ export async function logWatchItemFromApi(params: {
 }): Promise<WatchLogResponse> {
   const response = await fetch(`${params.backendUrl}/api/watch/log`, {
     method: "POST",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
     body: JSON.stringify(params),
   });
   const data = (await response.json().catch(() => null)) as Partial<WatchLogResponse & { error?: string }> | null;
@@ -1248,7 +1248,7 @@ export async function listWatchItemsFromApi(params: {
 }): Promise<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
   const response = await fetch(`${params.backendUrl}/api/watch/items`, {
     method: "GET",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
   });
   const data = (await response.json().catch(() => null)) as Partial<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
   if (!response.ok) {
@@ -1268,7 +1268,7 @@ export async function getWatcherProfileFromApi(params: {
 }): Promise<WatcherProfileResponse> {
   const response = await fetch(`${params.backendUrl}/api/watch/profile`, {
     method: "GET",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
   });
   const data = (await response.json().catch(() => null)) as Partial<WatcherProfileResponse & { error?: string }> | null;
   if (!response.ok) {
@@ -1287,7 +1287,7 @@ export async function updateWatchStatusFromApi(params: {
 }): Promise<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
   const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}/status`, {
     method: "PATCH",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
     body: JSON.stringify({ status: params.status }),
   });
   const data = (await response.json().catch(() => null)) as Partial<{ entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
@@ -1310,7 +1310,7 @@ export async function updateWatchDetailsFromApi(params: {
 }): Promise<{ entry?: WatchEntry; entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
   const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}`, {
     method: "PATCH",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
     body: JSON.stringify(params.updates),
   });
   const data = (await response.json().catch(() => null)) as Partial<{ entry?: WatchEntry; entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
@@ -1333,7 +1333,7 @@ export async function deleteWatchItemFromApi(params: {
 }): Promise<{ deleted: boolean; entries: WatchEntry[]; source: "static" | "llm" | "fallback" }> {
   const response = await fetch(`${params.backendUrl}/api/watch/items/${encodeURIComponent(params.id)}`, {
     method: "DELETE",
-    headers: await getApiHeaders(),
+    headers: getJsonHeaders(),
   });
   const data = (await response.json().catch(() => null)) as Partial<{ deleted: boolean; entries: WatchEntry[]; source: "static" | "llm" | "fallback"; error?: string }> | null;
   if (!response.ok) {
@@ -1355,5 +1355,11 @@ async function getApiHeaders(): Promise<Record<string, string>> {
     "Content-Type": "application/json",
     "X-LLM-Provider": preference.provider,
     "X-LLM-Model": preference.model,
+  };
+}
+
+function getJsonHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
   };
 }
