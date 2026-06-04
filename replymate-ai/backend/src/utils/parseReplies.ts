@@ -47,14 +47,45 @@ function extractRepliesFromJson(parsed: unknown): string[] {
   }
 
   const numberedReplies = Object.entries(record)
-    .filter(([key]) => /^reply\d+$/i.test(key) || /^suggestion\d+$/i.test(key) || /^option\d+$/i.test(key))
+    .filter(([key]) => /^reply\d+$/i.test(key) || /^suggestion\d+$/i.test(key) || /^option\d+$/i.test(key) || /^correction\d+$/i.test(key))
     .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
     .map(([, value]) => value);
+  const normalizedNumberedReplies = normalizeReplies(numberedReplies);
+  if (normalizedNumberedReplies.length) {
+    return normalizedNumberedReplies;
+  }
 
-  return normalizeReplies(numberedReplies);
+  for (const value of Object.values(record)) {
+    const nestedReplies = extractRepliesFromJson(value);
+    if (nestedReplies.length) {
+      return nestedReplies;
+    }
+  }
+
+  return [];
 }
 
-const arrayKeys = ["replies", "replySuggestions", "suggestions", "responses", "messages", "rewrites", "corrections"];
+const arrayKeys = [
+  "replies",
+  "replySuggestions",
+  "suggestions",
+  "responses",
+  "messages",
+  "rewrites",
+  "corrections",
+  "correctedMessages",
+  "corrected_messages",
+  "correctedVersions",
+  "corrected_versions",
+  "grammarFixes",
+  "grammar_fixes",
+  "fixedMessages",
+  "fixed_messages",
+  "fixedVersions",
+  "fixed_versions",
+  "options",
+  "variants",
+];
 
 function extractKnownStringArray(text: string): string[] {
   for (const key of arrayKeys) {
@@ -164,7 +195,7 @@ function isJsonSyntaxLine(line: string): boolean {
   if (!normalized || normalized === "{" || normalized === "}" || normalized === "[" || normalized === "]") {
     return true;
   }
-  return /^["']?(replies|replySuggestions|suggestions|responses|messages|rewrites|corrections)["']?\s*:\s*\[?$/i.test(normalized);
+  return /^["']?(replies|replySuggestions|suggestions|responses|messages|rewrites|corrections|correctedMessages|corrected_messages|correctedVersions|corrected_versions|grammarFixes|grammar_fixes|fixedMessages|fixed_messages|fixedVersions|fixed_versions|options|variants)["']?\s*:\s*\[?$/i.test(normalized);
 }
 
 function normalizeReplies(values: unknown[]): string[] {

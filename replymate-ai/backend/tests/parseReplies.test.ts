@@ -38,6 +38,36 @@ test("parseRepliesFromModel recovers grammar corrections from malformed JSON out
   ]);
 });
 
+test("parseRepliesFromModel recovers renamed Gemini grammar arrays", () => {
+  const replies = parseRepliesFromModel(JSON.stringify({
+    grammarFixes: [
+      "Hey, I am going to the cinema tomorrow. Are you coming?",
+      "Hey, I'm going to the cinema tomorrow. Are you coming?",
+    ],
+  }));
+
+  assert.deepEqual(replies, [
+    "Hey, I am going to the cinema tomorrow. Are you coming?",
+    "Hey, I'm going to the cinema tomorrow. Are you coming?",
+  ]);
+});
+
+test("parseRepliesFromModel recovers nested Gemini grammar arrays", () => {
+  const replies = parseRepliesFromModel(JSON.stringify({
+    result: {
+      corrected_versions: [
+        "Hey, I am going to the cinema tomorrow. Are you coming?",
+        "Hey, I'm going to the cinema tomorrow. Are you coming?",
+      ],
+    },
+  }));
+
+  assert.deepEqual(replies, [
+    "Hey, I am going to the cinema tomorrow. Are you coming?",
+    "Hey, I'm going to the cinema tomorrow. Are you coming?",
+  ]);
+});
+
 test("parseRepliesFromModel does not return JSON syntax as replies", () => {
   const replies = parseRepliesFromModel(`{
     "replies": [
