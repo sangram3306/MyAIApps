@@ -37,12 +37,20 @@ type ChatResponse = {
 
 type GeminiResponse = {
   candidates?: Array<{
+    finishReason?: string;
     content?: {
       parts?: Array<{
         text?: string;
       }>;
     };
   }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
+  modelVersion?: string;
 };
 
 const defaultNvidiaBaseUrl = "https://integrate.api.nvidia.com/v1";
@@ -179,7 +187,57 @@ async function callGeminiCompletion(
       role: message.role === "assistant" ? "model" : "user",
       parts: [{ text: message.content }],
     }));
+  const baseRequest = {
+    ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+    contents: contents.length ? contents : [{ role: "user", parts: [{ text: "" }] }],
+  };
+  const initialMaxOutputTokens = getGeminiMaxOutputTokens(config.model, options.maxTokens);
 
+  let data = await fetchGeminiCompletion(config, options, baseRequest, initialMaxOutputTokens);
+  if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+    console.warn(`[llm] ${config.displayName} retrying after MAX_TOKENS`, {
+      model: config.model,
+      modelVersion: data.modelVersion,
+      usage: data.usageMetadata,
+    });
+    data = await fetchGeminiCompletion(config, options, baseRequest, Math.max(initialMaxOutputTokens * 2, 8192));
+  }
+
+  const finishReason = data.candidates?.[0]?.finishReason;
+  const content = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("")
+    .trim();
+  if (finishReason === "MAX_TOKENS") {
+    console.error(`[llm] ${config.displayName} response hit max tokens`, {
+      model: config.model,
+      modelVersion: data.modelVersion,
+      usage: data.usageMetadata,
+      contentPreview: content?.slice(0, 120),
+    });
+    throw new Error(`${config.displayName} response hit the output token limit.`);
+  }
+  if (!content) {
+    throw new Error(`${config.displayName} response did not include message content.`);
+  }
+
+  return {
+    content,
+    provider: config.provider,
+    model: config.model,
+    baseUrl: config.baseUrl,
+  };
+}
+
+async function fetchGeminiCompletion(
+  config: ProviderConfig,
+  options: LlmRequestOptions,
+  baseRequest: {
+    systemInstruction?: { parts: Array<{ text: string }> };
+    contents: Array<{ role: string; parts: Array<{ text: string }> }>;
+  },
+  maxOutputTokens: number,
+): Promise<GeminiResponse> {
   const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/models/${config.model}:generateContent`, {
     method: "POST",
     headers: {
@@ -187,11 +245,11 @@ async function callGeminiCompletion(
       "X-goog-api-key": config.apiKey,
     },
     body: JSON.stringify({
-      ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
-      contents: contents.length ? contents : [{ role: "user", parts: [{ text: "" }] }],
+      ...baseRequest,
       generationConfig: {
         temperature: options.temperature ?? 0.7,
-        maxOutputTokens: options.maxTokens ?? 500,
+        maxOutputTokens,
+        ...getGeminiThinkingConfig(config.model),
         ...(options.responseFormat?.type === "json_object" ? { responseMimeType: "application/json" } : {}),
       },
     }),
@@ -203,21 +261,32 @@ async function callGeminiCompletion(
     throw new Error(`${config.displayName} API error: ${response.status}`);
   }
 
-  const data = (await response.json()) as GeminiResponse;
-  const content = data.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text || "")
-    .join("")
-    .trim();
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
+  return (await response.json()) as GeminiResponse;
+}
+
+function getGeminiThinkingConfig(model: string): { thinkingConfig?: { thinkingBudget: number } } {
+  const normalized = model.trim().toLowerCase();
+  if (normalized.includes("gemini-2.5-flash") || normalized === "gemini-flash-latest") {
+    return {
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
+    };
   }
 
-  return {
-    content,
-    provider: config.provider,
-    model: config.model,
-    baseUrl: config.baseUrl,
-  };
+  return {};
+}
+
+function getGeminiMaxOutputTokens(model: string, requestedMaxTokens: number | undefined): number {
+  const normalized = model.trim().toLowerCase();
+  const requested = requestedMaxTokens ?? 500;
+  if (normalized === "gemini-flash-latest") {
+    return Math.max(requested, 4096);
+  }
+  if (normalized.includes("gemini-2.5-flash")) {
+    return Math.max(requested, 2048);
+  }
+  return Math.max(requested, 1200);
 }
 
 function getProviderConfig(): ProviderConfig {

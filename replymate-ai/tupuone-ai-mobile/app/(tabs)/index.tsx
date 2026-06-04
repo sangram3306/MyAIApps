@@ -291,14 +291,14 @@ export default function HomeScreen() {
                   ? "No replies yet"
                   : mode === "rewrite"
                     ? "No rewrites yet"
-                    : "No grammar fixes yet"
+                    : "No grammar fix yet"
               }
               message={
                 mode === "reply"
                   ? "Your generated replies will appear here."
                   : mode === "rewrite"
                     ? "Your rewritten message options will appear here."
-                    : "Your corrected message options will appear here."
+                    : "Your corrected message will appear here."
               }
             />
           )}

@@ -94,8 +94,8 @@ export async function fixGrammar(input: GenerateRepliesInput): Promise<string[]>
     mockFallback: getMockGrammarFixes,
     logLabel: "grammar fixes",
     systemPrompt:
-      'You are TupuChat. Fix grammar, spelling, punctuation, capitalization, and clarity in the user\'s message. Preserve the original meaning and do not add new information. Return exactly 5 corrected versions, from minimal correction to slightly more polished. Return only valid JSON. The top-level object must have exactly one key named "replies". Do not use keys like corrections, grammarFixes, options, or messages. Format: { "replies": ["...", "...", "...", "...", "..."] }',
-    userPrompt: `Message to fix:\n${input.message}\n\nReturn JSON only with this exact shape: { "replies": ["corrected version 1", "corrected version 2", "corrected version 3", "corrected version 4", "corrected version 5"] }`,
+      'You are TupuChat. Fix grammar, spelling, punctuation, capitalization, and clarity in the user\'s message. Preserve the original meaning and do not add new information. Return exactly 1 corrected version. Return only valid JSON. The top-level object must have exactly one key named "replies". The "replies" array must contain exactly one string. Do not use keys like corrections, grammarFixes, options, or messages. Format: { "replies": ["..."] }',
+    userPrompt: `Message to fix:\n${input.message}\n\nReturn JSON only with this exact shape: { "replies": ["corrected message"] }`,
   });
 }
 
