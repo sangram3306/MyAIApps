@@ -10,14 +10,14 @@ export function parseRepliesFromModel(content: string): string[] {
         return replies;
       }
     } catch {
-      const repairedReplies = extractStringArrayByKey(jsonCandidate, "replies");
+      const repairedReplies = extractKnownStringArray(jsonCandidate);
       if (repairedReplies.length) {
         return repairedReplies;
       }
     }
   }
 
-  const repairedReplies = extractStringArrayByKey(trimmed, "replies");
+  const repairedReplies = extractKnownStringArray(trimmed);
   if (repairedReplies.length) {
     return repairedReplies;
   }
@@ -25,7 +25,7 @@ export function parseRepliesFromModel(content: string): string[] {
   const lines = trimmed
     .split(/\r?\n/)
     .map((line) => line.replace(/^[-*\d.)\s"]+/, "").replace(/"$/, "").trim())
-    .filter(Boolean);
+    .filter((line) => Boolean(line) && !isJsonSyntaxLine(line));
 
   return normalizeReplies(lines);
 }
@@ -40,8 +40,6 @@ function extractRepliesFromJson(parsed: unknown): string[] {
   }
 
   const record = parsed as Record<string, unknown>;
-  const arrayKeys = ["replies", "replySuggestions", "suggestions", "responses", "messages", "rewrites", "corrections"];
-
   for (const key of arrayKeys) {
     if (Array.isArray(record[key])) {
       return normalizeReplies(record[key]);
@@ -54,6 +52,18 @@ function extractRepliesFromJson(parsed: unknown): string[] {
     .map(([, value]) => value);
 
   return normalizeReplies(numberedReplies);
+}
+
+const arrayKeys = ["replies", "replySuggestions", "suggestions", "responses", "messages", "rewrites", "corrections"];
+
+function extractKnownStringArray(text: string): string[] {
+  for (const key of arrayKeys) {
+    const values = extractStringArrayByKey(text, key);
+    if (values.length) {
+      return values;
+    }
+  }
+  return [];
 }
 
 function extractJsonObject(text: string): string | null {
@@ -144,9 +154,17 @@ function extractQuotedStrings(text: string): string[] {
         return match[1];
       }
     })
-    .filter((value) => value !== "replies");
+    .filter((value) => !arrayKeys.includes(value));
 
   return normalizeReplies(matches);
+}
+
+function isJsonSyntaxLine(line: string): boolean {
+  const normalized = line.trim().replace(/,$/, "");
+  if (!normalized || normalized === "{" || normalized === "}" || normalized === "[" || normalized === "]") {
+    return true;
+  }
+  return /^["']?(replies|replySuggestions|suggestions|responses|messages|rewrites|corrections)["']?\s*:\s*\[?$/i.test(normalized);
 }
 
 function normalizeReplies(values: unknown[]): string[] {

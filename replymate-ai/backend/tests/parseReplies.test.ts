@@ -21,3 +21,27 @@ test("parseRepliesFromModel recovers replies from malformed JSON output", () => 
     "Fine, but I am picking the snacks.",
   ]);
 });
+
+test("parseRepliesFromModel recovers grammar corrections from malformed JSON output", () => {
+  const replies = parseRepliesFromModel(`{
+    "corrections": [
+      "Hey, I am going to the cinema tomorrow. Are you coming?",
+      "Hey, I'm going to the cinema tomorrow. Are you coming?",
+      "Hey, I am going to the cinema tomorrow; are you coming?"
+    ],
+  `);
+
+  assert.deepEqual(replies, [
+    "Hey, I am going to the cinema tomorrow. Are you coming?",
+    "Hey, I'm going to the cinema tomorrow. Are you coming?",
+    "Hey, I am going to the cinema tomorrow; are you coming?",
+  ]);
+});
+
+test("parseRepliesFromModel does not return JSON syntax as replies", () => {
+  const replies = parseRepliesFromModel(`{
+    "replies": [
+  `);
+
+  assert.deepEqual(replies, []);
+});
