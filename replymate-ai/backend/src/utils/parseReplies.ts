@@ -22,6 +22,10 @@ export function parseRepliesFromModel(content: string): string[] {
     return repairedReplies;
   }
 
+  if (looksLikeJsonResponse(trimmed)) {
+    return [];
+  }
+
   const lines = trimmed
     .split(/\r?\n/)
     .map((line) => line.replace(/^[-*\d.)\s"]+/, "").replace(/"$/, "").trim())
@@ -123,6 +127,11 @@ function extractJsonObject(text: string): string | null {
   }
 
   return text.slice(firstBrace, lastBrace + 1);
+}
+
+function looksLikeJsonResponse(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[") || arrayKeys.some((key) => new RegExp(`["']?${key}["']?\\s*:`, "i").test(trimmed));
 }
 
 function extractStringArrayByKey(text: string, key: string): string[] {

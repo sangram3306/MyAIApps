@@ -30,6 +30,7 @@ type ProviderConfig = {
 
 type ChatResponse = {
   choices?: Array<{
+    finish_reason?: string;
     message?: {
       content?: string;
       reasoning?: string;
@@ -292,10 +293,48 @@ async function callOpenRouterCompletion(
   model: string;
   baseUrl: string;
 }> {
+  const initialMaxTokens = getOpenRouterMaxTokens(config.model, options.maxTokens, reasoningEnabled);
+  let data = await fetchOpenRouterCompletion(config, options, reasoningEnabled, initialMaxTokens);
+  const finishReason = data.choices?.[0]?.finish_reason;
+  if (finishReason === "length") {
+    console.warn(`[llm] ${config.displayName} retrying after length finish`, {
+      model: config.model,
+      maxTokens: initialMaxTokens,
+    });
+    data = await fetchOpenRouterCompletion(config, options, reasoningEnabled, Math.max(initialMaxTokens * 2, 4096));
+  }
+
+  const finalFinishReason = data.choices?.[0]?.finish_reason;
+  const content = data.choices?.[0]?.message?.content;
+  if (finalFinishReason === "length") {
+    console.error(`[llm] ${config.displayName} response hit max tokens`, {
+      model: config.model,
+      contentPreview: content?.slice(0, 120),
+    });
+    throw new Error(`${config.displayName} response hit the output token limit.`);
+  }
+  if (!content) {
+    throw new Error(`${config.displayName} response did not include message content.`);
+  }
+
+  return {
+    content,
+    provider: config.provider,
+    model: config.model,
+    baseUrl: config.baseUrl,
+  };
+}
+
+async function fetchOpenRouterCompletion(
+  config: ProviderConfig,
+  options: LlmRequestOptions,
+  reasoningEnabled: boolean,
+  maxTokens: number,
+): Promise<OpenRouterResponse> {
   const payload: Record<string, unknown> = {
     model: config.model,
     temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens ?? 500,
+    max_tokens: maxTokens,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
     messages: options.messages,
   };
@@ -325,18 +364,19 @@ async function callOpenRouterCompletion(
     throw new Error(`${config.displayName} API error: ${response.status}`);
   }
 
-  const data = (await response.json()) as OpenRouterResponse;
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
-  }
+  return (await response.json()) as OpenRouterResponse;
+}
 
-  return {
-    content,
-    provider: config.provider,
-    model: config.model,
-    baseUrl: config.baseUrl,
-  };
+function getOpenRouterMaxTokens(model: string, requestedMaxTokens: number | undefined, reasoningEnabled: boolean): number {
+  const normalized = model.trim().toLowerCase();
+  const requested = requestedMaxTokens ?? 500;
+  if (normalized.includes("gpt-oss")) {
+    return Math.max(requested, reasoningEnabled ? 4096 : 1600);
+  }
+  if (reasoningEnabled) {
+    return Math.max(requested, 2400);
+  }
+  return requested;
 }
 
 async function callGroqCompletion(
