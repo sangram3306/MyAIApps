@@ -20,6 +20,13 @@ type LlmModelOption = {
   reasoningSupported?: boolean;
 };
 
+type OpenRouterModelOption = {
+  label: string;
+  value: string;
+  free: boolean;
+  reasoningSupported: boolean;
+};
+
 const groqRequestedModels: LlmModelOption[] = [
   {
     label: "Llama 3.3 70B Versatile",
@@ -246,19 +253,33 @@ async function getOpenRouterProvider(): Promise<{
   }
 
   const data = (await response.json()) as { data?: OpenRouterModel[] };
-  const models = (data.data || [])
-    .filter((model) => typeof model.id === "string" && model.id.includes(":free"))
-    .map((model) => ({
-      label: model.name?.trim() || model.id!.trim(),
-      value: model.id!.trim(),
-      reasoningSupported: Boolean(
-        model.supported_parameters?.some((parameter) => {
-          const normalized = parameter.trim().toLowerCase();
-          return normalized === "reasoning" || normalized === "include_reasoning";
-        }),
-      ),
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+  const modelOptions = (data.data || [])
+    .filter((model) => typeof model.id === "string" && model.id.trim())
+    .map((model): OpenRouterModelOption => {
+      const id = model.id!.trim();
+      const free = isOpenRouterFreeModel(id);
+      return {
+        label: `${model.name?.trim() || id} · ${free ? "Free" : "Paid"}`,
+        value: id,
+        free,
+        reasoningSupported: Boolean(
+          model.supported_parameters?.some((parameter) => {
+            const normalized = parameter.trim().toLowerCase();
+            return normalized === "reasoning" || normalized === "include_reasoning";
+          }),
+        ),
+      };
+    })
+    .sort((left, right) => {
+      if (left.free !== right.free) {
+        return left.free ? -1 : 1;
+      }
+      return left.label.localeCompare(right.label);
+    });
+
+  const freeModels = modelOptions.filter((model) => model.free).slice(0, 80);
+  const paidModels = modelOptions.filter((model) => !model.free).slice(0, 120);
+  const models = [...freeModels, ...paidModels].map(({ free: _free, ...model }) => model);
 
   return {
     id: "openrouter",
@@ -266,6 +287,10 @@ async function getOpenRouterProvider(): Promise<{
     enabled: models.length > 0,
     models,
   };
+}
+
+function isOpenRouterFreeModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes(":free");
 }
 
 function getStaticGroqProvider(): {

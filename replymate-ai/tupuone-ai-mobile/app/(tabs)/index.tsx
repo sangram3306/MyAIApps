@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "../../components/BrandLogo";
 import { ChipSelector } from "../../components/ChipSelector";
 import { EmptyState } from "../../components/EmptyState";
+import { GrammarFixCard } from "../../components/GrammarFixCard";
 import { ReplyCard } from "../../components/ReplyCard";
 import { Role, replyRoles, rewriteRoles } from "../../constants/roles";
 import { replyTones, rewriteStyles, Tone } from "../../constants/tones";
@@ -321,13 +322,23 @@ export default function HomeScreen() {
 
         <View style={styles.results}>
           {replies.length > 0 ? (
-            replies.map((reply, index) => (
-              <ReplyCard
-                key={`${reply}-${index}`}
-                reply={reply}
-                onFavorite={() => handleFavorite(reply)}
-              />
-            ))
+            mode === "grammar" ? (
+              replies.map((reply, index) => (
+                <GrammarFixCard
+                  key={`${reply}-${index}`}
+                  original={message.trim()}
+                  corrected={reply}
+                />
+              ))
+            ) : (
+              replies.map((reply, index) => (
+                <ReplyCard
+                  key={`${reply}-${index}`}
+                  reply={reply}
+                  onFavorite={() => handleFavorite(reply)}
+                />
+              ))
+            )
           ) : (
             <EmptyState
               title={

@@ -1,13 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { defaultLlmPreference, llmProviders } from "../constants/llm";
-import type { LlmPreference, LlmProviderOption } from "../constants/llm";
+import type { LlmModelOption, LlmPreference, LlmProviderOption } from "../constants/llm";
 import { getBackendUrl, getLlmPreference, saveLlmPreference } from "../storage/appStorage";
 import { DeepSeekBalanceResponse, getDeepSeekBalanceFromApi, getLlmOptionsFromApi } from "../services/api";
+
+type OpenRouterModelGroup = "free" | "paid";
 
 export default function LlmProviderScreen() {
   const { colors } = useAppTheme();
@@ -25,10 +27,20 @@ export default function LlmProviderScreen() {
   const [usage, setUsage] = useState<DeepSeekBalanceResponse | null>(null);
   const [usageError, setUsageError] = useState("");
   const [usageLoading, setUsageLoading] = useState(false);
+  const [openRouterDropdown, setOpenRouterDropdown] = useState<OpenRouterModelGroup | null>(null);
+  const [openRouterSearch, setOpenRouterSearch] = useState("");
   const selectedProvider =
     providerOptions.find((provider) => provider.id === llmPreference.provider) || providerOptions[0];
   const selectedModel = selectedProvider?.models.find((model) => model.value === llmPreference.model);
   const reasoningSupported = Boolean(selectedModel?.reasoningSupported);
+  const openRouterFreeModels = useMemo(
+    () => selectedProvider.models.filter((model) => isOpenRouterFreeModel(model)),
+    [selectedProvider.models],
+  );
+  const openRouterPaidModels = useMemo(
+    () => selectedProvider.models.filter((model) => !isOpenRouterFreeModel(model)),
+    [selectedProvider.models],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -118,6 +130,92 @@ export default function LlmProviderScreen() {
     await saveLlmPreference(nextPreference);
   }
 
+  function handleOpenRouterDropdownChange(group: OpenRouterModelGroup) {
+    const nextGroup = openRouterDropdown === group ? null : group;
+    setOpenRouterDropdown(nextGroup);
+    setOpenRouterSearch("");
+  }
+
+  function renderOpenRouterModelDropdown(
+    group: OpenRouterModelGroup,
+    title: string,
+    models: LlmModelOption[],
+  ) {
+    const expanded = openRouterDropdown === group;
+    const selectedInGroup = selectedModel && models.some((model) => model.value === selectedModel.value);
+    const filteredModels = filterOpenRouterModels(models, openRouterSearch);
+
+    return (
+      <View style={styles.modelDropdownBlock}>
+        <Pressable
+          onPress={() => handleOpenRouterDropdownChange(group)}
+          style={[styles.modelDropdownHeader, selectedInGroup && styles.modelDropdownHeaderSelected]}
+        >
+          <View style={styles.modelDropdownTitleWrap}>
+            <Text style={styles.modelDropdownEyebrow}>{title}</Text>
+            <Text style={[styles.modelDropdownValue, selectedInGroup && styles.modelDropdownValueSelected]} numberOfLines={1}>
+              {selectedInGroup ? selectedModel.label : `Choose ${title.toLowerCase()} model`}
+            </Text>
+          </View>
+          <View style={styles.modelDropdownMeta}>
+            <Text style={styles.modelDropdownCount}>{models.length}</Text>
+            <Ionicons name={expanded ? "chevron-up" : "chevron-down"} color={colors.muted} size={18} />
+          </View>
+        </Pressable>
+
+        {expanded ? (
+          <View style={styles.modelDropdownPanel}>
+            <View style={styles.modelSearchBox}>
+              <Ionicons name="search" color={colors.muted} size={16} />
+              <TextInput
+                value={openRouterSearch}
+                onChangeText={setOpenRouterSearch}
+                placeholder={`Search ${title.toLowerCase()} models...`}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.modelSearchInput}
+              />
+            </View>
+            <View style={styles.modelDropdownOptions}>
+              {filteredModels.slice(0, 30).map((model) => {
+                const selected = model.value === llmPreference.model;
+                return (
+                  <Pressable
+                    key={model.value}
+                    onPress={() => {
+                      setOpenRouterDropdown(null);
+                      setOpenRouterSearch("");
+                      void handleModelChange(model.value);
+                    }}
+                    style={[styles.modelDropdownOption, selected && styles.modelDropdownOptionSelected]}
+                  >
+                    <View style={styles.modelDropdownOptionTextWrap}>
+                      <Text
+                        style={[styles.modelDropdownOptionText, selected && styles.modelDropdownOptionTextSelected]}
+                        numberOfLines={2}
+                      >
+                        {model.label}
+                      </Text>
+                      <Text style={styles.modelDropdownOptionValue} numberOfLines={1}>
+                        {model.value}
+                      </Text>
+                    </View>
+                    {selected ? <Ionicons name="checkmark-circle" color={colors.primary} size={18} /> : null}
+                  </Pressable>
+                );
+              })}
+              {filteredModels.length > 30 ? (
+                <Text style={styles.modelDropdownHint}>Showing first 30 matches. Keep typing to narrow it down.</Text>
+              ) : null}
+              {!filteredModels.length ? <Text style={styles.modelDropdownHint}>No matching models found.</Text> : null}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   async function handleReasoningChange(enabled: boolean) {
     if (!reasoningSupported) {
       return;
@@ -188,22 +286,32 @@ export default function LlmProviderScreen() {
         <View style={styles.modelCard}>
           <Text style={styles.modelLabel}>Selected model</Text>
           <Text style={styles.modelValue}>{llmPreference.model}</Text>
-          <View style={styles.modelList}>
-            {selectedProvider.models.map((model) => {
-              const selected = model.value === llmPreference.model;
-              return (
-                <Pressable
-                  key={model.value}
-                  onPress={() => handleModelChange(model.value)}
-                  style={[styles.modelPill, selected && styles.modelPillSelected]}
-                >
-                  <Text style={[styles.modelPillText, selected && styles.modelPillTextSelected]}>
-                    {model.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {selectedProvider.id === "openrouter" ? (
+            <View style={styles.openRouterModelGroups}>
+              {renderOpenRouterModelDropdown("free", "Free", openRouterFreeModels)}
+              {renderOpenRouterModelDropdown("paid", "Paid", openRouterPaidModels)}
+              <Text style={styles.reasoningCopy}>
+                OpenRouter includes free and paid models. Paid models may use your OpenRouter credits.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.modelList}>
+              {selectedProvider.models.map((model) => {
+                const selected = model.value === llmPreference.model;
+                return (
+                  <Pressable
+                    key={model.value}
+                    onPress={() => handleModelChange(model.value)}
+                    style={[styles.modelPill, selected && styles.modelPillSelected]}
+                  >
+                    <Text style={[styles.modelPillText, selected && styles.modelPillTextSelected]}>
+                      {model.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
           {(selectedProvider.id === "openrouter" || selectedProvider.id === "groq") && selectedModel ? (
             <View style={styles.reasoningRow}>
               <View style={styles.reasoningText}>
@@ -278,6 +386,22 @@ export default function LlmProviderScreen() {
       </View>
     </ScrollView>
   );
+}
+
+function isOpenRouterFreeModel(model: LlmModelOption): boolean {
+  return model.value.toLowerCase().includes(":free") || model.label.toLowerCase().includes("· free");
+}
+
+function filterOpenRouterModels(models: LlmModelOption[], search: string): LlmModelOption[] {
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return models;
+  }
+
+  return models.filter((model) => {
+    const target = `${model.label} ${model.value}`.toLowerCase();
+    return target.includes(query);
+  });
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
@@ -413,6 +537,135 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: spacing.sm,
+    },
+    openRouterModelGroups: {
+      gap: spacing.sm,
+    },
+    modelDropdownBlock: {
+      gap: spacing.xs,
+    },
+    modelDropdownHeader: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      justifyContent: "space-between",
+      minHeight: 70,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    modelDropdownHeaderSelected: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+    },
+    modelDropdownTitleWrap: {
+      flex: 1,
+      gap: 4,
+    },
+    modelDropdownEyebrow: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "900",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+    },
+    modelDropdownValue: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "900",
+    },
+    modelDropdownValueSelected: {
+      color: colors.primary,
+    },
+    modelDropdownMeta: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.xs,
+    },
+    modelDropdownCount: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "900",
+      overflow: "hidden",
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    modelDropdownPanel: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.sm,
+    },
+    modelSearchBox: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.sm,
+    },
+    modelSearchInput: {
+      color: colors.text,
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      minHeight: 44,
+      paddingVertical: spacing.xs,
+    },
+    modelDropdownOptions: {
+      gap: spacing.xs,
+    },
+    modelDropdownOption: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+      justifyContent: "space-between",
+      padding: spacing.sm,
+    },
+    modelDropdownOptionSelected: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+    },
+    modelDropdownOptionTextWrap: {
+      flex: 1,
+      gap: 3,
+    },
+    modelDropdownOptionText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "900",
+      lineHeight: 19,
+    },
+    modelDropdownOptionTextSelected: {
+      color: colors.primary,
+    },
+    modelDropdownOptionValue: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    modelDropdownHint: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "700",
+      lineHeight: 17,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: spacing.xs,
     },
     reasoningRow: {
       alignItems: "center",

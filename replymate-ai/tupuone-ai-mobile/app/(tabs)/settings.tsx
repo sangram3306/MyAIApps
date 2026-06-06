@@ -350,6 +350,41 @@ export default function SettingsScreen() {
       </AccordionSection>
 
       <AccordionSection
+        id="writing"
+        expandedSection={expandedSection}
+        icon="create-outline"
+        title="Writing Output"
+        subtitle="Tune reply, rewrite, and grammar output behavior."
+        summary={`Reply ${replyResponseCount}, rewrite ${rewriteResponseCount}, grammar 1.`}
+        styles={styles}
+        onToggle={setExpandedSection}
+      >
+        <SegmentedGroup
+          title="Reply responses"
+          copy="Choose how many reply suggestions the AI should generate."
+          options={responseCountOptions}
+          value={replyResponseCount}
+          onChange={handleReplyResponseCountChange}
+          styles={styles}
+        />
+
+        <SegmentedGroup
+          title="Rewrite responses"
+          copy="Choose how many rewrite versions the AI should generate."
+          options={responseCountOptions}
+          value={rewriteResponseCount}
+          onChange={handleRewriteResponseCountChange}
+          styles={styles}
+        />
+
+        <SettingNote
+          title="Grammar output"
+          copy="Grammar correction returns one polished version with changed words highlighted."
+          styles={styles}
+        />
+      </AccordionSection>
+
+      <AccordionSection
         id="privacy"
         expandedSection={expandedSection}
         icon="lock-closed-outline"
@@ -545,7 +580,7 @@ export default function SettingsScreen() {
         icon="hardware-chip-outline"
         title="LLM Provider"
         subtitle="Choose the backend model behind replies."
-        summary={`${selectedProvider.label} · Reply ${replyResponseCount}, rewrite ${rewriteResponseCount}`}
+        summary={`${selectedProvider.label} · ${selectedModel?.label || llmPreference.model}`}
         styles={styles}
         onToggle={setExpandedSection}
       >
@@ -556,30 +591,12 @@ export default function SettingsScreen() {
           onPress={() => router.push("/llm-provider" as never)}
           styles={styles}
         />
-
-        <SegmentedGroup
-          title="Reply responses"
-          copy="Choose how many reply suggestions the AI should generate."
-          options={responseCountOptions}
-          value={replyResponseCount}
-          onChange={handleReplyResponseCountChange}
-          styles={styles}
-        />
-
-        <SegmentedGroup
-          title="Rewrite responses"
-          copy="Choose how many rewrite versions the AI should generate."
-          options={responseCountOptions}
-          value={rewriteResponseCount}
-          onChange={handleRewriteResponseCountChange}
-          styles={styles}
-        />
       </AccordionSection>
     </NestableScrollContainer>
   );
 }
 
-type SectionId = "coach" | "privacy" | "expenses" | "data" | "appearance" | "llm";
+type SectionId = "coach" | "writing" | "privacy" | "expenses" | "data" | "appearance" | "llm";
 
 function AccordionSection({
   id,
