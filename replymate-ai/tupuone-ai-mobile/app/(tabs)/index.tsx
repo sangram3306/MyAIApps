@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "../../components/BrandLogo";
 import { ChipSelector } from "../../components/ChipSelector";
 import { EmptyState } from "../../components/EmptyState";
@@ -32,7 +34,8 @@ type Mode = "reply" | "rewrite" | "grammar";
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const quickActionStyles = useMemo(() => createQuickActionStyles(colors), [colors]);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<Tone>("none");
@@ -130,7 +133,16 @@ export default function HomeScreen() {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <BrandLogo />
+          <View style={styles.headerTop}>
+            <BrandLogo />
+            <Image
+              accessibilityLabel="SP One"
+              resizeMode="contain"
+              source={require("../../assets/brand/sp_one_label.png")}
+              style={styles.headerLabel}
+            />
+            <Text style={styles.headerCredit}>by Sangram</Text>
+          </View>
           <Text style={styles.subtitle}>Smart replies, rewrites, and grammar fixes.</Text>
         </View>
 
@@ -352,20 +364,46 @@ function createQuickActionStyles(colors: ReturnType<typeof useAppTheme>["colors"
   });
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       flex: 1,
       backgroundColor: colors.background,
     },
     container: {
-      gap: spacing.lg,
-      padding: spacing.md,
-      paddingBottom: spacing.xl,
+      gap: spacing.sm,
+      paddingBottom: spacing.md,
+      paddingHorizontal: spacing.md,
+      paddingTop: Math.max(spacing.md, topInset + spacing.sm),
     },
     header: {
-      gap: spacing.md,
-      paddingTop: spacing.md,
+      gap: 0,
+    },
+    headerTop: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "flex-start",
+      minHeight: 72,
+      position: "relative",
+    },
+    headerLabel: {
+      height: 122,
+      left: 0,
+      position: "absolute",
+      right: 0,
+      top: -54,
+      width: "100%",
+    },
+    headerCredit: {
+      color: colors.muted,
+      fontSize: 8,
+      fontWeight: "700",
+      left: 0,
+      letterSpacing: 0,
+      position: "absolute",
+      right: 0,
+      textAlign: "center",
+      top: 14,
     },
     subtitle: {
       color: colors.muted,

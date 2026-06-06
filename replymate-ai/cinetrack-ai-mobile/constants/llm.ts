@@ -1,8 +1,9 @@
-export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini";
+export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter";
 
 export type LlmModelOption = {
   label: string;
   value: string;
+  reasoningSupported?: boolean;
 };
 
 export type LlmProviderOption = {
@@ -15,6 +16,7 @@ export type LlmProviderOption = {
 export type LlmPreference = {
   provider: LlmProviderId;
   model: string;
+  reasoningEnabled?: boolean;
 };
 
 export const llmProviders: LlmProviderOption[] = [
@@ -68,6 +70,12 @@ export const llmProviders: LlmProviderOption[] = [
     ],
   },
   {
+    id: "openrouter",
+    label: "OpenRouter",
+    enabled: true,
+    models: [],
+  },
+  {
     id: "openai",
     label: "OpenAI",
     enabled: false,
@@ -84,4 +92,5 @@ export const llmProviders: LlmProviderOption[] = [
 export const defaultLlmPreference: LlmPreference = {
   provider: "nvidia",
   model: "meta/llama-3.1-8b-instruct",
+  reasoningEnabled: false,
 };

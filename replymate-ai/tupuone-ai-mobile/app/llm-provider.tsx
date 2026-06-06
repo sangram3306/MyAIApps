@@ -1,23 +1,34 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
-import { defaultLlmPreference, LlmPreference, llmProviders } from "../constants/llm";
+import { defaultLlmPreference, llmProviders } from "../constants/llm";
+import type { LlmPreference, LlmProviderOption } from "../constants/llm";
 import { getBackendUrl, getLlmPreference, saveLlmPreference } from "../storage/appStorage";
-import { DeepSeekBalanceResponse, getDeepSeekBalanceFromApi } from "../services/api";
+import { DeepSeekBalanceResponse, getDeepSeekBalanceFromApi, getLlmOptionsFromApi } from "../services/api";
 
 export default function LlmProviderScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const fallbackProviders = useMemo(
+    () =>
+      llmProviders.map((provider) =>
+        provider.id === "openrouter" ? { ...provider, enabled: false } : provider,
+      ),
+    [],
+  );
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
   const [backendUrl, setBackendUrl] = useState("");
+  const [providerOptions, setProviderOptions] = useState<LlmProviderOption[]>(fallbackProviders);
   const [usage, setUsage] = useState<DeepSeekBalanceResponse | null>(null);
   const [usageError, setUsageError] = useState("");
   const [usageLoading, setUsageLoading] = useState(false);
   const selectedProvider =
-    llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
+    providerOptions.find((provider) => provider.id === llmPreference.provider) || providerOptions[0];
+  const selectedModel = selectedProvider?.models.find((model) => model.value === llmPreference.model);
+  const reasoningSupported = Boolean(selectedModel?.reasoningSupported);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,8 +61,35 @@ export default function LlmProviderScreen() {
     }, [loadDeepSeekUsage]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      void (async () => {
+        if (!backendUrl) {
+          return;
+        }
+
+        try {
+          const response = await getLlmOptionsFromApi({ backendUrl });
+          if (active && Array.isArray(response.providers) && response.providers.length > 0) {
+            setProviderOptions(response.providers);
+          }
+        } catch {
+          if (active) {
+            setProviderOptions(fallbackProviders);
+          }
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [backendUrl, fallbackProviders]),
+  );
+
   async function handleProviderChange(providerId: LlmPreference["provider"]) {
-    const provider = llmProviders.find((item) => item.id === providerId);
+    const provider = providerOptions.find((item) => item.id === providerId);
     if (!provider?.enabled || !provider.models[0]) {
       return;
     }
@@ -59,6 +97,7 @@ export default function LlmProviderScreen() {
     const nextPreference = {
       provider: provider.id,
       model: provider.models[0].value,
+      reasoningEnabled: false,
     };
     setLlmPreference(nextPreference);
     await saveLlmPreference(nextPreference);
@@ -69,9 +108,24 @@ export default function LlmProviderScreen() {
   }
 
   async function handleModelChange(model: string) {
+    const nextModel = selectedProvider?.models.find((item) => item.value === model);
     const nextPreference = {
       ...llmPreference,
       model,
+      reasoningEnabled: Boolean(nextModel?.reasoningSupported && llmPreference.reasoningEnabled),
+    };
+    setLlmPreference(nextPreference);
+    await saveLlmPreference(nextPreference);
+  }
+
+  async function handleReasoningChange(enabled: boolean) {
+    if (!reasoningSupported) {
+      return;
+    }
+
+    const nextPreference = {
+      ...llmPreference,
+      reasoningEnabled: enabled,
     };
     setLlmPreference(nextPreference);
     await saveLlmPreference(nextPreference);
@@ -143,6 +197,25 @@ export default function LlmProviderScreen() {
               );
             })}
           </View>
+          {selectedProvider.id === "openrouter" && selectedModel ? (
+            <View style={styles.reasoningRow}>
+              <View style={styles.reasoningText}>
+                <Text style={styles.modelLabel}>Reasoning</Text>
+                <Text style={styles.reasoningCopy}>
+                  {reasoningSupported
+                    ? "Use reasoning-capable output for this model."
+                    : "This model does not expose reasoning support."}
+                </Text>
+              </View>
+              <Switch
+                disabled={!reasoningSupported}
+                value={Boolean(llmPreference.reasoningEnabled && reasoningSupported)}
+                onValueChange={handleReasoningChange}
+                trackColor={{ false: colors.border, true: colors.primarySoft }}
+                thumbColor={llmPreference.reasoningEnabled ? colors.primary : colors.muted}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -313,6 +386,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: spacing.sm,
+    },
+    reasoningRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.md,
+      justifyContent: "space-between",
+      marginTop: spacing.xs,
+    },
+    reasoningText: {
+      flex: 1,
+      gap: 4,
+    },
+    reasoningCopy: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
     },
     modelPill: {
       backgroundColor: colors.surfaceElevated,

@@ -1,17 +1,29 @@
 {
   "expo": {
-    "name": "TupuChat",
+    "name": "SP One",
     "slug": "tupuchat",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "tupuchat",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#050506"
+      "image": "./assets/brand/sp_one_opening_logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     },
     "android": {
-      "package": "com.tupuchat.app"
+      "package": "com.tupuchat.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/sp_one_opening_logo.png",
+        "backgroundColor": "#000000"
+      },
+      "splash": {
+        "image": "./assets/brand/sp_one_opening_logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
+      }
     },
     "plugins": ["expo-router"],
     "experiments": {

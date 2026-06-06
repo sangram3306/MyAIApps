@@ -47,11 +47,15 @@ export async function getLlmPreference(): Promise<LlmPreference> {
   const preference = await readJson<LlmPreference>(keys.llmPreference, defaultLlmPreference);
   const provider = llmProviders.find((item) => item.id === preference.provider && item.enabled);
   const model = provider?.models.find((item) => item.value === preference.model);
-  if (!provider || !model) {
+  if (!provider || (!model && preference.provider !== "openrouter") || !preference.model?.trim()) {
     return defaultLlmPreference;
   }
 
-  return preference;
+  return {
+    ...defaultLlmPreference,
+    ...preference,
+    reasoningEnabled: Boolean(preference.reasoningEnabled),
+  };
 }
 
 export async function saveLlmPreference(preference: LlmPreference): Promise<void> {

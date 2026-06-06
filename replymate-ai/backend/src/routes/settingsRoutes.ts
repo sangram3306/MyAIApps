@@ -3,6 +3,12 @@ import { getActiveLlmInfo } from "../services/llmService";
 
 const router = Router();
 
+type OpenRouterModel = {
+  id?: string;
+  name?: string;
+  supported_parameters?: string[];
+};
+
 type DeepSeekBalanceResponse = {
   is_available?: boolean;
   balance_infos?: Array<{
@@ -13,7 +19,26 @@ type DeepSeekBalanceResponse = {
   }>;
 };
 
-router.get("/llm-options", (_req, res) => {
+router.get("/llm-options", async (_req, res) => {
+  let openrouterProvider = {
+    id: "openrouter" as const,
+    label: "OpenRouter",
+    enabled: false,
+    models: [] as Array<{
+      label: string;
+      value: string;
+      reasoningSupported: boolean;
+    }>,
+  };
+
+  try {
+    openrouterProvider = await getOpenRouterProvider();
+  } catch (error) {
+    console.error("[settings] OpenRouter model fetch error", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+  }
+
   res.json({
     active: getActiveLlmInfo(),
     providers: [
@@ -66,6 +91,7 @@ router.get("/llm-options", (_req, res) => {
           },
         ],
       },
+      openrouterProvider,
       {
         id: "openai",
         label: "OpenAI",
@@ -132,6 +158,63 @@ async function handleDeepSeekBalance(_req: unknown, res: {
       error: "Could not reach DeepSeek usage API.",
     });
   }
+}
+
+async function getOpenRouterProvider(): Promise<{
+  id: "openrouter";
+  label: string;
+  enabled: boolean;
+  models: Array<{
+    label: string;
+    value: string;
+    reasoningSupported: boolean;
+  }>;
+}> {
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const baseUrl = process.env.OPENROUTER_BASE_URL?.trim() || "https://openrouter.ai/api/v1";
+
+  if (!apiKey) {
+    return {
+      id: "openrouter",
+      label: "OpenRouter",
+      enabled: false,
+      models: [],
+    };
+  }
+
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/models`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenRouter model lookup failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as { data?: OpenRouterModel[] };
+  const models = (data.data || [])
+    .filter((model) => typeof model.id === "string" && model.id.includes(":free"))
+    .map((model) => ({
+      label: model.name?.trim() || model.id!.trim(),
+      value: model.id!.trim(),
+      reasoningSupported: Boolean(
+        model.supported_parameters?.some((parameter) => {
+          const normalized = parameter.trim().toLowerCase();
+          return normalized === "reasoning" || normalized === "include_reasoning";
+        }),
+      ),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    id: "openrouter",
+    label: "OpenRouter",
+    enabled: models.length > 0,
+    models,
+  };
 }
 
 export default router;

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type LlmProvider = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini";
+export type LlmProvider = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter";
 
 export type LlmMessage = {
   role: "system" | "user" | "assistant";
@@ -17,6 +17,7 @@ export type LlmRequestOptions = {
 type LlmRequestContext = {
   provider?: LlmProvider;
   model?: string;
+  reasoningEnabled?: boolean;
 };
 
 type ProviderConfig = {
@@ -53,12 +54,16 @@ type GeminiResponse = {
   modelVersion?: string;
 };
 
+type OpenRouterResponse = ChatResponse;
+
 const defaultNvidiaBaseUrl = "https://integrate.api.nvidia.com/v1";
 const defaultNvidiaModel = "meta/llama-3.1-8b-instruct";
 const defaultDeepSeekBaseUrl = "https://api.deepseek.com";
 const defaultDeepSeekModel = "deepseek-chat";
 const defaultGeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
 const defaultGeminiModel = "gemini-flash-latest";
+const defaultOpenRouterBaseUrl = "https://openrouter.ai/api/v1";
+const defaultOpenRouterModel = "openai/gpt-oss-120b:free";
 const deepSeekModelAliases: Record<string, string> = {
   "deepseek-v3": "deepseek-chat",
   "deepseek-v4-flash": "deepseek-chat",
@@ -86,6 +91,7 @@ export function normalizeProvider(value: string | undefined): LlmProvider | unde
     normalized === "openai" ||
     normalized === "anthropic" ||
     normalized === "gemini" ||
+    normalized === "openrouter" ||
     normalized === "google" ||
     normalized === "google-gemini"
   ) {
@@ -130,6 +136,10 @@ export async function callChatCompletion(options: LlmRequestOptions): Promise<{
 
   if (config.provider === "gemini") {
     return callGeminiCompletion(config, options);
+  }
+
+  if (config.provider === "openrouter") {
+    return callOpenRouterCompletion(config, options, requestContext.getStore()?.reasoningEnabled === true);
   }
 
   const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -264,6 +274,63 @@ async function fetchGeminiCompletion(
   return (await response.json()) as GeminiResponse;
 }
 
+async function callOpenRouterCompletion(
+  config: ProviderConfig,
+  options: LlmRequestOptions,
+  reasoningEnabled: boolean,
+): Promise<{
+  content: string;
+  provider: LlmProvider;
+  model: string;
+  baseUrl: string;
+}> {
+  const payload: Record<string, unknown> = {
+    model: config.model,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.maxTokens ?? 500,
+    ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
+    messages: options.messages,
+  };
+
+  if (reasoningEnabled) {
+    payload.reasoning = { enabled: true };
+  }
+
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+      ...(process.env.OPENROUTER_HTTP_REFERER?.trim()
+        ? { "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER.trim() }
+        : {}),
+      ...(process.env.OPENROUTER_APP_TITLE?.trim()
+        ? { "X-Title": process.env.OPENROUTER_APP_TITLE.trim() }
+        : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[llm] ${config.displayName} API error`, response.status, errorText);
+    throw new Error(`${config.displayName} API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as OpenRouterResponse;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`${config.displayName} response did not include message content.`);
+  }
+
+  return {
+    content,
+    provider: config.provider,
+    model: config.model,
+    baseUrl: config.baseUrl,
+  };
+}
+
 function getGeminiThinkingConfig(model: string): { thinkingConfig?: { thinkingBudget: number } } {
   const normalized = model.trim().toLowerCase();
   if (normalized.includes("gemini-2.5-flash") || normalized === "gemini-flash-latest") {
@@ -335,6 +402,16 @@ function getProviderConfig(): ProviderConfig {
       apiKey: process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GEMINI_API_KEY?.trim() || "",
       baseUrl: process.env.GEMINI_BASE_URL?.trim() || process.env.GOOGLE_GEMINI_BASE_URL?.trim() || defaultGeminiBaseUrl,
       model: context?.model || process.env.GEMINI_MODEL || process.env.GOOGLE_GEMINI_MODEL || defaultGeminiModel,
+    };
+  }
+
+  if (provider === "openrouter") {
+    return {
+      provider,
+      displayName: "OpenRouter",
+      apiKey: process.env.OPENROUTER_API_KEY?.trim() || "",
+      baseUrl: process.env.OPENROUTER_BASE_URL?.trim() || defaultOpenRouterBaseUrl,
+      model: context?.model || process.env.OPENROUTER_MODEL || defaultOpenRouterModel,
     };
   }
 

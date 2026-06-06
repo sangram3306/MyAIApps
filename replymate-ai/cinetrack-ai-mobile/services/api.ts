@@ -1,6 +1,17 @@
 import { Tone } from "../constants/tones";
 import { Role } from "../constants/roles";
+import type { LlmProviderOption } from "../constants/llm";
 import { getLlmPreference } from "../storage/appStorage";
+
+export type LlmOptionsResponse = {
+  active: {
+    provider: string;
+    providerName: string;
+    model: string;
+    apiKeyLoaded: boolean;
+  };
+  providers: LlmProviderOption[];
+};
 
 export async function generateRepliesFromApi(params: {
   backendUrl: string;
@@ -86,6 +97,22 @@ export async function fixGrammarFromApi(params: {
   }
 
   return data.replies;
+}
+
+export async function getLlmOptionsFromApi(params: {
+  backendUrl: string;
+}): Promise<LlmOptionsResponse> {
+  const response = await fetch(`${params.backendUrl}/api/settings/llm-options`, {
+    method: "GET",
+    headers: getJsonHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as LlmOptionsResponse | { error?: string } | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not load model options.");
+  }
+
+  return data as LlmOptionsResponse;
 }
 
 export type CoachAnalyzeResponse = {
@@ -1355,6 +1382,7 @@ async function getApiHeaders(): Promise<Record<string, string>> {
     "Content-Type": "application/json",
     "X-LLM-Provider": preference.provider,
     "X-LLM-Model": preference.model,
+    ...(preference.reasoningEnabled ? { "X-LLM-Reasoning": "1" } : {}),
   };
 }
 

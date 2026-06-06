@@ -37,7 +37,15 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 app.use((req: Request, _res: Response, next: NextFunction) => {
   const provider = normalizeProvider(req.header("X-LLM-Provider"));
   const model = req.header("X-LLM-Model")?.trim();
-  return runWithLlmContext({ provider, model: model || undefined }, next);
+  const reasoningEnabled = parseBooleanHeader(req.header("X-LLM-Reasoning"));
+  return runWithLlmContext(
+    {
+      provider,
+      model: model || undefined,
+      reasoningEnabled,
+    },
+    next,
+  );
 });
 
 app.use(
@@ -87,3 +95,19 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(port, () => {
   console.log(`ReplyMate AI backend running on port ${port}`);
 });
+
+function parseBooleanHeader(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return undefined;
+}
