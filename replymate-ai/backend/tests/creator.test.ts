@@ -138,6 +138,76 @@ test("POST /api/creator/repurpose generates and saves drafts", async () => {
   }
 });
 
+test("POST /api/creator/repurpose normalizes provider-specific platform keys", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  const originalNvidiaApiKey = process.env.NVIDIA_API_KEY;
+  const originalNvidiaModel = process.env.NVIDIA_MODEL;
+  const originalNvidiaBaseUrl = process.env.NVIDIA_BASE_URL;
+
+  process.env.MCP_SERVER_URL = "";
+  process.env.NVIDIA_API_KEY = "test-key";
+  process.env.NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
+  process.env.NVIDIA_BASE_URL = "http://mock-nvidia";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/chat/completions")) {
+      return jsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "Variant copy pack",
+                summary: "Normalized provider-specific platform keys.",
+                hook: "One idea, many channels.",
+                platforms: {
+                  twitter: {
+                    tweet: "Twitter/X post draft",
+                    posts: [{ text: "Thread part 1" }, { text: "Thread part 2" }],
+                    hashtags: ["#buildinpublic"],
+                  },
+                  ig: {
+                    post: "Instagram caption draft",
+                    hashtags: ["#creator"],
+                  },
+                },
+                tips: ["Use concrete examples"],
+              }),
+            },
+          },
+        ],
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${url}`);
+  };
+
+  try {
+    const response = await invokeRepurpose({
+      sourceText: "We are launching a new productivity app.",
+      sourceType: "idea",
+      audience: "founders",
+      goal: "launch",
+      tone: "professional",
+      platforms: ["x", "instagram"],
+    });
+    const data = response.body as Record<string, unknown>;
+    const repurpose = data.repurpose as Record<string, unknown>;
+    const platformOutputs = repurpose.platformOutputs as Record<string, unknown>;
+
+    assert.equal(response.statusCode, 200);
+    assert.equal((platformOutputs.x as Record<string, unknown>).post, "Twitter/X post draft");
+    assert.equal((platformOutputs.instagram as Record<string, unknown>).caption, "Instagram caption draft");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+    restoreEnv("NVIDIA_API_KEY", originalNvidiaApiKey);
+    restoreEnv("NVIDIA_MODEL", originalNvidiaModel);
+    restoreEnv("NVIDIA_BASE_URL", originalNvidiaBaseUrl);
+  }
+});
+
 async function invokeRepurpose(body: unknown): Promise<{ statusCode: number; body: unknown }> {
   let statusCode = 200;
   let responseBody: unknown = null;

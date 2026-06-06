@@ -266,7 +266,7 @@ export async function generateCreatorRepurpose(input: CreatorRepurposeInput): Pr
 
   const completion = await callChatCompletion({
     temperature: 0.45,
-    maxTokens: 1200,
+    maxTokens: 2200,
     responseFormat: { type: "json_object" },
     messages: [
       {
@@ -429,27 +429,132 @@ function safeParseExpenseIntelligenceJson(content: string): ExpenseIntelligenceR
 
 function safeParseCreatorJson(content: string): CreatorRepurposeReport | null {
   try {
-    const parsed = JSON.parse(content) as Partial<CreatorRepurposeReport>;
-    if (
-      typeof parsed.title !== "string" ||
-      typeof parsed.summary !== "string" ||
-      typeof parsed.hook !== "string" ||
-      !parsed.platformOutputs ||
-      !Array.isArray(parsed.repurposeTips)
-    ) {
+    const parsed = parseJsonObject(content) as Partial<CreatorRepurposeReport> | null;
+    if (!parsed || typeof parsed !== "object") {
       return null;
     }
 
+    const platformOutputs = normalizeCreatorPlatformOutputs(parsed);
+    const repurposeTips = normalizeStringArray((parsed as Record<string, unknown>).repurposeTips)
+      || normalizeStringArray((parsed as Record<string, unknown>).tips)
+      || normalizeStringArray((parsed as Record<string, unknown>).recommendations)
+      || [];
+
     return {
-      title: parsed.title,
-      summary: parsed.summary,
-      hook: parsed.hook,
-      platformOutputs: parsed.platformOutputs,
-      repurposeTips: parsed.repurposeTips.filter((item): item is string => typeof item === "string"),
+      title: stringOrFallback((parsed as Record<string, unknown>).title, "Repurposed content pack"),
+      summary: stringOrFallback((parsed as Record<string, unknown>).summary, "Platform-ready drafts generated from your source content."),
+      hook: stringOrFallback((parsed as Record<string, unknown>).hook, "A clear hook for your audience."),
+      platformOutputs,
+      repurposeTips,
     };
   } catch {
     return null;
   }
+}
+
+function parseJsonObject(content: string): Record<string, unknown> | null {
+  const trimmed = content.trim();
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  } catch {
+    const candidate = extractJsonObject(trimmed);
+    if (!candidate) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function extractJsonObject(text: string): string | null {
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return null;
+  }
+  return text.slice(firstBrace, lastBrace + 1);
+}
+
+function normalizeCreatorPlatformOutputs(parsed: Record<string, unknown>): CreatorRepurposeReport["platformOutputs"] {
+  const source = objectValue(parsed.platformOutputs)
+    || objectValue(parsed.platforms)
+    || objectValue(parsed.outputs)
+    || objectValue(parsed.platform_drafts)
+    || parsed;
+
+  return {
+    x: normalizeXOutput(objectValue(source.x) || objectValue(source.twitter)),
+    linkedin: normalizeLinkedInOutput(objectValue(source.linkedin) || objectValue(source.linkedIn)),
+    instagram: normalizeInstagramOutput(objectValue(source.instagram) || objectValue(source.ig)),
+    email: normalizeEmailOutput(objectValue(source.email) || objectValue(source.newsletter)),
+    thread: normalizeThreadOutput(objectValue(source.thread) || objectValue(source.threads)),
+  };
+}
+
+function normalizeXOutput(value: Record<string, unknown> | null): CreatorRepurposeReport["platformOutputs"]["x"] {
+  if (!value) return undefined;
+  const post = stringOrFallback(value.post ?? value.tweet ?? value.text ?? value.content, "");
+  const thread = normalizeStringArray(value.thread) || normalizeStringArray(value.posts) || [];
+  const hashtags = normalizeStringArray(value.hashtags) || [];
+  return post || thread.length || hashtags.length ? { post, thread, hashtags } : undefined;
+}
+
+function normalizeLinkedInOutput(value: Record<string, unknown> | null): CreatorRepurposeReport["platformOutputs"]["linkedin"] {
+  if (!value) return undefined;
+  const post = stringOrFallback(value.post ?? value.text ?? value.content ?? value.body, "");
+  const headline = stringOrFallback(value.headline ?? value.title ?? value.hook, "");
+  return post || headline ? { post, headline } : undefined;
+}
+
+function normalizeInstagramOutput(value: Record<string, unknown> | null): CreatorRepurposeReport["platformOutputs"]["instagram"] {
+  if (!value) return undefined;
+  const caption = stringOrFallback(value.caption ?? value.post ?? value.text ?? value.content, "");
+  const hashtags = normalizeStringArray(value.hashtags) || [];
+  return caption || hashtags.length ? { caption, hashtags } : undefined;
+}
+
+function normalizeEmailOutput(value: Record<string, unknown> | null): CreatorRepurposeReport["platformOutputs"]["email"] {
+  if (!value) return undefined;
+  const subject = stringOrFallback(value.subject ?? value.title ?? value.headline, "");
+  const body = stringOrFallback(value.body ?? value.email ?? value.text ?? value.content, "");
+  return subject || body ? { subject, body } : undefined;
+}
+
+function normalizeThreadOutput(value: Record<string, unknown> | null): CreatorRepurposeReport["platformOutputs"]["thread"] {
+  if (!value) return undefined;
+  const hook = stringOrFallback(value.hook ?? value.title ?? value.opening, "");
+  const posts = normalizeStringArray(value.posts) || normalizeStringArray(value.thread) || normalizeStringArray(value.items) || [];
+  return hook || posts.length ? { hook, posts } : undefined;
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function stringOrFallback(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        return stringOrFallback(record.text ?? record.post ?? record.content ?? record.value, "");
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 function buildMockExpenseIntelligence(input: ExpenseIntelligenceInput): ExpenseIntelligenceReport {
