@@ -259,7 +259,7 @@ async function getOpenRouterProvider(): Promise<{
       const id = model.id!.trim();
       const free = isOpenRouterFreeModel(id);
       return {
-        label: `${model.name?.trim() || id} · ${free ? "Free" : "Paid"}`,
+        label: model.name?.trim() || id,
         value: id,
         free,
         reasoningSupported: Boolean(
