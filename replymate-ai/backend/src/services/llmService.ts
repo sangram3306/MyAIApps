@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type LlmProvider = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter";
+export type LlmProvider = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter" | "groq";
 
 export type LlmMessage = {
   role: "system" | "user" | "assistant";
@@ -32,6 +32,7 @@ type ChatResponse = {
   choices?: Array<{
     message?: {
       content?: string;
+      reasoning?: string;
     };
   }>;
 };
@@ -64,6 +65,8 @@ const defaultGeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
 const defaultGeminiModel = "gemini-flash-latest";
 const defaultOpenRouterBaseUrl = "https://openrouter.ai/api/v1";
 const defaultOpenRouterModel = "openai/gpt-oss-120b:free";
+const defaultGroqBaseUrl = "https://api.groq.com/openai/v1";
+const defaultGroqModel = "openai/gpt-oss-120b";
 const deepSeekModelAliases: Record<string, string> = {
   "deepseek-v3": "deepseek-chat",
   "deepseek-v4-flash": "deepseek-chat",
@@ -92,6 +95,7 @@ export function normalizeProvider(value: string | undefined): LlmProvider | unde
     normalized === "anthropic" ||
     normalized === "gemini" ||
     normalized === "openrouter" ||
+    normalized === "groq" ||
     normalized === "google" ||
     normalized === "google-gemini"
   ) {
@@ -140,6 +144,10 @@ export async function callChatCompletion(options: LlmRequestOptions): Promise<{
 
   if (config.provider === "openrouter") {
     return callOpenRouterCompletion(config, options, requestContext.getStore()?.reasoningEnabled === true);
+  }
+
+  if (config.provider === "groq") {
+    return callGroqCompletion(config, options, requestContext.getStore()?.reasoningEnabled === true);
   }
 
   const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -331,6 +339,66 @@ async function callOpenRouterCompletion(
   };
 }
 
+async function callGroqCompletion(
+  config: ProviderConfig,
+  options: LlmRequestOptions,
+  reasoningEnabled: boolean,
+): Promise<{
+  content: string;
+  provider: LlmProvider;
+  model: string;
+  baseUrl: string;
+}> {
+  const payload: Record<string, unknown> = {
+    model: config.model,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.maxTokens ?? 500,
+    ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
+    messages: options.messages,
+  };
+
+  if (isGroqReasoningModel(config.model)) {
+    payload.reasoning_format = reasoningEnabled ? "parsed" : "hidden";
+  }
+
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[llm] ${config.displayName} API error`, response.status, errorText);
+    throw new Error(`${config.displayName} API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as ChatResponse;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`${config.displayName} response did not include message content.`);
+  }
+
+  return {
+    content,
+    provider: config.provider,
+    model: config.model,
+    baseUrl: config.baseUrl,
+  };
+}
+
+function isGroqReasoningModel(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  return (
+    normalized === "qwen/qwen3-32b" ||
+    normalized === "openai/gpt-oss-20b" ||
+    normalized === "openai/gpt-oss-120b"
+  );
+}
+
 function getGeminiThinkingConfig(model: string): { thinkingConfig?: { thinkingBudget: number } } {
   const normalized = model.trim().toLowerCase();
   if (normalized.includes("gemini-2.5-flash") || normalized === "gemini-flash-latest") {
@@ -412,6 +480,16 @@ function getProviderConfig(): ProviderConfig {
       apiKey: process.env.OPENROUTER_API_KEY?.trim() || "",
       baseUrl: process.env.OPENROUTER_BASE_URL?.trim() || defaultOpenRouterBaseUrl,
       model: context?.model || process.env.OPENROUTER_MODEL || defaultOpenRouterModel,
+    };
+  }
+
+  if (provider === "groq") {
+    return {
+      provider,
+      displayName: "Groq",
+      apiKey: process.env.GROQ_API_KEY?.trim() || "",
+      baseUrl: process.env.GROQ_BASE_URL?.trim() || defaultGroqBaseUrl,
+      model: context?.model || process.env.GROQ_MODEL || defaultGroqModel,
     };
   }
 

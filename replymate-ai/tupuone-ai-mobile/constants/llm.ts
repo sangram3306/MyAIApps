@@ -1,4 +1,4 @@
-export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter";
+export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter" | "groq";
 
 export type LlmModelOption = {
   label: string;
@@ -9,6 +9,7 @@ export type LlmModelOption = {
 export type LlmProviderOption = {
   id: LlmProviderId;
   label: string;
+  badge?: string;
   enabled: boolean;
   models: LlmModelOption[];
 };
@@ -66,6 +67,41 @@ export const llmProviders: LlmProviderOption[] = [
       {
         label: "Gemini 2.5 Flash Lite",
         value: "gemini-2.5-flash-lite",
+      },
+    ],
+  },
+  {
+    id: "groq",
+    label: "Groq",
+    badge: "Fast",
+    enabled: true,
+    models: [
+      {
+        label: "Llama 3.3 70B Versatile",
+        value: "llama-3.3-70b-versatile",
+      },
+      {
+        label: "Llama 3.1 8B Instant",
+        value: "llama-3.1-8b-instant",
+      },
+      {
+        label: "Qwen 3 32B",
+        value: "qwen/qwen3-32b",
+        reasoningSupported: true,
+      },
+      {
+        label: "GPT OSS 20B",
+        value: "openai/gpt-oss-20b",
+        reasoningSupported: true,
+      },
+      {
+        label: "GPT OSS 120B",
+        value: "openai/gpt-oss-120b",
+        reasoningSupported: true,
+      },
+      {
+        label: "Kimi K2 Instruct",
+        value: "moonshotai/kimi-k2-instruct",
       },
     ],
   },

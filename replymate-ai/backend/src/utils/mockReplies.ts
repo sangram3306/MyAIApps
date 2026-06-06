@@ -1,11 +1,12 @@
 import { GenerateRepliesInput } from "../schemas/replySchemas";
 
-export function getMockReplies({ tone, message, role }: GenerateRepliesInput): string[] {
+export function getMockReplies({ tone, message, role, note }: GenerateRepliesInput): string[] {
   const preview = message.length > 60 ? `${message.slice(0, 57)}...` : message;
   const rolePrefix = role && role !== "none" ? `[${role}] ` : "";
+  const noteSuffix = note ? ` I will keep this in mind: ${note}` : "";
 
   return [
-    `${rolePrefix}Thanks for sharing this. I understand: "${preview}"`,
+    `${rolePrefix}Thanks for sharing this. I understand: "${preview}"${noteSuffix}`,
     `${rolePrefix}I appreciate your message. Let me think about it and get back to you soon.`,
     `${rolePrefix}That makes sense. I will respond properly in a bit.`,
     tone === "funny"

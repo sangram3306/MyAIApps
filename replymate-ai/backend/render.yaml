@@ -25,6 +25,12 @@ services:
         value: openai/gpt-oss-120b:free
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: GROQ_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_API_KEY
+        sync: false
       - key: MCP_SERVER_URL
         sync: false
       - key: MCP_SHARED_SECRET

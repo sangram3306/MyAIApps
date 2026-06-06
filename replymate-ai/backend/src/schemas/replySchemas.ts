@@ -87,6 +87,12 @@ export const generateRepliesSchema = z.object({
     .trim()
     .min(1, "Message is required.")
     .max(2000, "Message must be under 2000 characters."),
+  note: z
+    .string()
+    .trim()
+    .max(800, "Note must be under 800 characters.")
+    .optional()
+    .default(""),
   tone: toneSchema.optional().default("none"),
   role: roleSchema.optional().default("none"),
 });

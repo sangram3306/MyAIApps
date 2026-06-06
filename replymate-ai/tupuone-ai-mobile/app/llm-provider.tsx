@@ -148,7 +148,7 @@ export default function LlmProviderScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Platform</Text>
         <View style={styles.providerGrid}>
-          {llmProviders.map((provider) => {
+          {providerOptions.map((provider) => {
             const selected = provider.id === llmPreference.provider;
             return (
               <Pressable
@@ -165,7 +165,14 @@ export default function LlmProviderScreen() {
                   <Text style={[styles.providerName, selected && styles.providerNameSelected]}>
                     {provider.label}
                   </Text>
-                  {selected ? <Ionicons name="checkmark-circle" color={colors.primary} size={18} /> : null}
+                  <View style={styles.providerMeta}>
+                    {provider.badge ? (
+                      <Text style={[styles.providerBadge, selected && styles.providerBadgeSelected]}>
+                        {provider.badge}
+                      </Text>
+                    ) : null}
+                    {selected ? <Ionicons name="checkmark-circle" color={colors.primary} size={18} /> : null}
+                  </View>
                 </View>
                 <Text style={styles.providerStatus}>
                   {provider.enabled ? (selected ? "Active" : "Available") : "Coming soon"}
@@ -197,7 +204,7 @@ export default function LlmProviderScreen() {
               );
             })}
           </View>
-          {selectedProvider.id === "openrouter" && selectedModel ? (
+          {(selectedProvider.id === "openrouter" || selectedProvider.id === "groq") && selectedModel ? (
             <View style={styles.reasoningRow}>
               <View style={styles.reasoningText}>
                 <Text style={styles.modelLabel}>Reasoning</Text>
@@ -357,6 +364,26 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     providerNameSelected: {
       color: colors.primary,
+    },
+    providerMeta: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.xs,
+    },
+    providerBadge: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.borderStrong,
+      borderRadius: 999,
+      borderWidth: 1,
+      color: colors.primary,
+      fontSize: 10,
+      fontWeight: "900",
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      textTransform: "uppercase",
+    },
+    providerBadgeSelected: {
+      backgroundColor: colors.surface,
     },
     providerStatus: {
       color: colors.muted,

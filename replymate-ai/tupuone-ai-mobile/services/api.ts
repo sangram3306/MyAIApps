@@ -16,6 +16,7 @@ export type LlmOptionsResponse = {
 export async function generateRepliesFromApi(params: {
   backendUrl: string;
   message: string;
+  note?: string;
   tone: Tone;
   role?: Role;
 }): Promise<string[]> {
@@ -24,6 +25,7 @@ export async function generateRepliesFromApi(params: {
     headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
+      note: params.note,
       tone: params.tone,
       role: params.role,
     }),

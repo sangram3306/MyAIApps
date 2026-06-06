@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const quickActionStyles = useMemo(() => createQuickActionStyles(colors), [colors]);
   const [message, setMessage] = useState("");
+  const [replyNote, setReplyNote] = useState("");
   const [tone, setTone] = useState<Tone>("none");
   const [role, setRole] = useState<Role>("none");
   const [mode, setMode] = useState<Mode>("reply");
@@ -82,6 +83,7 @@ export default function HomeScreen() {
           ? await generateRepliesFromApi({
               backendUrl,
               message: message.trim(),
+              note: replyNote.trim(),
               tone,
               role,
             })
@@ -103,6 +105,7 @@ export default function HomeScreen() {
         message: message.trim(),
         tone,
         role,
+        note: mode === "reply" ? replyNote.trim() : undefined,
         replies: generated,
         createdAt: new Date().toISOString(),
       });
@@ -119,6 +122,7 @@ export default function HomeScreen() {
       id: `${Date.now()}`,
       reply,
       sourceMessage: message,
+      note: mode === "reply" ? replyNote.trim() : undefined,
       tone,
       role,
       createdAt: new Date().toISOString(),
@@ -242,6 +246,21 @@ export default function HomeScreen() {
             onChangeText={setMessage}
           />
         </View>
+
+        {mode === "reply" ? (
+          <View style={styles.inputBlock}>
+            <Text style={styles.label}>Reply note</Text>
+            <TextInput
+              multiline
+              placeholder="Add context or instructions for the reply..."
+              placeholderTextColor={colors.muted}
+              style={[styles.input, styles.noteInput]}
+              textAlignVertical="top"
+              value={replyNote}
+              onChangeText={setReplyNote}
+            />
+          </View>
+        ) : null}
 
         {mode !== "grammar" ? (
           <>
@@ -476,6 +495,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       shadowColor: colors.primary,
       shadowOpacity: 0.16,
       shadowRadius: 18,
+    },
+    noteInput: {
+      fontSize: 14,
+      minHeight: 76,
+      shadowOpacity: 0.08,
     },
     error: {
       backgroundColor: colors.dangerSoft,

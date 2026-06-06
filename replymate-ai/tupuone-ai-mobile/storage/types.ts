@@ -4,6 +4,7 @@ import { Tone } from "../constants/tones";
 export type ReplyHistoryItem = {
   id: string;
   message: string;
+  note?: string;
   tone: Tone;
   role?: Role;
   replies: string[];
@@ -14,6 +15,7 @@ export type FavoriteReply = {
   id: string;
   reply: string;
   sourceMessage?: string;
+  note?: string;
   tone?: Tone;
   role?: Role;
   createdAt: string;

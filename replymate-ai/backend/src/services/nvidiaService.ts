@@ -6,13 +6,15 @@ import { parseRepliesFromModel } from "../utils/parseReplies";
 import { callChatCompletion, hasConfiguredLlmApiKey } from "./llmService";
 
 export async function generateReplies(input: GenerateRepliesInput): Promise<string[]> {
+  const notePrompt = getReplyNotePrompt(input.note);
+
   return generateWithNvidia({
     input,
     mockFallback: getMockReplies,
     logLabel: "replies",
     systemPrompt:
-      'You are TupuChat. Generate exactly 5 natural reply suggestions for the user\'s message. Match the selected tone and persona role if provided. Keep replies concise, human, and useful. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
-    userPrompt: `Original message:\n${input.message}\n\nSelected tone: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}`,
+      'You are TupuChat. Generate exactly 5 natural reply suggestions for the user\'s message. Match the selected tone and persona role if provided. If the user includes a reply note, treat it as a required instruction that must materially shape every reply. If the note asks to mention, use, suggest, avoid, include, or emphasize something, make that instruction visible in the replies while keeping the wording natural. Keep replies concise, human, and useful. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+    userPrompt: `Original message:\n${input.message}\n\nSelected tone: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}${notePrompt}`,
   });
 }
 
@@ -86,6 +88,15 @@ function getRolePrompt(role?: string): string {
   };
 
   return labels[role] || role;
+}
+
+function getReplyNotePrompt(note?: string): string {
+  const trimmed = note?.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  return `\nRequired reply instruction from user:\n${trimmed}\nApply this instruction to every reply.`;
 }
 
 export async function fixGrammar(input: GenerateRepliesInput): Promise<string[]> {

@@ -9,6 +9,47 @@ type OpenRouterModel = {
   supported_parameters?: string[];
 };
 
+type GroqModel = {
+  id?: string;
+  owned_by?: string;
+};
+
+type LlmModelOption = {
+  label: string;
+  value: string;
+  reasoningSupported?: boolean;
+};
+
+const groqRequestedModels: LlmModelOption[] = [
+  {
+    label: "Llama 3.3 70B Versatile",
+    value: "llama-3.3-70b-versatile",
+  },
+  {
+    label: "Llama 3.1 8B Instant",
+    value: "llama-3.1-8b-instant",
+  },
+  {
+    label: "Qwen 3 32B",
+    value: "qwen/qwen3-32b",
+    reasoningSupported: true,
+  },
+  {
+    label: "GPT OSS 20B",
+    value: "openai/gpt-oss-20b",
+    reasoningSupported: true,
+  },
+  {
+    label: "GPT OSS 120B",
+    value: "openai/gpt-oss-120b",
+    reasoningSupported: true,
+  },
+  {
+    label: "Kimi K2 Instruct",
+    value: "moonshotai/kimi-k2-instruct",
+  },
+];
+
 type DeepSeekBalanceResponse = {
   is_available?: boolean;
   balance_infos?: Array<{
@@ -30,11 +71,20 @@ router.get("/llm-options", async (_req, res) => {
       reasoningSupported: boolean;
     }>,
   };
+  let groqProvider = getStaticGroqProvider();
 
   try {
     openrouterProvider = await getOpenRouterProvider();
   } catch (error) {
     console.error("[settings] OpenRouter model fetch error", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+  }
+
+  try {
+    groqProvider = await getGroqProvider();
+  } catch (error) {
+    console.error("[settings] Groq model fetch error", {
       message: error instanceof Error ? error.message : "unknown",
     });
   }
@@ -91,6 +141,7 @@ router.get("/llm-options", async (_req, res) => {
           },
         ],
       },
+      groqProvider,
       openrouterProvider,
       {
         id: "openai",
@@ -214,6 +265,60 @@ async function getOpenRouterProvider(): Promise<{
     label: "OpenRouter",
     enabled: models.length > 0,
     models,
+  };
+}
+
+function getStaticGroqProvider(): {
+  id: "groq";
+  label: string;
+  badge: string;
+  enabled: boolean;
+  models: LlmModelOption[];
+} {
+  return {
+    id: "groq",
+    label: "Groq",
+    badge: "Fast",
+    enabled: true,
+    models: groqRequestedModels,
+  };
+}
+
+async function getGroqProvider(): Promise<{
+  id: "groq";
+  label: string;
+  badge: string;
+  enabled: boolean;
+  models: LlmModelOption[];
+}> {
+  const apiKey = process.env.GROQ_API_KEY?.trim();
+  const baseUrl = process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1";
+  if (!apiKey) {
+    return getStaticGroqProvider();
+  }
+
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/models`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Groq model lookup failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as { data?: GroqModel[] };
+  const available = new Set((data.data || []).map((model) => model.id).filter(Boolean));
+  const models = groqRequestedModels.filter((model) => available.has(model.value));
+
+  return {
+    id: "groq",
+    label: "Groq",
+    badge: "Fast",
+    enabled: models.length > 0,
+    models: models.length > 0 ? models : groqRequestedModels,
   };
 }
 
