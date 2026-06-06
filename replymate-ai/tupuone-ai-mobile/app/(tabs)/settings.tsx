@@ -24,6 +24,7 @@ import { defaultLlmPreference, LlmPreference, llmProviders } from "../../constan
 import {
   AppLockMode,
   DefaultTabId,
+  ResponseCountPreference,
   buildLocalExportPayload,
   clearAllLocalAppData,
   getAppLockModePreference,
@@ -34,6 +35,8 @@ import {
   getDefaultTabPreference,
   getLlmPreference,
   getQuickAddCategoriesPreference,
+  getReplyResponseCountPreference,
+  getRewriteResponseCountPreference,
   getThemeModePreference,
   saveAppLockModePreference,
   saveAutoCategorySuggestionsPreference,
@@ -41,10 +44,12 @@ import {
   saveBudgetWarningThresholdPreference,
   saveDefaultTabPreference,
   saveQuickAddCategoriesPreference,
+  saveReplyResponseCountPreference,
+  saveRewriteResponseCountPreference,
 } from "../../storage/appStorage";
 import { clearExpensesFromApi } from "../../services/api";
 
-const defaultTabOptions: Array<{ label: string; value: DefaultTabId }> = [
+const defaultTabOptions: { label: string; value: DefaultTabId }[] = [
   { label: "Home", value: "home" },
   { label: "Coach", value: "coach" },
   { label: "Chat", value: "chat" },
@@ -57,6 +62,14 @@ const themeOptions = [
   { label: "Dark", value: "dark" as const },
 ];
 
+const responseCountOptions: { label: string; value: `${ResponseCountPreference}` }[] = [
+  { label: "1", value: "1" },
+  { label: "2", value: "2" },
+  { label: "3", value: "3" },
+  { label: "4", value: "4" },
+  { label: "5", value: "5" },
+];
+
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -65,6 +78,8 @@ export default function SettingsScreen() {
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
   const [defaultTab, setDefaultTab] = useState<DefaultTabId>("home");
   const [appLockMode, setAppLockMode] = useState<AppLockMode>("off");
+  const [replyResponseCount, setReplyResponseCount] = useState<`${ResponseCountPreference}`>("5");
+  const [rewriteResponseCount, setRewriteResponseCount] = useState<`${ResponseCountPreference}`>("5");
   const [budgetTarget, setBudgetTarget] = useState("");
   const [budgetWarningThreshold, setBudgetWarningThreshold] = useState("80");
   const [autoCategorySuggestions, setAutoCategorySuggestions] = useState(true);
@@ -90,15 +105,19 @@ export default function SettingsScreen() {
         getLlmPreference(),
         getDefaultTabPreference(),
         getAppLockModePreference(),
+        getReplyResponseCountPreference(),
+        getRewriteResponseCountPreference(),
         getBudgetTargetPreference(),
         getBudgetWarningThresholdPreference(),
         getAutoCategorySuggestionsPreference(),
         getQuickAddCategoriesPreference(),
         getBackendUrl(),
-      ]).then(([, llm, tab, lockMode, target, threshold, autoCategory, quickAdds, url]) => {
+      ]).then(([, llm, tab, lockMode, replyCount, rewriteCount, target, threshold, autoCategory, quickAdds, url]) => {
         setLlmPreference(llm);
         setDefaultTab(tab);
         setAppLockMode(lockMode);
+        setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
+        setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
         setBudgetTarget(target === null ? "" : String(target));
         setBudgetWarningThreshold(String(threshold));
         setAutoCategorySuggestions(autoCategory);
@@ -124,6 +143,16 @@ export default function SettingsScreen() {
   async function handleAppLockChange(nextMode: AppLockMode) {
     setAppLockMode(nextMode);
     await saveAppLockModePreference(nextMode);
+  }
+
+  async function handleReplyResponseCountChange(nextValue: `${ResponseCountPreference}`) {
+    setReplyResponseCount(nextValue);
+    await saveReplyResponseCountPreference(Number(nextValue));
+  }
+
+  async function handleRewriteResponseCountChange(nextValue: `${ResponseCountPreference}`) {
+    setRewriteResponseCount(nextValue);
+    await saveRewriteResponseCountPreference(Number(nextValue));
   }
 
   function openAppearanceSection() {
@@ -240,6 +269,8 @@ export default function SettingsScreen() {
       setLlmPreference(defaultLlmPreference);
       setDefaultTab("home");
       setAppLockMode("off");
+      setReplyResponseCount("5");
+      setRewriteResponseCount("5");
       setBudgetTarget("");
       setBudgetWarningThreshold("80");
       setAutoCategorySuggestions(true);
@@ -514,7 +545,7 @@ export default function SettingsScreen() {
         icon="hardware-chip-outline"
         title="LLM Provider"
         subtitle="Choose the backend model behind replies."
-        summary={`${selectedProvider.label} · ${selectedModel?.label || llmPreference.model}`}
+        summary={`${selectedProvider.label} · Reply ${replyResponseCount}, rewrite ${rewriteResponseCount}`}
         styles={styles}
         onToggle={setExpandedSection}
       >
@@ -523,6 +554,24 @@ export default function SettingsScreen() {
           title="Provider settings"
           copy={`${selectedProvider.label} · ${selectedModel?.label || llmPreference.model}`}
           onPress={() => router.push("/llm-provider" as never)}
+          styles={styles}
+        />
+
+        <SegmentedGroup
+          title="Reply responses"
+          copy="Choose how many reply suggestions the AI should generate."
+          options={responseCountOptions}
+          value={replyResponseCount}
+          onChange={handleReplyResponseCountChange}
+          styles={styles}
+        />
+
+        <SegmentedGroup
+          title="Rewrite responses"
+          copy="Choose how many rewrite versions the AI should generate."
+          options={responseCountOptions}
+          value={rewriteResponseCount}
+          onChange={handleRewriteResponseCountChange}
           styles={styles}
         />
       </AccordionSection>
@@ -740,7 +789,7 @@ function SegmentedGroup<T extends string>({
 }: {
   title: string;
   copy: string;
-  options: Array<{ label: string; value: T }>;
+  options: { label: string; value: T }[];
   value: T;
   onChange: (value: T) => void | Promise<void>;
   styles: ReturnType<typeof createStyles>;

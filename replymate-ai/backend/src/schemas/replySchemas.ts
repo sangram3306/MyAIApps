@@ -95,6 +95,7 @@ export const generateRepliesSchema = z.object({
     .default(""),
   tone: toneSchema.optional().default("none"),
   role: roleSchema.optional().default("none"),
+  responseCount: z.coerce.number().int().min(1).max(5).optional().default(5),
 });
 
 export type GenerateRepliesInput = z.infer<typeof generateRepliesSchema>;

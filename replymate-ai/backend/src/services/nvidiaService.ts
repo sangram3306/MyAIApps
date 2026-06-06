@@ -7,24 +7,29 @@ import { callChatCompletion, hasConfiguredLlmApiKey } from "./llmService";
 
 export async function generateReplies(input: GenerateRepliesInput): Promise<string[]> {
   const notePrompt = getReplyNotePrompt(input.note);
+  const responseCount = normalizeResponseCount(input.responseCount);
 
   return generateWithNvidia({
     input,
     mockFallback: getMockReplies,
     logLabel: "replies",
+    expectedCount: responseCount,
     systemPrompt:
-      'You are TupuChat. Generate exactly 5 natural reply suggestions for the user\'s message. Match the selected tone and persona role if provided. If the user includes a reply note, treat it as a required instruction that must materially shape every reply. If the note asks to mention, use, suggest, avoid, include, or emphasize something, make that instruction visible in the replies while keeping the wording natural. Keep replies concise, human, and useful. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+      `You are TupuChat. Generate exactly ${responseCount} natural reply suggestion${responseCount === 1 ? "" : "s"} for the user's message. Match the selected tone and persona role if provided. If the user includes a reply note, treat it as a required instruction that must materially shape every reply. If the note asks to mention, use, suggest, avoid, include, or emphasize something, make that instruction visible in the replies while keeping the wording natural. Keep replies concise, human, and useful. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ${buildJsonStringArrayShape(responseCount)} }`,
     userPrompt: `Original message:\n${input.message}\n\nSelected tone: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}${notePrompt}`,
   });
 }
 
 export async function rewriteMessage(input: GenerateRepliesInput): Promise<string[]> {
+  const responseCount = normalizeResponseCount(input.responseCount);
+
   return generateWithNvidia({
     input,
     mockFallback: getMockRewrites,
     logLabel: "rewrites",
+    expectedCount: responseCount,
     systemPrompt:
-      'You are TupuChat. Rewrite the user\'s own message in exactly 5 different versions. Match the selected writing style or language and persona role if provided. Preserve the original meaning. Do not write replies to the message. Keep each version concise, natural, and ready to send. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ["...", "...", "...", "...", "..."] }',
+      `You are TupuChat. Rewrite the user's own message in exactly ${responseCount} different version${responseCount === 1 ? "" : "s"}. Match the selected writing style or language and persona role if provided. Preserve the original meaning. Do not write replies to the message. Keep each version concise, natural, and ready to send. If a role is selected, make the flavor recognizable but not offensive, unsafe, or extreme. Return only valid JSON in this format: { "replies": ${buildJsonStringArrayShape(responseCount)} }`,
     userPrompt: `Message to rewrite:\n${input.message}\n\nSelected writing style: ${getTonePrompt(input.tone)}\nSelected role/persona: ${getRolePrompt(input.role)}`,
   });
 }
@@ -104,6 +109,7 @@ export async function fixGrammar(input: GenerateRepliesInput): Promise<string[]>
     input,
     mockFallback: getMockGrammarFixes,
     logLabel: "grammar fixes",
+    expectedCount: 1,
     systemPrompt:
       'You are TupuChat. Fix grammar, spelling, punctuation, capitalization, and clarity in the user\'s message. Preserve the original meaning and do not add new information. Return exactly 1 corrected version. Return only valid JSON. The top-level object must have exactly one key named "replies". The "replies" array must contain exactly one string. Do not use keys like corrections, grammarFixes, options, or messages. Format: { "replies": ["..."] }',
     userPrompt: `Message to fix:\n${input.message}\n\nReturn JSON only with this exact shape: { "replies": ["corrected message"] }`,
@@ -328,21 +334,23 @@ async function generateWithNvidia({
   logLabel,
   systemPrompt,
   userPrompt,
+  expectedCount,
 }: {
   input: GenerateRepliesInput;
   mockFallback: (input: GenerateRepliesInput) => string[];
   logLabel: string;
   systemPrompt: string;
   userPrompt: string;
+  expectedCount: number;
 }): Promise<string[]> {
   if (!hasConfiguredLlmApiKey()) {
     console.log(`[llm] API key missing. Returning mock ${logLabel}.`);
-    return mockFallback(input);
+    return mockFallback(input).slice(0, expectedCount);
   }
 
   const completion = await callChatCompletion({
     temperature: 0.7,
-    maxTokens: 500,
+    maxTokens: Math.max(500, expectedCount * 450),
     responseFormat: { type: "json_object" },
     messages: [
       {
@@ -368,7 +376,19 @@ async function generateWithNvidia({
     throw new Error("Model response did not contain valid replies.");
   }
 
-  return replies;
+  return replies.slice(0, expectedCount);
+}
+
+function normalizeResponseCount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 5;
+  }
+
+  return Math.min(5, Math.max(1, Math.trunc(value)));
+}
+
+function buildJsonStringArrayShape(count: number): string {
+  return `[${Array.from({ length: count }, () => '"..."').join(", ")}]`;
 }
 
 function buildCoachPrompt(input: CoachDraftInput): string {

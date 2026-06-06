@@ -103,3 +103,17 @@ test("parseRepliesFromModel does not return JSON syntax as replies", () => {
 
   assert.deepEqual(replies, []);
 });
+
+test("parseRepliesFromModel drops broken fragments from truncated JSON output", () => {
+  const replies = parseRepliesFromModel(`{
+    "replies": [
+      "Hey, I'm actually not feeling well, so I'll have to skip the cinema tomorrow.",
+      "I wish I could go, but I'm under the{",
+      "{{",
+      "{"
+  `);
+
+  assert.deepEqual(replies, [
+    "Hey, I'm actually not feeling well, so I'll have to skip the cinema tomorrow.",
+  ]);
+});

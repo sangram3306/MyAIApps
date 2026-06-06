@@ -19,6 +19,7 @@ export async function generateRepliesFromApi(params: {
   note?: string;
   tone: Tone;
   role?: Role;
+  responseCount?: number;
 }): Promise<string[]> {
   const response = await fetch(`${params.backendUrl}/api/replies/generate`, {
     method: "POST",
@@ -28,6 +29,7 @@ export async function generateRepliesFromApi(params: {
       note: params.note,
       tone: params.tone,
       role: params.role,
+      responseCount: params.responseCount,
     }),
   });
 
@@ -49,6 +51,7 @@ export async function rewriteMessageFromApi(params: {
   message: string;
   tone: Tone;
   role?: Role;
+  responseCount?: number;
 }): Promise<string[]> {
   const response = await fetch(`${params.backendUrl}/api/replies/rewrite`, {
     method: "POST",
@@ -57,6 +60,7 @@ export async function rewriteMessageFromApi(params: {
       message: params.message,
       tone: params.tone,
       role: params.role,
+      responseCount: params.responseCount,
     }),
   });
 

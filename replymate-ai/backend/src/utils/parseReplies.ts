@@ -229,7 +229,7 @@ function normalizeReplies(values: unknown[]): string[] {
     .map(replyTextFromValue)
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
-    .filter(Boolean)
+    .filter(isUsefulReplyText)
     .slice(0, 5);
 }
 
@@ -262,4 +262,27 @@ function replyTextFromValue(value: unknown): string | null {
 function looksLikeSentence(value: string): boolean {
   const trimmed = value.trim();
   return trimmed.length > 12 && /\s/.test(trimmed) && !arrayKeys.includes(trimmed) && !textKeys.includes(trimmed);
+}
+
+function isUsefulReplyText(value: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim();
+  if (!looksLikeSentence(normalized)) {
+    return false;
+  }
+
+  if (isJsonSyntaxLine(normalized)) {
+    return false;
+  }
+
+  // Truncated JSON-mode responses can leak fragments like "{", "{{", or
+  // "I wish I could go, but I'm under the{". Do not render those as replies.
+  if (/[{}[\]]/.test(normalized)) {
+    return false;
+  }
+
+  return true;
 }

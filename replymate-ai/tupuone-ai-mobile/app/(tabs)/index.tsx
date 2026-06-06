@@ -27,6 +27,8 @@ import {
   addHistoryItem,
   getBackendUrl,
   getQuickActionsPreference,
+  getReplyResponseCountPreference,
+  getRewriteResponseCountPreference,
   saveFavorite,
 } from "../../storage/appStorage";
 
@@ -44,15 +46,24 @@ export default function HomeScreen() {
   const [mode, setMode] = useState<Mode>("reply");
   const [backendUrl, setBackendUrl] = useState("");
   const [quickActionsEnabled, setQuickActionsEnabled] = useState(true);
+  const [replyResponseCount, setReplyResponseCount] = useState(5);
+  const [rewriteResponseCount, setRewriteResponseCount] = useState(5);
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([getBackendUrl(), getQuickActionsPreference()]).then(([url, enabled]) => {
+      Promise.all([
+        getBackendUrl(),
+        getQuickActionsPreference(),
+        getReplyResponseCountPreference(),
+        getRewriteResponseCountPreference(),
+      ]).then(([url, enabled, replyCount, rewriteCount]) => {
         setBackendUrl(url);
         setQuickActionsEnabled(enabled);
+        setReplyResponseCount(replyCount);
+        setRewriteResponseCount(rewriteCount);
       });
     }, []),
   );
@@ -86,6 +97,7 @@ export default function HomeScreen() {
               note: replyNote.trim(),
               tone,
               role,
+              responseCount: replyResponseCount,
             })
           : mode === "rewrite"
             ? await rewriteMessageFromApi({
@@ -93,6 +105,7 @@ export default function HomeScreen() {
                 message: message.trim(),
                 tone,
                 role,
+                responseCount: rewriteResponseCount,
               })
             : await fixGrammarFromApi({
                 backendUrl,

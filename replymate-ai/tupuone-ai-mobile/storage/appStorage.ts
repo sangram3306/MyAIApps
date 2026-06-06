@@ -5,6 +5,7 @@ import { ThemeMode } from "../constants/theme";
 import { FavoriteReply, ReplyHistoryItem } from "./types";
 
 export type AppLockMode = "off" | "faceId" | "fingerprint" | "passcode";
+export type ResponseCountPreference = 1 | 2 | 3 | 4 | 5;
 
 const keys = {
   history: "replymate.history",
@@ -14,6 +15,8 @@ const keys = {
   defaultTab: "replymate.defaultTab",
   quickActionsEnabled: "replymate.quickActionsEnabled",
   appLockMode: "replymate.appLockMode",
+  replyResponseCount: "replymate.replyResponseCount",
+  rewriteResponseCount: "replymate.rewriteResponseCount",
   budgetTarget: "replymate.expenses.budgetTarget",
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
@@ -30,6 +33,8 @@ export type ExportPayload = {
     defaultTab: DefaultTabId;
     quickActionsEnabled: boolean;
     appLockMode: AppLockMode;
+    replyResponseCount: ResponseCountPreference;
+    rewriteResponseCount: ResponseCountPreference;
     budgetTarget: number | null;
     budgetWarningThreshold: number;
     autoCategorySuggestions: boolean;
@@ -92,6 +97,22 @@ export async function getAppLockModePreference(): Promise<AppLockMode> {
 
 export async function saveAppLockModePreference(mode: AppLockMode): Promise<void> {
   await AsyncStorage.setItem(keys.appLockMode, JSON.stringify(mode));
+}
+
+export async function getReplyResponseCountPreference(): Promise<ResponseCountPreference> {
+  return normalizeResponseCount(await readJson<number>(keys.replyResponseCount, 5));
+}
+
+export async function saveReplyResponseCountPreference(value: number): Promise<void> {
+  await AsyncStorage.setItem(keys.replyResponseCount, JSON.stringify(normalizeResponseCount(value)));
+}
+
+export async function getRewriteResponseCountPreference(): Promise<ResponseCountPreference> {
+  return normalizeResponseCount(await readJson<number>(keys.rewriteResponseCount, 5));
+}
+
+export async function saveRewriteResponseCountPreference(value: number): Promise<void> {
+  await AsyncStorage.setItem(keys.rewriteResponseCount, JSON.stringify(normalizeResponseCount(value)));
 }
 
 export async function getBudgetTargetPreference(): Promise<number | null> {
@@ -167,6 +188,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     defaultTab,
     quickActionsEnabled,
     appLockMode,
+    replyResponseCount,
+    rewriteResponseCount,
     budgetTarget,
     budgetWarningThreshold,
     autoCategorySuggestions,
@@ -180,6 +203,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getDefaultTabPreference(),
       getQuickActionsPreference(),
       getAppLockModePreference(),
+      getReplyResponseCountPreference(),
+      getRewriteResponseCountPreference(),
       getBudgetTargetPreference(),
       getBudgetWarningThresholdPreference(),
       getAutoCategorySuggestionsPreference(),
@@ -196,6 +221,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       defaultTab,
       quickActionsEnabled,
       appLockMode,
+      replyResponseCount,
+      rewriteResponseCount,
       budgetTarget,
       budgetWarningThreshold,
       autoCategorySuggestions,
@@ -223,4 +250,13 @@ async function readJson<T>(key: string, fallback: T): Promise<T> {
   } catch {
     return fallback;
   }
+}
+
+function normalizeResponseCount(value: number): ResponseCountPreference {
+  if (!Number.isFinite(value)) {
+    return 5;
+  }
+
+  const normalized = Math.min(5, Math.max(1, Math.trunc(value)));
+  return normalized as ResponseCountPreference;
 }
