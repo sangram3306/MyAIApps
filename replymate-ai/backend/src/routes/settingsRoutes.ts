@@ -113,6 +113,7 @@ router.get("/llm-options", async (_req, res) => {
       {
         id: "deepseek",
         label: "DeepSeek",
+        badge: "Paid",
         enabled: true,
         models: [
           {
@@ -159,6 +160,24 @@ router.get("/llm-options", async (_req, res) => {
       {
         id: "anthropic",
         label: "Anthropic",
+        enabled: false,
+        models: [],
+      },
+      {
+        id: "perplexity",
+        label: "Perplexity",
+        enabled: false,
+        models: [],
+      },
+      {
+        id: "xai",
+        label: "xAI Grok",
+        enabled: false,
+        models: [],
+      },
+      {
+        id: "mistral",
+        label: "Mistral AI",
         enabled: false,
         models: [],
       },

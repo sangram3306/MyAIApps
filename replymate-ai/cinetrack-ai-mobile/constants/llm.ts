@@ -1,4 +1,4 @@
-export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter" | "groq";
+export type LlmProviderId = "nvidia" | "deepseek" | "openai" | "anthropic" | "gemini" | "openrouter" | "groq" | "perplexity" | "xai" | "mistral";
 
 export type LlmModelOption = {
   label: string;
@@ -35,6 +35,7 @@ export const llmProviders: LlmProviderOption[] = [
   {
     id: "deepseek",
     label: "DeepSeek",
+    badge: "Paid",
     enabled: true,
     models: [
       {
@@ -120,6 +121,24 @@ export const llmProviders: LlmProviderOption[] = [
   {
     id: "anthropic",
     label: "Anthropic",
+    enabled: false,
+    models: [],
+  },
+  {
+    id: "perplexity",
+    label: "Perplexity",
+    enabled: false,
+    models: [],
+  },
+  {
+    id: "xai",
+    label: "xAI Grok",
+    enabled: false,
+    models: [],
+  },
+  {
+    id: "mistral",
+    label: "Mistral AI",
     enabled: false,
     models: [],
   },
