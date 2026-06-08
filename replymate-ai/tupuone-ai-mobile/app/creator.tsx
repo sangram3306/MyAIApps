@@ -12,8 +12,10 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useFocusEffect } from "expo-router";
-import { spacing } from "../constants/theme";
+import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MatrixBackground } from "../components/PremiumUI";
+import { radius, spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
   CreatorDraft,
@@ -38,14 +40,15 @@ const toneOptions = [
 
 export default function CreatorScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [sourceType, setSourceType] = useState<(typeof sourceTypes)[number]>("note");
   const [audience, setAudience] = useState("general");
   const [goal, setGoal] = useState("repurpose into content");
   const [tone, setTone] = useState<(typeof toneOptions)[number]>("balanced");
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Array<(typeof platformOptions)[number]>>([
+  const [selectedPlatforms, setSelectedPlatforms] = useState<(typeof platformOptions)[number][]>([
     "x",
     "linkedin",
     "instagram",
@@ -197,27 +200,37 @@ export default function CreatorScreen() {
   }, [drafts]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="chevron-back" color={colors.text} size={18} />
-        <Text style={styles.backText}>Back</Text>
-      </Pressable>
-
-      <View style={styles.hero}>
-        <View style={styles.heroBadge}>
-          <Ionicons name="color-wand-outline" color={colors.primary} size={16} />
-          <Text style={styles.heroBadgeText}>Creator studio</Text>
+    <View style={styles.screen}>
+      <MatrixBackground density={12} />
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="color-wand-outline" color={colors.primary} size={20} />
+          </View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.title}>Creator Studio</Text>
+            <Text style={styles.subtitle}>
+              Repurpose content with the power of AI.
+            </Text>
+          </View>
         </View>
-        <Text style={styles.title}>Repurpose content</Text>
-        <Text style={styles.subtitle}>
-          Turn notes, ideas, posts, or meeting notes into platform-ready drafts and save them to
-          your DB for later.
-        </Text>
+
+      <View style={styles.stepper}>
+        {["Content", "Platform", "Tone", "Generate"].map((step, index) => (
+          <View key={step} style={styles.stepperItem}>
+            <View style={[styles.stepperDot, index === 0 && styles.stepperDotActive]}>
+              <Text style={[styles.stepperDotText, index === 0 && styles.stepperDotTextActive]}>
+                {index + 1}
+              </Text>
+            </View>
+            <Text style={[styles.stepperText, index === 0 && styles.stepperTextActive]}>{step}</Text>
+          </View>
+        ))}
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Source</Text>
-        <Text style={styles.sectionHint}>Paste the idea, article, thread, or notes you want to transform.</Text>
+        <Text style={styles.sectionTitle}>1. Add Your Content</Text>
+        <Text style={styles.sectionHint}>Paste your notes, ideas, article, or meeting notes here.</Text>
         <TextInput
           multiline
           placeholder="Paste source material here..."
@@ -227,6 +240,7 @@ export default function CreatorScreen() {
           value={sourceText}
           onChangeText={setSourceText}
         />
+        <Text style={styles.characterCount}>{sourceText.length} / 5000</Text>
 
         <View style={styles.fieldRow}>
           <Field
@@ -301,7 +315,7 @@ export default function CreatorScreen() {
           {loading ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.primaryButtonText}>Generate repurposed drafts</Text>
+            <Text style={styles.primaryButtonText}>Continue</Text>
           )}
         </Pressable>
       </View>
@@ -409,6 +423,8 @@ export default function CreatorScreen() {
         )}
       </View>
 
+      </ScrollView>
+
       <Modal visible={Boolean(editingDraft)} transparent animationType="slide" onRequestClose={() => setEditingDraft(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalBackdropPress} onPress={() => setEditingDraft(null)} />
@@ -446,7 +462,7 @@ export default function CreatorScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -621,90 +637,137 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
       flex: 1,
     },
     container: {
-      gap: spacing.lg,
-      padding: spacing.md,
+      gap: 16,
       paddingBottom: spacing.xl,
-    },
-    backButton: {
-      alignItems: "center",
-      alignSelf: "flex-start",
-      flexDirection: "row",
-      gap: spacing.xs,
-    },
-    backText: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: "700",
+      paddingHorizontal: 20,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
     hero: {
-      backgroundColor: colors.surface,
-      borderColor: colors.borderStrong,
-      borderRadius: 24,
-      borderWidth: 1,
-      gap: spacing.sm,
-      overflow: "hidden",
-      padding: spacing.lg,
-    },
-    heroBadge: {
-      alignSelf: "flex-start",
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
       flexDirection: "row",
-      gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      gap: spacing.sm,
+      paddingTop: spacing.sm,
     },
-    heroBadgeText: {
-      color: colors.primary,
-      fontSize: 12,
-      fontWeight: "800",
+    heroIcon: {
+      alignItems: "center",
+      backgroundColor: colors.secondarySoft,
+      borderColor: "rgba(124,58,237,0.34)",
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 48,
+      justifyContent: "center",
+      shadowColor: colors.purple,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      width: 48,
+    },
+    heroCopy: {
+      flex: 1,
+      gap: 3,
     },
     title: {
       color: colors.text,
-      fontSize: 28,
+      fontSize: 23,
       fontWeight: "900",
-      letterSpacing: -0.4,
+      letterSpacing: -0.3,
     },
     subtitle: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 20,
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: "700",
+      lineHeight: 17,
+    },
+    stepper: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.xs,
+      paddingVertical: spacing.sm,
+    },
+    stepperItem: {
+      alignItems: "center",
+      flex: 1,
+      gap: 7,
+    },
+    stepperDot: {
+      alignItems: "center",
+      backgroundColor: "rgba(2,4,9,0.9)",
+      borderColor: colors.border,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 31,
+      justifyContent: "center",
+      width: 31,
+    },
+    stepperDotActive: {
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+    },
+    stepperDotText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+    stepperDotTextActive: {
+      color: colors.primary,
+    },
+    stepperText: {
+      color: colors.textMuted,
+      fontSize: 10.5,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+    stepperTextActive: {
+      color: colors.primary,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.borderStrong,
-      borderRadius: 24,
-      borderWidth: 1,
-      gap: spacing.md,
-      padding: spacing.lg,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.sm,
+      padding: spacing.md,
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: "800",
+      fontSize: 15,
+      fontWeight: "900",
     },
     sectionHint: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 2,
+      color: colors.textMuted,
+      fontSize: 11.5,
+      fontWeight: "600",
+      lineHeight: 16,
+      marginTop: 1,
     },
     sourceInput: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(2,4,9,0.38)",
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.text,
-      fontSize: 15,
-      minHeight: 140,
+      fontSize: 14,
+      lineHeight: 20,
+      minHeight: 158,
       padding: spacing.md,
+    },
+    characterCount: {
+      alignSelf: "flex-end",
+      color: colors.textMuted,
+      fontSize: 10.5,
+      fontWeight: "800",
+      marginTop: -spacing.sm,
     },
     fieldRow: {
       flexDirection: "row",
@@ -712,98 +775,110 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     fieldBlock: {
       flex: 1,
-      gap: spacing.xs,
+      gap: 6,
     },
     fieldLabel: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "700",
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      letterSpacing: 0.4,
     },
     fieldInput: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.64)",
       borderColor: colors.border,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.text,
-      fontSize: 14,
-      paddingHorizontal: spacing.md,
+      fontSize: 12.5,
+      minHeight: 42,
+      paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
     },
     pickerBlock: {
-      gap: spacing.sm,
+      gap: 7,
     },
     chipWrap: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: spacing.xs,
+      gap: 7,
     },
     chip: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.7)",
       borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
     },
     chipText: {
-      color: colors.text,
-      fontSize: 12,
-      fontWeight: "700",
+      color: colors.textMuted,
+      fontSize: 11.5,
+      fontWeight: "900",
     },
     primaryButton: {
       alignItems: "center",
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      minHeight: 52,
+      backgroundColor: "rgba(0,255,198,0.08)",
+      borderColor: colors.primary,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
       justifyContent: "center",
+      minHeight: 48,
       paddingHorizontal: spacing.md,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 16,
     },
     primaryButtonDisabled: {
       opacity: 0.7,
     },
     primaryButtonText: {
-      color: colors.onPrimary,
-      fontSize: 14,
-      fontWeight: "800",
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: "900",
     },
     errorText: {
-      color: "#FCA5A5",
-      fontSize: 14,
+      color: colors.danger,
+      fontSize: 12,
+      fontWeight: "800",
     },
     cardHeader: {
       alignItems: "flex-start",
       flexDirection: "row",
-      justifyContent: "space-between",
       gap: spacing.sm,
+      justifyContent: "space-between",
     },
     iconButton: {
       alignItems: "center",
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      height: 36,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 32,
       justifyContent: "center",
-      width: 36,
+      width: 32,
     },
     callout: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
+      backgroundColor: "rgba(0,255,198,0.06)",
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.xs,
-      padding: spacing.md,
+      padding: spacing.sm,
     },
     calloutLabel: {
-      color: colors.muted,
-      fontSize: 12,
-      fontWeight: "700",
+      color: colors.primary,
+      fontSize: 10.5,
+      fontWeight: "900",
+      letterSpacing: 0.7,
       textTransform: "uppercase",
     },
     calloutText: {
       color: colors.text,
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: 12.5,
+      lineHeight: 18,
     },
     listBlock: {
       gap: spacing.xs,
@@ -814,36 +889,36 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     listBullet: {
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      height: 20,
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.pill,
+      height: 19,
       justifyContent: "center",
-      marginTop: 2,
-      width: 20,
+      marginTop: 1,
+      width: 19,
     },
     listText: {
       color: colors.text,
       flex: 1,
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: 12,
+      lineHeight: 17,
     },
     platformCard: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.68)",
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.sm,
-      padding: spacing.md,
+      padding: spacing.sm,
     },
     platformTitle: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: "800",
+      fontSize: 14,
+      fontWeight: "900",
     },
     platformText: {
       color: colors.text,
-      fontSize: 13,
-      lineHeight: 19,
+      fontSize: 12,
+      lineHeight: 17,
     },
     saveState: {
       alignItems: "center",
@@ -851,16 +926,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.xs,
     },
     saveStateText: {
-      color: colors.muted,
-      fontSize: 13,
+      color: colors.textMuted,
+      fontSize: 11.5,
+      fontWeight: "700",
     },
     draftCard: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.68)",
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.xs,
-      padding: spacing.md,
+      padding: spacing.sm,
     },
     draftHeaderCopy: {
       flex: 1,
@@ -868,45 +944,47 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     draftTitle: {
       color: colors.text,
-      fontSize: 15,
-      fontWeight: "800",
+      fontSize: 13.5,
+      fontWeight: "900",
     },
     draftMeta: {
-      color: colors.muted,
-      fontSize: 12,
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: "700",
     },
     draftBadge: {
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.pill,
       flexDirection: "row",
       gap: spacing.xs,
       paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingVertical: 5,
     },
     draftBadgeText: {
       color: colors.primary,
-      fontSize: 12,
-      fontWeight: "800",
+      fontSize: 10.5,
+      fontWeight: "900",
     },
     draftHook: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "700",
-      lineHeight: 19,
+      lineHeight: 17,
     },
     smallCopy: {
-      color: colors.muted,
-      fontSize: 12,
-      lineHeight: 18,
+      color: colors.textMuted,
+      fontSize: 11.5,
+      fontWeight: "600",
+      lineHeight: 16,
     },
     chartCard: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(2,4,9,0.35)",
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.sm,
-      padding: spacing.md,
+      padding: spacing.sm,
     },
     chartRow: {
       alignItems: "center",
@@ -915,9 +993,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     chartTrack: {
       backgroundColor: colors.border,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       flex: 1,
-      height: 8,
+      height: 6,
       overflow: "hidden",
     },
     chartFill: {
@@ -927,17 +1005,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     editButton: {
       alignItems: "center",
       alignSelf: "flex-start",
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
       flexDirection: "row",
       gap: spacing.xs,
       marginTop: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
     },
     editButtonText: {
       color: colors.primary,
-      fontSize: 12,
-      fontWeight: "700",
+      fontSize: 11.5,
+      fontWeight: "900",
     },
     modalBackdrop: {
-      backgroundColor: "rgba(2, 8, 23, 0.6)",
+      backgroundColor: "rgba(2,4,9,0.74)",
       flex: 1,
       justifyContent: "flex-end",
     },
@@ -946,10 +1029,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     modalSheet: {
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
+      borderColor: colors.border,
+      borderTopLeftRadius: radius.lg,
+      borderTopRightRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.md,
-      padding: spacing.lg,
+      padding: spacing.md,
       paddingBottom: spacing.xl,
     },
     modalActions: {
@@ -961,17 +1046,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       alignItems: "center",
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       flex: 1,
       justifyContent: "center",
-      minHeight: 52,
+      minHeight: 48,
       paddingHorizontal: spacing.md,
     },
     secondaryButtonText: {
       color: colors.text,
-      fontSize: 14,
-      fontWeight: "700",
+      fontSize: 13,
+      fontWeight: "900",
     },
   });
 }

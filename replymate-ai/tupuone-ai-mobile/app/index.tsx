@@ -4,10 +4,10 @@ import { getDefaultTabPreference } from "../storage/appStorage";
 
 const tabRoutes: Record<string, string> = {
   home: "/(tabs)",
-  coach: "/(tabs)/coach",
   chat: "/(tabs)/chat",
+  tools: "/(tabs)/tools",
   expenses: "/(tabs)/expenses",
-  settings: "/(tabs)/settings",
+  profile: "/(tabs)/profile",
 };
 
 export default function Index() {

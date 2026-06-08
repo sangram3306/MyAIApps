@@ -23,7 +23,7 @@ const keys = {
   quickAddCategories: "replymate.expenses.quickAddCategories",
 };
 
-export type DefaultTabId = "home" | "coach" | "chat" | "expenses" | "settings";
+export type DefaultTabId = "home" | "chat" | "tools" | "expenses" | "profile";
 
 export type ExportPayload = {
   exportedAt: string;
@@ -76,7 +76,17 @@ export async function saveThemeModePreference(mode: ThemeMode): Promise<void> {
 }
 
 export async function getDefaultTabPreference(): Promise<DefaultTabId> {
-  return readJson<DefaultTabId>(keys.defaultTab, "home");
+  const stored = await readJson<string>(keys.defaultTab, "home");
+  if (stored === "settings") {
+    return "profile";
+  }
+  if (stored === "coach") {
+    return "tools";
+  }
+  if (["home", "chat", "tools", "expenses", "profile"].includes(stored)) {
+    return stored as DefaultTabId;
+  }
+  return "home";
 }
 
 export async function saveDefaultTabPreference(tab: DefaultTabId): Promise<void> {

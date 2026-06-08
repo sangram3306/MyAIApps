@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { StyleSheet } from "react-native";
 import { useAppTheme } from "../../context/app-theme";
 
 export default function TabsLayout() {
@@ -13,15 +14,16 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.ink,
+          backgroundColor: colors.backgroundDeep,
           borderTopColor: colors.border,
-          height: 66,
-          paddingBottom: 8,
-          paddingTop: 6,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: 72,
+          paddingBottom: 10,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: "700",
+          fontWeight: "800",
         },
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -32,106 +34,44 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="decisions"
-        options={{
-          href: null,
-          title: "Decisions",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="git-compare-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="creator"
-        options={{
-          title: "Creator",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="color-wand-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          href: null,
-          title: "History",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          href: null,
-          title: "Favorites",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="coach"
-        options={{
-          href: null,
-          title: "Coach",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles-outline" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
           title: "Chat",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles-outline" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tools"
+        options={{
+          title: "Tools",
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
           title: "Expenses",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="summary"
+        name="profile"
         options={{
-          href: null,
-          title: "Summary",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" color={color} size={size} />
-          ),
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="tools"
-        options={{
-          title: "More",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="ellipsis-horizontal-circle-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" color={color} size={size} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="decisions" options={{ href: null }} />
+      <Tabs.Screen name="creator" options={{ href: null }} />
+      <Tabs.Screen name="history" options={{ href: null }} />
+      <Tabs.Screen name="favorites" options={{ href: null }} />
+      <Tabs.Screen name="coach" options={{ href: null }} />
+      <Tabs.Screen name="summary" options={{ href: null }} />
     </Tabs>
   );
 }

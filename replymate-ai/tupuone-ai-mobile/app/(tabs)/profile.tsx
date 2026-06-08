@@ -1,0 +1,235 @@
+import { useMemo } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing } from "../../constants/theme";
+import { useAppTheme } from "../../context/app-theme";
+
+const profileRows = [
+  { title: "My Account", subtitle: "Profile and personal details", icon: "person-outline", route: "" },
+  { title: "Settings", subtitle: "Appearance, AI and preferences", icon: "settings-outline", route: "/profile/settings" },
+  { title: "Privacy & Security", subtitle: "Lock, privacy and app security", icon: "shield-checkmark-outline", route: "/profile/settings" },
+  { title: "Export Data", subtitle: "Download or share app data", icon: "download-outline", route: "/profile/settings" },
+  { title: "Help & Support", subtitle: "Guides and support placeholder", icon: "help-circle-outline", route: "" },
+  { title: "About SP ONE", subtitle: "All-in-one AI companion", icon: "information-circle-outline", route: "" },
+] as const;
+
+export default function ProfileScreen() {
+  const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+
+  return (
+    <View style={styles.screen}>
+      <MatrixBackground density={12} />
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.identityRow}>
+          <View style={styles.avatar}>
+            <View style={styles.avatarFace}>
+              <Ionicons name="person" color={colors.primary} size={25} />
+            </View>
+          </View>
+          <View style={styles.identityCopy}>
+            <Text style={styles.name}>Sangram</Text>
+            <Text style={styles.email}>sangram@example.com</Text>
+          </View>
+        </View>
+
+        <View style={styles.proCard}>
+          <View>
+            <Text style={styles.proTitle}>Pro Plan</Text>
+            <Text style={styles.proSubtitle}>Active</Text>
+            <Text style={styles.proMeta}>Renews on Jun 15, 2026</Text>
+          </View>
+          <View style={styles.crownBadge}>
+            <Ionicons name="sparkles" color={colors.amber} size={21} />
+          </View>
+        </View>
+
+        <View style={styles.rows}>
+          {profileRows.slice(0, 4).map((row) => (
+            <ProfileRow key={row.title} row={row} />
+          ))}
+        </View>
+
+        <View style={styles.rows}>
+          {profileRows.slice(4).map((row) => (
+            <ProfileRow key={row.title} row={row} />
+          ))}
+        </View>
+
+        <Pressable style={styles.logout}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
+function ProfileRow({ row }: { row: (typeof profileRows)[number] }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors, 0), [colors]);
+
+  return (
+    <Pressable
+      onPress={() => row.route && router.push(row.route as never)}
+      style={styles.row}
+    >
+      <View style={styles.rowIcon}>
+        <Ionicons name={row.icon} color={colors.textMuted} size={15} />
+      </View>
+      <View style={styles.rowCopy}>
+        <Text style={styles.rowTitle}>{row.title}</Text>
+        <Text style={styles.rowSubtitle}>{row.subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" color={colors.textMuted} size={15} />
+    </Pressable>
+  );
+}
+
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
+  return StyleSheet.create({
+    screen: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    container: {
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
+    },
+    identityRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+      paddingTop: spacing.sm,
+    },
+    avatar: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 58,
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.16,
+      shadowRadius: 14,
+      width: 58,
+    },
+    avatarFace: {
+      alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.pill,
+      height: 48,
+      justifyContent: "center",
+      width: 48,
+    },
+    identityCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    name: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: "900",
+    },
+    email: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    proCard: {
+      alignItems: "center",
+      backgroundColor: "rgba(124,58,237,0.13)",
+      borderColor: "rgba(124,58,237,0.55)",
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      shadowColor: colors.purple,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.18,
+      shadowRadius: 16,
+    },
+    proTitle: {
+      color: colors.purple,
+      fontSize: 15,
+      fontWeight: "900",
+    },
+    proSubtitle: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    proMeta: {
+      color: colors.textMuted,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    crownBadge: {
+      alignItems: "center",
+      backgroundColor: "rgba(250,204,21,0.12)",
+      borderRadius: radius.pill,
+      height: 36,
+      justifyContent: "center",
+      width: 36,
+    },
+    rows: {
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      overflow: "hidden",
+    },
+    row: {
+      alignItems: "center",
+      borderBottomColor: colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 42,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
+    },
+    rowIcon: {
+      alignItems: "center",
+      height: 28,
+      justifyContent: "center",
+      width: 28,
+    },
+    rowCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    rowTitle: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    rowSubtitle: {
+      color: colors.textMuted,
+      fontSize: 10,
+      lineHeight: 13,
+    },
+    logout: {
+      alignItems: "center",
+      borderColor: colors.danger,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      minHeight: 40,
+      justifyContent: "center",
+    },
+    logoutText: {
+      color: colors.danger,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+  });
+}

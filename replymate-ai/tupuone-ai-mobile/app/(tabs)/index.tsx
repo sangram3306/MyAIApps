@@ -1,560 +1,458 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { useMemo } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandLogo } from "../../components/BrandLogo";
-import { ChipSelector } from "../../components/ChipSelector";
-import { EmptyState } from "../../components/EmptyState";
-import { GrammarFixCard } from "../../components/GrammarFixCard";
-import { ReplyCard } from "../../components/ReplyCard";
-import { Role, replyRoles, rewriteRoles } from "../../constants/roles";
-import { replyTones, rewriteStyles, Tone } from "../../constants/tones";
-import { spacing } from "../../constants/theme";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { fixGrammarFromApi, generateRepliesFromApi, rewriteMessageFromApi } from "../../services/api";
-import {
-  addHistoryItem,
-  getBackendUrl,
-  getQuickActionsPreference,
-  getReplyResponseCountPreference,
-  getRewriteResponseCountPreference,
-  saveFavorite,
-} from "../../storage/appStorage";
 
-type Mode = "reply" | "rewrite" | "grammar";
+const quickActions = [
+  {
+    icon: "chatbox-ellipses-outline",
+    title: "Smart Reply",
+    subtitle: "Reply instantly",
+    route: "/tools/reply",
+    accent: "primary",
+  },
+  {
+    icon: "create-outline",
+    title: "Rewrite",
+    subtitle: "Polish text",
+    route: "/tools/rewrite",
+    accent: "cyan",
+  },
+  {
+    icon: "checkmark-done-outline",
+    title: "Grammar",
+    subtitle: "Fix mistakes",
+    route: "/tools/grammar",
+    accent: "primary",
+  },
+  {
+    icon: "wallet-outline",
+    title: "Expense Tracker",
+    subtitle: "Track & analyze",
+    route: "/(tabs)/expenses",
+    accent: "purple",
+  },
+  {
+    icon: "color-wand-outline",
+    title: "Creator Studio",
+    subtitle: "Repurpose content",
+    route: "/(tabs)/creator",
+    accent: "purple",
+  },
+  {
+    icon: "sparkles-outline",
+    title: "Smart Coach",
+    subtitle: "Get guidance",
+    route: "/tools/coach",
+    accent: "cyan",
+  },
+] as const;
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
-  const quickActionStyles = useMemo(() => createQuickActionStyles(colors), [colors]);
-  const [message, setMessage] = useState("");
-  const [replyNote, setReplyNote] = useState("");
-  const [tone, setTone] = useState<Tone>("none");
-  const [role, setRole] = useState<Role>("none");
-  const [mode, setMode] = useState<Mode>("reply");
-  const [backendUrl, setBackendUrl] = useState("");
-  const [quickActionsEnabled, setQuickActionsEnabled] = useState(true);
-  const [replyResponseCount, setReplyResponseCount] = useState(5);
-  const [rewriteResponseCount, setRewriteResponseCount] = useState(5);
-  const [replies, setReplies] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useFocusEffect(
-    useCallback(() => {
-      Promise.all([
-        getBackendUrl(),
-        getQuickActionsPreference(),
-        getReplyResponseCountPreference(),
-        getRewriteResponseCountPreference(),
-      ]).then(([url, enabled, replyCount, rewriteCount]) => {
-        setBackendUrl(url);
-        setQuickActionsEnabled(enabled);
-        setReplyResponseCount(replyCount);
-        setRewriteResponseCount(rewriteCount);
-      });
-    }, []),
-  );
-
-  useEffect(() => {
-    if (backendUrl) {
-      setError("");
-    }
-  }, [backendUrl]);
-
-  async function handleGenerate() {
-    if (!backendUrl) {
-      setError("TupuChat could not find the built-in backend URL. Please restart the app.");
-      return;
-    }
-
-    if (!message.trim()) {
-      setError("Paste a message first.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const generated =
-        mode === "reply"
-          ? await generateRepliesFromApi({
-              backendUrl,
-              message: message.trim(),
-              note: replyNote.trim(),
-              tone,
-              role,
-              responseCount: replyResponseCount,
-            })
-          : mode === "rewrite"
-            ? await rewriteMessageFromApi({
-                backendUrl,
-                message: message.trim(),
-                tone,
-                role,
-                responseCount: rewriteResponseCount,
-              })
-            : await fixGrammarFromApi({
-                backendUrl,
-                message: message.trim(),
-                tone,
-              });
-      setReplies(generated);
-      await addHistoryItem({
-        id: Date.now().toString(),
-        message: message.trim(),
-        tone,
-        role,
-        note: mode === "reply" ? replyNote.trim() : undefined,
-        replies: generated,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (caught) {
-      const detail = caught instanceof Error ? caught.message : "Please try again.";
-      setError(`Could not reach TupuChat backend. ${detail}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleFavorite(reply: string) {
-    await saveFavorite({
-      id: `${Date.now()}`,
-      reply,
-      sourceMessage: message,
-      note: mode === "reply" ? replyNote.trim() : undefined,
-      tone,
-      role,
-      createdAt: new Date().toISOString(),
-    });
-    Alert.alert("Saved", "Reply added to favorites.");
-  }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.keyboard}
-    >
+    <View style={styles.screen}>
+      <MatrixBackground density={14} />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+        <View style={styles.heroShell}>
           <View style={styles.headerTop}>
-            <BrandLogo />
             <Image
-              accessibilityLabel="SP One"
+              accessibilityLabel="SP ONE"
               resizeMode="contain"
               source={require("../../assets/brand/sp_one_label.png")}
-              style={styles.headerLabel}
+              style={styles.wordmark}
             />
-            <Text style={styles.headerCredit}>by Sangram</Text>
-          </View>
-          <Text style={styles.subtitle}>Smart replies, rewrites, and grammar fixes.</Text>
-        </View>
-
-        {quickActionsEnabled ? (
-          <View style={styles.quickActions}>
-            <QuickAction
-              label="Reply"
-              onPress={() => {
-                setMode("reply");
-                setTone("none");
-                setRole("none");
-                setReplies([]);
-              }}
-              active={mode === "reply"}
-              styles={quickActionStyles}
-            />
-            <QuickAction
-              label="Rewrite"
-              onPress={() => {
-                setMode("rewrite");
-                setTone("clearer");
-                setRole("none");
-                setReplies([]);
-              }}
-              active={mode === "rewrite"}
-              styles={quickActionStyles}
-            />
-            <QuickAction
-              label="Grammar"
-              onPress={() => {
-                setMode("grammar");
-                setTone("none");
-                setRole("none");
-                setReplies([]);
-              }}
-              active={mode === "grammar"}
-              styles={quickActionStyles}
-            />
-            <QuickAction
-              label="Coach"
-              onPress={() => router.push("/coach" as never)}
-              styles={quickActionStyles}
-            />
-            <QuickAction
-              label="Expenses"
-              onPress={() => router.push("/expenses" as never)}
-              styles={quickActionStyles}
-            />
-            <QuickAction
-              label="Creator"
-              onPress={() => router.push("/(tabs)/creator" as never)}
-              styles={quickActionStyles}
-            />
-          </View>
-        ) : null}
-
-        <View style={styles.modeSwitch}>
-          {(["reply", "rewrite", "grammar"] as Mode[]).map((item) => (
             <Pressable
-              key={item}
-              onPress={() => {
-                setMode(item);
-                setTone(item === "rewrite" ? "clearer" : "none");
-                setRole("none");
-                setReplies([]);
-              }}
-              style={[styles.modeButton, mode === item && styles.modeButtonActive]}
+              accessibilityLabel="Open profile"
+              onPress={() => router.push("/(tabs)/profile" as never)}
+              style={styles.avatar}
             >
-              <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
-                {item === "reply" ? "Reply" : item === "rewrite" ? "Rewrite" : "Grammar"}
-              </Text>
+              <View style={styles.avatarInner}>
+                <Ionicons name="person" color={colors.primary} size={16} />
+              </View>
             </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.inputBlock}>
-          <Text style={styles.label}>
-            {mode === "reply"
-              ? "Message to reply to"
-              : mode === "rewrite"
-                ? "Your message"
-                : "Text to fix"}
-          </Text>
-          <TextInput
-            multiline
-            placeholder={
-              mode === "reply"
-                ? "Paste the message you received..."
-                : mode === "rewrite"
-                  ? "Type the message you want to rewrite..."
-                  : "Type text with grammar mistakes..."
-            }
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            textAlignVertical="top"
-            value={message}
-            onChangeText={setMessage}
-          />
-        </View>
-
-        {mode === "reply" ? (
-          <View style={styles.inputBlock}>
-            <Text style={styles.label}>Reply note</Text>
-            <TextInput
-              multiline
-              placeholder="Add context or instructions for the reply..."
-              placeholderTextColor={colors.muted}
-              style={[styles.input, styles.noteInput]}
-              textAlignVertical="top"
-              value={replyNote}
-              onChangeText={setReplyNote}
-            />
           </View>
-        ) : null}
 
-        {mode !== "grammar" ? (
-          <>
-            <View style={styles.selectorRow}>
-              <View style={styles.selectorColumn}>
-                <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
-                <ChipSelector
-                  options={mode === "reply" ? replyTones : rewriteStyles}
-                  selectedValue={tone}
-                  onSelect={setTone}
-                />
-              </View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroKicker}>Good evening,</Text>
+            <Text style={styles.heroTitle}>Sangram 👋</Text>
+            <Text style={styles.subtitle}>What would you like to do today?</Text>
+          </View>
 
-              <View style={styles.selectorColumn}>
-                <Text style={styles.label}>Role</Text>
-                <ChipSelector
-                  options={mode === "reply" ? replyRoles : rewriteRoles}
-                  selectedValue={role}
-                  onSelect={setRole}
-                />
-              </View>
-            </View>
-          </>
-        ) : null}
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          disabled={loading}
-          onPress={handleGenerate}
-          style={[styles.generateButton, loading && styles.generateButtonDisabled]}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.onSecondary} />
-          ) : (
-            <Text style={styles.generateButtonText}>
-              {mode === "reply"
-                ? "Generate Replies"
-                : mode === "rewrite"
-                  ? "Rewrite Message"
-                  : "Fix Grammar"}
-            </Text>
-          )}
-        </Pressable>
-
-        <View style={styles.results}>
-          {replies.length > 0 ? (
-            mode === "grammar" ? (
-              replies.map((reply, index) => (
-                <GrammarFixCard
-                  key={`${reply}-${index}`}
-                  original={message.trim()}
-                  corrected={reply}
-                />
-              ))
-            ) : (
-              replies.map((reply, index) => (
-                <ReplyCard
-                  key={`${reply}-${index}`}
-                  reply={reply}
-                  onFavorite={() => handleFavorite(reply)}
-                />
-              ))
-            )
-          ) : (
-            <EmptyState
-              title={
-                mode === "reply"
-                  ? "No replies yet"
-                  : mode === "rewrite"
-                    ? "No rewrites yet"
-                    : "No grammar fix yet"
-              }
-              message={
-                mode === "reply"
-                  ? "Your generated replies will appear here."
-                  : mode === "rewrite"
-                    ? "Your rewritten message options will appear here."
-                    : "Your corrected message will appear here."
-              }
+          <Pressable onPress={() => router.push("/(tabs)/chat" as never)} style={styles.commandBar}>
+            <TextInput
+              editable={false}
+              pointerEvents="none"
+              placeholder="Ask anything or choose an action..."
+              placeholderTextColor={colors.textMuted}
+              style={styles.commandInput}
             />
-          )}
+            <View style={styles.commandIcon}>
+              <Ionicons name="mic" color={colors.onPrimary} size={15} />
+            </View>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Quick actions" />
+          <View style={styles.quickGrid}>
+            {quickActions.map((action) => (
+              <QuickActionCard
+                key={action.title}
+                icon={action.icon}
+                title={action.title}
+                subtitle={action.subtitle}
+                accent={action.accent}
+                onPress={() => router.push(action.route as never)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Today at a glance" action="View analytics" />
+          <View style={styles.statsRow}>
+            <StatCard value="12" label="Tasks Completed" accent="primary" />
+            <StatCard value="AED 2,450" label="Expenses Tracked" accent="primary" />
+            <StatCard value="3" label="Tools Used" accent="purple" />
+          </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
-function QuickAction({
-  label,
-  onPress,
-  styles,
-  active = false,
-}: {
-  label: string;
-  onPress: () => void;
-  styles: ReturnType<typeof createQuickActionStyles>;
-  active?: boolean;
-}) {
+function SectionHeader({ title, action }: { title: string; action?: string }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createSectionStyles(colors), [colors]);
   return (
-    <Pressable onPress={onPress} style={[styles.action, active && styles.actionActive]}>
-      <Text style={[styles.actionText, active && styles.actionTextActive]}>{label}</Text>
+    <View style={styles.header}>
+      <Text style={styles.title}>{title}</Text>
+      {action ? <Text style={styles.action}>{action}</Text> : null}
+    </View>
+  );
+}
+
+function QuickActionCard({
+  icon,
+  title,
+  subtitle,
+  accent,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  accent: "primary" | "purple" | "cyan";
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createActionStyles(colors), [colors]);
+  const accentStyles =
+    accent === "purple"
+      ? {
+          card: styles.purpleCard,
+          iconShell: styles.purpleIconShell,
+          icon: styles.purpleIcon,
+        }
+      : accent === "cyan"
+        ? {
+            card: styles.cyanCard,
+            iconShell: styles.cyanIconShell,
+            icon: styles.cyanIcon,
+          }
+        : {
+            card: styles.primaryCard,
+            iconShell: styles.primaryIconShell,
+            icon: styles.primaryIcon,
+          };
+
+  return (
+    <Pressable onPress={onPress} style={[styles.card, accentStyles.card]}>
+      <View style={styles.cardTop}>
+        <View style={[styles.iconShell, accentStyles.iconShell]}>
+          <Ionicons name={icon} color={accentStyles.icon.color} size={16} />
+        </View>
+        <Ionicons name="chevron-forward" color={colors.textMuted} size={16} />
+      </View>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
     </Pressable>
   );
 }
 
-function createQuickActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
-  return StyleSheet.create({
-    action: {
-      alignItems: "center",
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    actionActive: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-    },
-    actionText: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "800",
-    },
-    actionTextActive: {
-      color: colors.primary,
-    },
-  });
+function StatCard({ value, label, accent }: { value: string; label: string; accent: "primary" | "purple" }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStatStyles(colors), [colors]);
+  const isPurple = accent === "purple";
+  return (
+    <View style={[styles.card, isPurple ? styles.purpleCard : styles.primaryCard]}>
+      <Text style={[styles.value, isPurple && styles.purpleValue]}>{value}</Text>
+      <Text style={styles.label}>{label}</Text>
+    </View>
+  );
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
-    keyboard: {
-      flex: 1,
+    screen: {
       backgroundColor: colors.background,
+      flex: 1,
     },
     container: {
-      gap: spacing.sm,
-      paddingBottom: spacing.md,
-      paddingHorizontal: spacing.md,
-      paddingTop: Math.max(spacing.md, topInset + spacing.sm),
+      gap: 14,
+      paddingBottom: spacing.xl,
+      paddingHorizontal: 20,
+      paddingTop: Math.max(12, topInset + spacing.xs),
     },
-    header: {
-      gap: 0,
+    heroShell: {
+      gap: 12,
+      overflow: "hidden",
+      paddingBottom: 0,
     },
     headerTop: {
       alignItems: "center",
       flexDirection: "row",
-      justifyContent: "flex-start",
-      minHeight: 72,
-      position: "relative",
+      justifyContent: "space-between",
+      minHeight: 34,
     },
-    headerLabel: {
-      height: 122,
-      left: 0,
-      position: "absolute",
-      right: 0,
-      top: -54,
-      width: "100%",
+    wordmark: {
+      height: 28,
+      width: 154,
     },
-    headerCredit: {
-      color: colors.muted,
-      fontSize: 8,
+    avatar: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 35,
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      width: 35,
+    },
+    avatarInner: {
+      alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.pill,
+      height: 27,
+      justifyContent: "center",
+      width: 27,
+    },
+    heroCopy: {
+      gap: 0,
+      marginTop: 2,
+    },
+    heroKicker: {
+      color: colors.text,
+      fontSize: 18,
       fontWeight: "700",
-      left: 0,
-      letterSpacing: 0,
-      position: "absolute",
-      right: 0,
-      textAlign: "center",
-      top: 14,
+    },
+    heroTitle: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: "900",
+      letterSpacing: -1,
+      marginTop: -5,
     },
     subtitle: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 20,
-      textAlign: "center",
+      color: colors.cyan,
+      fontSize: 11,
+      fontWeight: "700",
+      lineHeight: 16,
     },
-    quickActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.sm,
-    },
-    inputBlock: {
-      gap: spacing.sm,
-    },
-    selectorRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.md,
-    },
-    selectorColumn: {
-      flexBasis: 0,
-      flexGrow: 1,
-      gap: spacing.sm,
-      minWidth: 160,
-    },
-    modeSwitch: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 8,
-      borderWidth: 1,
-      flexDirection: "row",
-      gap: spacing.sm,
-      padding: spacing.xs,
-    },
-    modeButton: {
+    commandBar: {
       alignItems: "center",
-      borderRadius: 8,
+      backgroundColor: colors.surface,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 42,
+      paddingHorizontal: 10,
+    },
+    commandInput: {
+      color: colors.text,
       flex: 1,
-      minHeight: 44,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    commandIcon: {
+      alignItems: "center",
+      backgroundColor: colors.primary,
+      borderRadius: radius.pill,
+      height: 28,
       justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOpacity: 0.32,
+      shadowRadius: 12,
+      width: 28,
     },
-    modeButtonActive: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderWidth: 1,
+    section: {
+      gap: 7,
     },
-    modeText: {
-      color: colors.muted,
-      fontSize: 14,
+    quickGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 9,
+    },
+    statsRow: {
+      flexDirection: "row",
+      gap: 8,
+    },
+  });
+}
+
+function createSectionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    header: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      minHeight: 22,
+    },
+    title: {
+      color: colors.primary,
+      fontSize: typography.micro,
+      fontWeight: "900",
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+    },
+    action: {
+      color: colors.purple,
+      fontSize: typography.micro,
       fontWeight: "800",
     },
-    modeTextActive: {
+  });
+}
+
+function createActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexBasis: "47%",
+      flexGrow: 1,
+      gap: 5,
+      minHeight: 96,
+      padding: 11,
+    },
+    primaryCard: {
+      borderColor: colors.primaryBorder,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+    },
+    purpleCard: {
+      borderColor: colors.secondarySoft,
+      shadowColor: colors.purple,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+    },
+    cyanCard: {
+      borderColor: colors.cyanSoft,
+      shadowColor: colors.cyan,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+    },
+    cardTop: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    iconShell: {
+      alignItems: "center",
+      borderRadius: 9,
+      height: 26,
+      justifyContent: "center",
+      width: 26,
+    },
+    primaryIconShell: {
+      backgroundColor: colors.primaryDim,
+    },
+    purpleIconShell: {
+      backgroundColor: colors.secondarySoft,
+    },
+    cyanIconShell: {
+      backgroundColor: colors.cyanSoft,
+    },
+    primaryIcon: {
       color: colors.primary,
+    },
+    purpleIcon: {
+      color: colors.purple,
+    },
+    cyanIcon: {
+      color: colors.cyan,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 10,
+      lineHeight: 13,
+    },
+  });
+}
+
+function createStatStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flex: 1,
+      minHeight: 90,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+    },
+    primaryCard: {
+      borderColor: colors.primaryBorder,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+    },
+    purpleCard: {
+      borderColor: colors.secondarySoft,
+      shadowColor: colors.purple,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+    },
+    value: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: "900",
+      lineHeight: 18,
+    },
+    purpleValue: {
+      color: colors.purple,
     },
     label: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: "800",
-    },
-    input: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 8,
-      borderWidth: 1,
-      color: colors.text,
-      fontSize: 16,
-      minHeight: 160,
-      padding: spacing.md,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.16,
-      shadowRadius: 18,
-    },
-    noteInput: {
-      fontSize: 14,
-      minHeight: 76,
-      shadowOpacity: 0.08,
-    },
-    error: {
-      backgroundColor: colors.dangerSoft,
-      borderColor: colors.danger,
-      borderRadius: 8,
-      borderWidth: 1,
-      color: colors.danger,
-      lineHeight: 20,
-      padding: spacing.md,
-    },
-    generateButton: {
-      alignItems: "center",
-      backgroundColor: colors.secondary,
-      borderRadius: 8,
-      minHeight: 52,
-      justifyContent: "center",
-      padding: spacing.md,
-      shadowColor: colors.secondary,
-      shadowOpacity: 0.36,
-      shadowRadius: 18,
-    },
-    generateButtonDisabled: {
-      opacity: 0.7,
-    },
-    generateButtonText: {
-      color: colors.onSecondary,
-      fontSize: 16,
-      fontWeight: "800",
-    },
-    results: {
-      gap: spacing.md,
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: "600",
+      lineHeight: 14,
+      marginTop: 2,
     },
   });
 }

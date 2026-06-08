@@ -1,273 +1,257 @@
-import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useFocusEffect } from "expo-router";
-import { spacing } from "../../constants/theme";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 
 const tools = [
   {
     title: "Smart Coach",
-    subtitle: "Decode intent, emotion, and risk before you reply.",
+    subtitle: "Decode intent, emotion and risk before you reply.",
     icon: "sparkles-outline",
-    route: "/coach",
-    tag: "Coach",
+    route: "/tools/coach",
+    badge: "Coach",
   },
   {
     title: "Decision Simulator",
-    subtitle: "Compare choices, risks, regret, experiments, and next steps.",
+    subtitle: "Compare choices, risks and outcomes.",
     icon: "git-compare-outline",
     route: "/decision-simulator",
-    tag: "ReAct + DB",
+    badge: "AI",
   },
   {
     title: "Personal Skill Tree",
-    subtitle: "Turn any skill into branches, quests, milestones, and proof-of-skill practice.",
+    subtitle: "Build skills, complete quests and track progress.",
     icon: "analytics-outline",
     route: "/skill-tree",
-    tag: "Skill map",
+    badge: "Skill",
   },
   {
     title: "Learning Roadmap",
-    subtitle: "Build a project-first path with phases, checkpoints, and weekly practice.",
+    subtitle: "Plan your learning journey step by step.",
     icon: "map-outline",
     route: "/learning-roadmap",
-    tag: "Roadmap",
+    badge: "Roadmap",
   },
   {
     title: "Watch Tracker",
-    subtitle: "Log movies or series, enrich details with AI, and track status.",
+    subtitle: "Log movies and series, get AI insights and track status.",
     icon: "film-outline",
     route: "/watch-tracker",
-    tag: "Movies",
+    badge: "Movies",
+  },
+  {
+    title: "Habit Tracker",
+    subtitle: "Build better habits with AI-powered insights.",
+    icon: "leaf-outline",
+    route: "",
+    badge: "Habits",
   },
 ] as const;
 
 export default function AiToolsScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const [visible, setVisible] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      setVisible(true);
-    }, []),
-  );
-
-  function closeMenu() {
-    setVisible(false);
-    router.replace("/(tabs)/index" as never);
-  }
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredTools = tools.filter((tool) => {
+    const target = `${tool.title} ${tool.subtitle} ${tool.badge}`.toLowerCase();
+    return target.includes(normalizedQuery);
+  });
 
   function openTool(route: string) {
-    setVisible(false);
+    if (!route) {
+      return;
+    }
     router.push(route as never);
   }
 
   return (
     <View style={styles.screen}>
-      <Modal
-        animationType="slide"
-        onRequestClose={closeMenu}
-        transparent
-        visible={visible}
-      >
-        <View style={styles.overlay}>
-          <Pressable onPress={closeMenu} style={styles.backdrop} />
-          <View style={styles.sheet}>
-            <View style={styles.handle} />
-            <View style={styles.header}>
-              <View style={styles.badge}>
-                <Ionicons name="ellipsis-horizontal-circle-outline" color={colors.primary} size={16} />
-                <Text style={styles.badgeText}>More</Text>
-              </View>
-              <Text style={styles.title}>AI-powered tools</Text>
-              <Text style={styles.subtitle}>
-                Pick a focused tool from this quick access menu.
-              </Text>
-            </View>
-            <ScrollView contentContainerStyle={styles.grid}>
-              {tools.map((tool) => (
-                <Pressable
-                  key={tool.title}
-                  onPress={() => openTool(tool.route)}
-                  style={styles.toolCard}
-                >
-                  <View style={styles.toolTop}>
-                    <View style={styles.toolIcon}>
-                      <Ionicons name={tool.icon} color={colors.primary} size={22} />
-                    </View>
-                    <View style={styles.toolTag}>
-                      <Text style={styles.toolTagText}>{tool.tag}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.toolTitle}>{tool.title}</Text>
-                  <Text style={styles.toolSubtitle}>{tool.subtitle}</Text>
-                  <View style={styles.toolFooter}>
-                    <Text style={styles.openText}>Open tool</Text>
-                    <Ionicons name="chevron-forward" color={colors.primary} size={17} />
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <View style={styles.footer}>
-              <Pressable onPress={closeMenu} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>Close</Text>
-              </Pressable>
-            </View>
-          </View>
+      <MatrixBackground density={12} />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tools</Text>
+          <Text style={styles.subtitle}>Powerful AI tools for everyday life</Text>
         </View>
-      </Modal>
+
+        <View style={styles.searchShell}>
+          <Ionicons name="search" color={colors.textMuted} size={15} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search tools..."
+            placeholderTextColor={colors.textMuted}
+            style={styles.searchInput}
+          />
+          {query ? (
+            <Pressable onPress={() => setQuery("")}>
+              <Ionicons name="close-circle" color={colors.textMuted} size={17} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.list}>
+          {filteredTools.map((tool, index) => (
+            <Pressable key={tool.title} onPress={() => openTool(tool.route)} style={[styles.toolCard, index === 0 && styles.toolCardActive]}>
+              <View style={[styles.toolIcon, index === 0 && styles.toolIconActive]}>
+                <Ionicons name={tool.icon} color={colors.primary} size={19} />
+              </View>
+              <View style={styles.toolCopy}>
+                <Text style={styles.toolTitle}>{tool.title}</Text>
+                <Text style={styles.toolSubtitle}>{tool.subtitle}</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{tool.badge}</Text>
+              </View>
+            </Pressable>
+          ))}
+          {!filteredTools.length ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No tools found</Text>
+              <Text style={styles.emptyCopy}>Try a different search term.</Text>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
       flex: 1,
     },
-    overlay: {
-      backgroundColor: "rgba(6, 9, 14, 0.35)",
-      flex: 1,
-      justifyContent: "flex-end",
-    },
-    backdrop: {
-      flex: 1,
-    },
-    sheet: {
-      backgroundColor: colors.surface,
-      borderTopColor: colors.borderStrong,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
-      borderTopWidth: 1,
-      maxHeight: "86%",
-      minHeight: "60%",
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.sm,
-    },
-    handle: {
-      alignSelf: "center",
-      backgroundColor: colors.borderStrong,
-      borderRadius: 999,
-      height: 5,
-      width: 54,
+    container: {
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
     header: {
-      gap: spacing.xs,
-      paddingBottom: spacing.sm,
-      paddingTop: spacing.md,
-    },
-    badge: {
-      alignItems: "center",
-      alignSelf: "flex-start",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 999,
-      borderWidth: 1,
-      flexDirection: "row",
-      gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
-    },
-    badgeText: {
-      color: colors.primary,
-      fontSize: 11,
-      fontWeight: "900",
-      letterSpacing: 1,
-      textTransform: "uppercase",
+      gap: 4,
+      paddingTop: spacing.sm,
     },
     title: {
       color: colors.text,
-      fontSize: 30,
+      fontSize: 25,
       fontWeight: "900",
-      letterSpacing: -0.8,
+      letterSpacing: -0.6,
     },
     subtitle: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 21,
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: "700",
+      lineHeight: 17,
     },
-    grid: {
-      gap: spacing.md,
-      paddingBottom: spacing.md,
+    searchShell: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+    },
+    searchInput: {
+      color: colors.text,
+      flex: 1,
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    list: {
+      gap: 9,
     },
     toolCard: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
-      borderRadius: 20,
-      borderWidth: 1,
-      gap: spacing.sm,
-      padding: spacing.md,
-    },
-    toolTop: {
       alignItems: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       flexDirection: "row",
-      justifyContent: "space-between",
+      gap: spacing.sm,
+      minHeight: 90,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 9,
+    },
+    toolCardActive: {
+      borderColor: colors.primaryBorder,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
     },
     toolIcon: {
       alignItems: "center",
       backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 16,
-      borderWidth: 1,
-      height: 46,
-      justifyContent: "center",
-      width: 46,
-    },
-    toolTag: {
-      backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 40,
+      justifyContent: "center",
+      width: 40,
     },
-    toolTagText: {
-      color: colors.primary,
-      fontSize: 11,
-      fontWeight: "900",
-      textTransform: "uppercase",
+    toolIconActive: {
+      borderColor: colors.primaryBorder,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.22,
+      shadowRadius: 13,
+    },
+    toolCopy: {
+      flex: 1,
+      gap: 3,
     },
     toolTitle: {
       color: colors.text,
-      fontSize: 20,
+      fontSize: 13,
       fontWeight: "900",
     },
     toolSubtitle: {
-      color: colors.muted,
-      fontSize: 13,
-      lineHeight: 20,
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: "700",
+      lineHeight: 14,
     },
-    toolFooter: {
-      alignItems: "center",
-      flexDirection: "row",
-      gap: spacing.xs,
-      paddingTop: spacing.xs,
-    },
-    openText: {
-      color: colors.primary,
-      fontSize: 13,
-      fontWeight: "900",
-    },
-    footer: {
-      paddingBottom: spacing.md,
-      paddingTop: spacing.xs,
-    },
-    closeButton: {
-      alignItems: "center",
+    badge: {
       backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 14,
-      borderWidth: 1,
-      minHeight: 46,
-      justifyContent: "center",
+      borderColor: colors.primaryBorder,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
     },
-    closeButtonText: {
+    badgeText: {
       color: colors.primary,
-      fontSize: 14,
+      fontSize: 8,
       fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    emptyState: {
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.xs,
+      padding: spacing.md,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+    emptyCopy: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: "700",
     },
   });
 }

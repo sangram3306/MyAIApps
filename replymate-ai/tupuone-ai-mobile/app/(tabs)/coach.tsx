@@ -12,9 +12,12 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChipSelector } from "../../components/ChipSelector";
-import { spacing } from "../../constants/theme";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { analyzeCoachFromApi, CoachAnalyzeResponse } from "../../services/api";
 import { getBackendUrl } from "../../storage/appStorage";
@@ -41,12 +44,43 @@ const agentSteps = [
   "Checked final quality",
 ];
 
+const coachingModes = [
+  {
+    title: "Clarify",
+    copy: "Understand your thoughts better",
+    icon: "glasses-outline",
+    instruction: "Help me clarify the situation, intent, and emotional subtext before I reply.",
+  },
+  {
+    title: "Decide",
+    copy: "Evaluate options and risks",
+    icon: "git-compare-outline",
+    instruction: "Help me compare reply options, risks, and likely outcomes.",
+  },
+  {
+    title: "Plan",
+    copy: "Create actionable next steps",
+    icon: "map-outline",
+    instruction: "Help me create a clear response plan and next steps.",
+  },
+  {
+    title: "Reflect",
+    copy: "Review and improve",
+    icon: "refresh-circle-outline",
+    instruction: "Help me reflect on the situation and improve my reply thoughtfully.",
+  },
+] as const;
+
+type CoachingMode = (typeof coachingModes)[number]["title"];
+
 export default function CoachScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [message, setMessage] = useState("");
   const [relationshipContext, setRelationshipContext] = useState<RelationshipContext>("Friend");
+  const [selectedMode, setSelectedMode] = useState<CoachingMode>("Clarify");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<CoachAnalyzeResponse | null>(null);
@@ -79,9 +113,10 @@ export default function CoachScreen() {
     setResult(null);
 
     try {
+      const mode = coachingModes.find((item) => item.title === selectedMode) || coachingModes[0];
       const analysis = await analyzeCoachFromApi({
         backendUrl,
-        message: message.trim(),
+        message: `[Smart Coach mode: ${mode.title}]\n${mode.instruction}\n\nMessage to analyze:\n${message.trim()}`,
         relationshipContext,
       });
       setResult(analysis);
@@ -107,19 +142,21 @@ export default function CoachScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.keyboard}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.matrixGlowTop} />
-        <View style={styles.matrixGlowBottom} />
+      <MatrixBackground density={12} />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>Smart coaching</Text>
-          <Text style={styles.title}>Smart Reply Coach</Text>
-          <Text style={styles.subtitle}>
-            Decode intent, emotion, and risk through a neon matrix command center.
-          </Text>
+          <View style={styles.headerIcon}>
+            <Ionicons name="sparkles-outline" color={colors.primary} size={18} />
+          </View>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>Smart Coach</Text>
+            <Text style={styles.subtitle}>Your personal clarity companion</Text>
+          </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Message text</Text>
+          <Text style={styles.cardTitle}>What&apos;s on your mind?</Text>
+          <Text style={styles.cardHint}>Share anything. I&apos;ll help you think clearly and respond wisely.</Text>
           <TextInput
             multiline
             placeholder="Paste the message you received..."
@@ -129,6 +166,49 @@ export default function CoachScreen() {
             value={message}
             onChangeText={setMessage}
           />
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <Pressable
+            disabled={loading}
+            onPress={handleAnalyze}
+            style={[styles.button, loading && styles.buttonDisabled]}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <>
+                <Text style={styles.buttonText}>Start New Session</Text>
+                <Ionicons name="arrow-forward" color={colors.primary} size={16} />
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Coaching Modes</Text>
+          <Text style={styles.sectionMeta}>{selectedMode}</Text>
+        </View>
+        <View style={styles.modeGrid}>
+          {coachingModes.map((mode) => {
+            const selected = mode.title === selectedMode;
+            return (
+            <Pressable
+              key={mode.title}
+              onPress={() => setSelectedMode(mode.title)}
+              style={[styles.modeCard, selected && styles.modeCardActive]}
+            >
+              <View style={[styles.modeIcon, selected && styles.modeIconActive]}>
+                <Ionicons name={mode.icon as keyof typeof Ionicons.glyphMap} color={colors.primary} size={16} />
+              </View>
+              <View style={styles.modeCopy}>
+                <Text style={styles.modeTitle}>{mode.title}</Text>
+                <Text style={styles.modeSubtitle}>{mode.copy}</Text>
+              </View>
+              <Ionicons name={selected ? "checkmark-circle" : "chevron-forward"} color={selected ? colors.primary : colors.muted} size={16} />
+            </Pressable>
+          );
+          })}
         </View>
 
         <View style={styles.card}>
@@ -139,16 +219,6 @@ export default function CoachScreen() {
             onSelect={setRelationshipContext}
           />
         </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          disabled={loading}
-          onPress={handleAnalyze}
-          style={[styles.button, loading && styles.buttonDisabled]}
-        >
-          {loading ? <ActivityIndicator color="#08110D" /> : <Text style={styles.buttonText}>Analyze</Text>}
-        </Pressable>
 
         {result ? (
           <View style={styles.results}>
@@ -277,7 +347,7 @@ function riskAccent(level: string, colors: ReturnType<typeof useAppTheme>["color
   return colors.success;
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       backgroundColor: colors.background,
@@ -285,109 +355,125 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     container: {
       backgroundColor: colors.background,
-      gap: spacing.lg,
+      gap: 13,
       flexGrow: 1,
-      padding: spacing.md,
+      paddingHorizontal: 20,
       paddingBottom: spacing.xl * 1.5,
-    },
-    matrixGlowTop: {
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      height: 180,
-      opacity: 0.4,
-      position: "absolute",
-      right: -70,
-      top: -40,
-      width: 180,
-    },
-    matrixGlowBottom: {
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      bottom: 260,
-      height: 240,
-      left: -120,
-      opacity: 0.32,
-      position: "absolute",
-      width: 240,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
     header: {
+      alignItems: "center",
+      flexDirection: "row",
       gap: spacing.sm,
-      paddingTop: spacing.lg,
+      paddingTop: spacing.sm,
       zIndex: 1,
     },
-    eyebrow: {
-      color: colors.primary,
-      fontSize: 12,
-      fontWeight: "900",
-      letterSpacing: 1.4,
-      textTransform: "uppercase",
+    headerIcon: {
+      alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 40,
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.14,
+      shadowRadius: 12,
+      width: 40,
+    },
+    headerCopy: {
+      flex: 1,
+      gap: 2,
     },
     title: {
       color: colors.text,
-      fontSize: 34,
+      fontSize: 22,
       fontWeight: "900",
-      letterSpacing: -0.8,
+      letterSpacing: -0.4,
     },
     subtitle: {
-      color: colors.muted,
-      fontSize: 16,
-      lineHeight: 24,
-      maxWidth: 420,
+      color: colors.cyan,
+      fontSize: 12,
+      fontWeight: "700",
+      lineHeight: 17,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.borderStrong,
-      borderRadius: 18,
-      borderWidth: 1,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.sm,
       padding: spacing.md,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.12,
-      shadowRadius: 20,
     },
     label: {
       color: colors.primary,
-      fontSize: 15,
-      fontWeight: "800",
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
     },
     input: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 16,
-      borderWidth: 1,
+      backgroundColor: "rgba(17,24,36,0.74)",
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.text,
-      fontSize: 16,
-      minHeight: 160,
-      padding: spacing.md,
+      fontSize: 14,
+      minHeight: 132,
+      padding: spacing.sm,
     },
     error: {
       backgroundColor: colors.dangerSoft,
       borderColor: colors.danger,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.danger,
       lineHeight: 20,
-      padding: spacing.md,
+      padding: spacing.sm,
     },
     button: {
       alignItems: "center",
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      minHeight: 56,
+      backgroundColor: "rgba(0,255,198,0.08)",
+      borderColor: colors.primary,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 44,
       justifyContent: "center",
-      padding: spacing.md,
+      paddingHorizontal: spacing.md,
       shadowColor: colors.primary,
-      shadowOpacity: 0.28,
-      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
     },
     buttonDisabled: {
       opacity: 0.75,
     },
     buttonText: {
-      color: "#08110D",
-      fontSize: 16,
+      color: colors.primary,
+      fontSize: 13,
       fontWeight: "900",
       letterSpacing: 0.5,
+    },
+    sectionHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 2,
+    },
+    sectionTitle: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+    },
+    sectionMeta: {
+      color: colors.purple,
+      fontSize: 11,
+      fontWeight: "900",
     },
     results: {
       gap: spacing.md,
@@ -401,17 +487,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.md,
     },
     resultCard: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.74)",
       borderColor: colors.border,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       gap: spacing.xs,
-      padding: spacing.md,
+      padding: spacing.sm,
       flexBasis: "48%",
       flexGrow: 1,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.08,
-      shadowRadius: 14,
     },
     cardLabel: {
       color: colors.muted,
@@ -426,27 +509,81 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       lineHeight: 22,
     },
     replyCard: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceGlass,
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      gap: spacing.md,
-      padding: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.sm,
+      padding: spacing.sm,
     },
     cardTitle: {
       color: colors.text,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: "900",
+    },
+    cardHint: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    modeGrid: {
+      gap: spacing.sm,
+    },
+    modeCard: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 54,
+      padding: spacing.sm,
+    },
+    modeCardActive: {
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.14,
+      shadowRadius: 12,
+    },
+    modeIcon: {
+      alignItems: "center",
+      backgroundColor: "rgba(0,255,198,0.08)",
+      borderColor: colors.border,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 32,
+      justifyContent: "center",
+      width: 32,
+    },
+    modeIconActive: {
+      borderColor: colors.primaryBorder,
+    },
+    modeCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    modeTitle: {
+      color: colors.text,
+      fontSize: 13.5,
+      fontWeight: "900",
+    },
+    modeSubtitle: {
+      color: colors.textMuted,
+      fontSize: 11,
+      lineHeight: 15,
     },
     strategy: {
       color: colors.text,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 13,
+      lineHeight: 19,
     },
     reply: {
       color: colors.text,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 13,
+      lineHeight: 19,
     },
     actionRow: {
       flexDirection: "row",
@@ -454,12 +591,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     secondaryButton: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
     },
     secondaryButtonText: {
       color: colors.primary,
@@ -470,12 +607,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     stepPill: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.74)",
       borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
     },
     stepText: {
       color: colors.text,
@@ -491,11 +628,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     toolRow: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: "rgba(17,24,36,0.74)",
       borderColor: colors.border,
-      borderRadius: 12,
-      borderWidth: 1,
-      padding: spacing.md,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      padding: spacing.sm,
       gap: spacing.xs,
     },
     toolName: {
@@ -513,11 +650,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.sm,
     },
     tipItem: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 12,
-      borderWidth: 1,
-      padding: spacing.md,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      padding: spacing.sm,
     },
     tipItemDanger: {
       backgroundColor: colors.dangerSoft,

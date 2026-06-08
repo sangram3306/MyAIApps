@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { spacing } from "../../constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl } from "../../storage/appStorage";
 import { saveAgentDetails } from "../../storage/agentDetailsStore";
@@ -31,31 +33,14 @@ type ChatBubble = {
 
 export default function ChatScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const scrollRef = useRef<ScrollView | null>(null);
   const [backendUrl, setBackendUrl] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [messages, setMessages] = useState<ChatBubble[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Ask me anything. I can help you think, write, plan, explain, or refine an idea.",
-      toolCalls: [],
-      todos: [],
-      agentTrace: ["Ready for chat"],
-      metadata: {
-        toolsUsed: [],
-        toolSources: {
-          classifyIntent: "static",
-          todoSkill: "static",
-          answerGeneration: "static",
-        },
-      },
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatBubble[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -152,13 +137,31 @@ export default function ChatScreen() {
       style={styles.keyboard}
     >
       <View style={styles.container}>
-        <View style={styles.matrixGlowTop} />
-        <View style={styles.matrixGlowBottom} />
+        <MatrixBackground density={13} />
 
         <View style={styles.thread}>
           <View style={styles.threadHeader}>
-            <Text style={styles.threadTitle}>Chat</Text>
-            <Text style={styles.threadSubtitle}>ReplyMate AI</Text>
+            <View style={styles.aiBadge}>
+              <Ionicons name="logo-electron" color={colors.purple} size={19} />
+            </View>
+            <View>
+              <Text style={styles.threadTitle}>
+                SP ONE <Text style={styles.threadTitleAccent}>AI</Text>
+              </Text>
+              <Text style={styles.threadSubtitle}>Your AI assistant for thinking, writing and planning.</Text>
+            </View>
+          </View>
+          <View style={styles.promptGrid}>
+            {[
+              "Plan a trip to Japan ✈️",
+              "Write a professional email 📨",
+              "Help me analyze my expenses 💰",
+              "Give me content ideas 💡",
+            ].map((prompt) => (
+              <Pressable key={prompt} onPress={() => void handleSend(prompt)} style={styles.promptPill}>
+                <Text style={styles.promptText}>{prompt}</Text>
+              </Pressable>
+            ))}
           </View>
           <ScrollView
             ref={scrollRef}
@@ -167,35 +170,36 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {messages.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.bubble,
-                  item.role === "user" ? styles.userBubble : styles.assistantBubble,
-                ]}
-              >
-                <Text style={styles.bubbleRole}>{item.role === "user" ? "You" : "ReplyMate AI"}</Text>
-                <Text style={styles.bubbleText}>{item.content}</Text>
+            {messages.length ? (
+              messages.map((item) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.bubble,
+                    item.role === "user" ? styles.userBubble : styles.assistantBubble,
+                  ]}
+                >
+                  <Text style={styles.bubbleText}>{item.content}</Text>
 
-                {item.role === "assistant" && item.metadata && item.id !== "welcome" ? (
-                  <Pressable
-                    onPress={() =>
-                      router.push(`/agent-details?id=${encodeURIComponent(item.id)}` as never)
-                    }
-                    style={styles.detailsLink}
-                  >
-                    <View>
-                      <Text style={styles.detailsLinkTitle}>View Execution Flow</Text>
-                      <Text style={styles.detailsLinkSubtitle}>
-                        LLM decisions, tool calls, MCP results, and final answer
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" color={colors.primary} size={18} />
-                  </Pressable>
-                ) : null}
+                  {item.role === "assistant" && item.metadata ? (
+                    <Pressable
+                      onPress={() =>
+                        router.push(`/agent-details?id=${encodeURIComponent(item.id)}` as never)
+                      }
+                      style={styles.detailsLink}
+                    >
+                      <Text style={styles.detailsLinkTitle}>View flow</Text>
+                      <Ionicons name="chevron-forward" color={colors.primary} size={15} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyHint}>
+                <Text style={styles.emptyHintTitle}>Start with a question</Text>
+                <Text style={styles.emptyHintCopy}>Choose a prompt above or ask SP ONE AI anything.</Text>
               </View>
-            ))}
+            )}
           </ScrollView>
         </View>
 
@@ -212,6 +216,9 @@ export default function ChatScreen() {
               value={message}
               onChangeText={setMessage}
             />
+            <View style={styles.micIcon}>
+              <Ionicons name="mic-outline" color={colors.primary} size={18} />
+            </View>
 
             <Pressable
               disabled={loading}
@@ -226,13 +233,14 @@ export default function ChatScreen() {
               )}
             </Pressable>
           </View>
+          <Text style={styles.disclaimer}>SP ONE can make mistakes. Verify important info.</Text>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       backgroundColor: colors.background,
@@ -241,170 +249,221 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     container: {
       backgroundColor: colors.background,
       flex: 1,
-      padding: spacing.sm,
-      paddingBottom: spacing.md,
-    },
-    matrixGlowTop: {
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      height: 170,
-      opacity: 0.38,
-      position: "absolute",
-      right: -70,
-      top: -40,
-      width: 170,
-    },
-    matrixGlowBottom: {
-      backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      bottom: 120,
-      height: 220,
-      left: -110,
-      opacity: 0.24,
-      position: "absolute",
-      width: 220,
+      paddingBottom: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
     thread: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 0,
-      borderWidth: 1,
+      backgroundColor: "transparent",
       flex: 1,
-      marginHorizontal: -spacing.sm,
-      marginTop: -spacing.sm,
-      overflow: "hidden",
-      shadowColor: colors.primary,
-      shadowOpacity: 0.12,
-      shadowRadius: 18,
+      gap: spacing.md,
       zIndex: 1,
     },
     threadHeader: {
-      borderBottomColor: colors.border,
-      borderBottomWidth: 1,
-      gap: 2,
-      paddingHorizontal: spacing.md,
-      paddingBottom: spacing.sm,
-      paddingTop: spacing.md,
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.md,
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.sm,
+    },
+    aiBadge: {
+      alignItems: "center",
+      backgroundColor: colors.secondarySoft,
+      borderColor: "rgba(124,58,237,0.42)",
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 38,
+      justifyContent: "center",
+      shadowColor: colors.purple,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.24,
+      shadowRadius: 16,
+      width: 38,
     },
     threadTitle: {
       color: colors.text,
       fontSize: 20,
       fontWeight: "900",
+      letterSpacing: 0.5,
+    },
+    threadTitleAccent: {
+      color: colors.primary,
     },
     threadSubtitle: {
-      color: colors.primary,
-      fontSize: 12,
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: "700",
+      lineHeight: 15,
+      maxWidth: 240,
+      marginTop: 3,
+    },
+    promptGrid: {
+      gap: 7,
+      paddingHorizontal: spacing.xs,
+    },
+    promptPill: {
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
+    },
+    promptText: {
+      color: colors.textMuted,
+      fontSize: 11,
       fontWeight: "800",
-      textTransform: "uppercase",
     },
     threadContent: {
+      flexGrow: 1,
       gap: spacing.sm,
-      padding: spacing.md,
-      paddingBottom: spacing.xl,
+      justifyContent: "flex-end",
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.md,
     },
     bubble: {
-      borderRadius: 16,
-      borderWidth: 1,
-      gap: spacing.sm,
-      padding: spacing.sm,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
     },
     userBubble: {
       alignSelf: "flex-end",
       backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      maxWidth: "88%",
+      borderColor: colors.primaryBorder,
+      maxWidth: "86%",
       minWidth: "34%",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.14,
+      shadowRadius: 12,
     },
     assistantBubble: {
       alignSelf: "flex-start",
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      maxWidth: "92%",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
+      maxWidth: "88%",
       minWidth: "44%",
-    },
-    bubbleRole: {
-      color: colors.primary,
-      fontSize: 11,
-      fontWeight: "900",
-      letterSpacing: 1.1,
-      textTransform: "uppercase",
+      shadowColor: colors.cyan,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
     },
     bubbleText: {
       color: colors.text,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 14,
+      lineHeight: 20,
     },
     detailsLink: {
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 999,
-      borderWidth: 1,
+      alignSelf: "flex-start",
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.pill,
       flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
     },
     detailsLinkTitle: {
       color: colors.primary,
-      fontSize: 12,
+      fontSize: typography.micro,
       fontWeight: "900",
       textTransform: "uppercase",
     },
-    detailsLinkSubtitle: {
-      color: colors.muted,
-      fontSize: 9,
+    emptyHint: {
+      alignSelf: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      padding: spacing.md,
+      width: "100%",
+    },
+    emptyHintTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "900",
+      textAlign: "center",
+    },
+    emptyHintCopy: {
+      color: colors.textMuted,
+      fontSize: 11,
       fontWeight: "700",
-      marginTop: 2,
+      lineHeight: 16,
+      marginTop: 4,
+      textAlign: "center",
     },
     error: {
       backgroundColor: colors.dangerSoft,
       borderColor: colors.danger,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.danger,
       lineHeight: 20,
-      padding: spacing.md,
+      padding: spacing.sm,
+      zIndex: 1,
     },
     composer: {
+      gap: 3,
       paddingBottom: Platform.OS === "android" ? spacing.xs : 0,
       paddingTop: spacing.xs,
+      zIndex: 1,
     },
     composerShell: {
-      alignItems: "flex-end",
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 18,
-      borderWidth: 1,
+      alignItems: "center",
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
       flexDirection: "row",
       gap: spacing.sm,
-      minHeight: 58,
-      padding: spacing.xs,
+      minHeight: 48,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
       shadowColor: colors.primary,
-      shadowOpacity: 0.14,
-      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
     },
     input: {
       backgroundColor: "transparent",
       color: colors.text,
       flex: 1,
-      fontSize: 15,
-      maxHeight: 120,
-      minHeight: 44,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.sm,
-      lineHeight: 22,
+      fontSize: 14,
+      maxHeight: 110,
+      minHeight: 36,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: spacing.xs,
+      lineHeight: 20,
+    },
+    micIcon: {
+      alignItems: "center",
+      height: 34,
+      justifyContent: "center",
+      width: 24,
     },
     sendButton: {
       alignItems: "center",
       backgroundColor: colors.primary,
-      borderRadius: 14,
-      height: 46,
+      borderRadius: radius.pill,
+      height: 38,
       justifyContent: "center",
-      width: 46,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      width: 38,
     },
     sendButtonDisabled: {
       opacity: 0.75,
+    },
+    disclaimer: {
+      color: colors.mutedSoft,
+      fontSize: 10,
+      fontWeight: "700",
+      textAlign: "center",
     },
   });
 }

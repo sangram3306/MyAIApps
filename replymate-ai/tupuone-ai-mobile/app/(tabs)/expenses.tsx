@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { spacing } from "../../constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MatrixBackground } from "../../components/PremiumUI";
+import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import {
   getAutoCategorySuggestionsPreference,
@@ -22,18 +24,13 @@ import {
   getBudgetWarningThresholdPreference,
   getQuickAddCategoriesPreference,
 } from "../../storage/appStorage";
-import {
-  createExpenseFromApi,
-  ExpenseItem,
-  ExpenseMessageResponse,
-  sendExpenseMessageFromApi,
-} from "../../services/api";
+import { createExpenseFromApi } from "../../services/api";
 
-const baseCategories: Array<{
+const baseCategories: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   accent: string;
-}> = [
+}[] = [
   { label: "Food", icon: "restaurant-outline", accent: "#FFD166" },
   { label: "Groceries", icon: "basket-outline", accent: "#45F5C6" },
   { label: "Transport", icon: "car-outline", accent: "#7DD3FC" },
@@ -45,12 +42,6 @@ const baseCategories: Array<{
   { label: "Travel", icon: "airplane-outline", accent: "#93C5FD" },
   { label: "Education", icon: "school-outline", accent: "#A7F3D0" },
   { label: "Other", icon: "apps-outline", accent: "#CBD5E1" },
-];
-
-const insightPrompts = [
-  "Summarize all expenses",
-  "Summarize food expenses",
-  "Which category is highest?",
 ];
 
 const categoryLookup: Record<string, string> = {
@@ -77,7 +68,8 @@ const categoryLookup: Record<string, string> = {
 
 export default function ExpensesScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
   const [budgetWarningThreshold, setBudgetWarningThreshold] = useState(80);
@@ -91,11 +83,8 @@ export default function ExpensesScreen() {
   const [currency, setCurrency] = useState<"AED" | "INR">("AED");
   const [category, setCategory] = useState("Food");
   const [note, setNote] = useState("");
-  const [insightPrompt, setInsightPrompt] = useState("");
   const [saving, setSaving] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<ExpenseMessageResponse | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -183,7 +172,6 @@ export default function ExpensesScreen() {
         category: category.toLowerCase(),
         description: note.trim() || category,
       });
-      setResult(response);
       setAmount("");
       setNote("");
       warnIfOverBudget(response.total, budgetTarget, budgetWarningThreshold);
@@ -194,90 +182,72 @@ export default function ExpensesScreen() {
     }
   }
 
-  async function handleAnalyze(value?: string) {
-    const nextPrompt = (value ?? insightPrompt).trim();
-
-    if (!backendUrl) {
-      setError("ReplyMate AI could not find the backend URL. Please restart the app.");
-      return;
-    }
-
-    if (!nextPrompt) {
-      setError("Ask for an expense summary or insight.");
-      return;
-    }
-
-    setAnalyzing(true);
-    setError("");
-    setInsightPrompt(nextPrompt);
-
-    try {
-      const response = await sendExpenseMessageFromApi({
-        backendUrl,
-        message: nextPrompt,
-      });
-      setResult(response);
-      warnIfOverBudget(response.total, budgetTarget, budgetWarningThreshold);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Expense insights are temporarily unavailable.");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
       style={styles.keyboard}
     >
+      <MatrixBackground density={12} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.glowPrimary} />
-        <View style={styles.glowAmber} />
-
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
-            <Ionicons name="wallet-outline" color={colors.primary} size={28} />
+            <Ionicons name="wallet-outline" color={colors.primary} size={22} />
           </View>
-          <Text style={styles.eyebrow}>AI Finance Skill</Text>
-          <Text style={styles.title}>Expense Tracker</Text>
-          <Text style={styles.subtitle}>
-            Save expenses with clean categories, then ask AI to summarize patterns from your DB.
-          </Text>
+          <View style={styles.heroCopy}>
+            <Text style={styles.title}>Expense Tracker</Text>
+            <Text style={styles.subtitle}>
+              Track, analyze and optimize your spending.
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.linkCardCompact}>
-          <Pressable
-            onPress={() => router.push("/spending-summary" as never)}
-            style={styles.linkRowCompact}
-          >
-            <View style={styles.linkRowLeft}>
-              <Ionicons name="stats-chart-outline" color={colors.primary} size={16} />
-              <Text style={styles.linkTitleCompact}>Spending Summary</Text>
+        <View style={styles.monthCard}>
+          <View style={styles.monthTop}>
+            <View>
+              <Text style={styles.monthLabel}>This month</Text>
+              <Text style={styles.monthAmount}>AED 2,450.75</Text>
+              <Text style={styles.monthDelta}>↗ 18% vs last month</Text>
             </View>
-            <Ionicons name="chevron-forward" color={colors.muted} size={16} />
-          </Pressable>
+            <View style={styles.ringOuter}>
+              <View style={styles.ringAccent} />
+              <View style={styles.ringInner} />
+            </View>
+          </View>
 
-          <Pressable
-            onPress={() => router.push("/expense-intelligence" as never)}
-            style={styles.linkRowCompact}
-          >
-            <View style={styles.linkRowLeft}>
-              <Ionicons name="analytics-outline" color={colors.primary} size={16} />
-              <Text style={styles.linkTitleCompact}>Expense Intelligence</Text>
-            </View>
-            <Ionicons name="chevron-forward" color={colors.muted} size={16} />
-          </Pressable>
+          <View style={styles.monthActions}>
+            <Pressable
+              onPress={() => router.push("/spending-summary" as never)}
+              style={styles.linkRowCompact}
+            >
+              <View style={styles.linkRowLeft}>
+                <Ionicons name="git-network-outline" color={colors.primary} size={15} />
+                <Text style={styles.linkTitleCompact}>Spending Summary</Text>
+              </View>
+              <Ionicons name="chevron-forward" color={colors.primary} size={16} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/expense-intelligence" as never)}
+              style={styles.linkRowCompact}
+            >
+              <View style={styles.linkRowLeft}>
+                <Ionicons name="git-network-outline" color={colors.primary} size={15} />
+                <Text style={styles.linkTitleCompact}>Expense Intelligence</Text>
+              </View>
+              <Ionicons name="chevron-forward" color={colors.primary} size={16} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Save Expense</Text>
+            <Text style={styles.sectionTitle}>Add Expense</Text>
           </View>
 
           <View style={styles.amountShell}>
@@ -368,122 +338,16 @@ export default function ExpensesScreen() {
             style={[styles.primaryButton, saving && styles.disabledButton]}
           >
             {saving ? (
-              <ActivityIndicator color={colors.onPrimary} />
+              <ActivityIndicator color={colors.text} />
             ) : (
               <>
-                <Ionicons name="add-circle-outline" color={colors.onPrimary} size={19} />
+                <Ionicons name="add-circle-outline" color={colors.text} size={17} />
                 <Text style={styles.primaryButtonText}>Save Expense</Text>
               </>
             )}
           </Pressable>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>AI Insights</Text>
-            <Text style={styles.sectionHint}>LLM + MCP tools</Text>
-          </View>
-
-          <TextInput
-            multiline
-            placeholder="Ask: summarize food expenses, show this month's spending..."
-            placeholderTextColor={colors.muted}
-            style={styles.insightInput}
-            textAlignVertical="top"
-            value={insightPrompt}
-            onChangeText={setInsightPrompt}
-          />
-
-          <View style={styles.quickRow}>
-            {insightPrompts.map((prompt) => (
-              <Pressable
-                key={prompt}
-                disabled={analyzing}
-                onPress={() => handleAnalyze(prompt)}
-                style={styles.quickPill}
-              >
-                <Text style={styles.quickText}>{prompt}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Pressable
-            disabled={analyzing}
-            onPress={() => handleAnalyze()}
-            style={[styles.secondaryButton, analyzing && styles.disabledButton]}
-          >
-            {analyzing ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <>
-                <Ionicons name="sparkles-outline" color={colors.primary} size={18} />
-                <Text style={styles.secondaryButtonText}>Generate Insight</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        {result ? (
-          <View style={styles.results}>
-            <View style={styles.insightCard}>
-              <Text style={styles.sectionKicker}>Latest Result</Text>
-              <Text style={styles.answer}>{result.assistantReply}</Text>
-            </View>
-
-            <View style={styles.metricsRow}>
-              <MetricCard styles={styles} label="Total" value={formatTotal(result)} />
-              <MetricCard styles={styles} label="Records" value={`${result.expenses.length}`} />
-            </View>
-
-            {result.toolCalls.length ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Skills & Tools</Text>
-                <View style={styles.pillWrap}>
-                  {result.metadata.toolSources.answerGeneration === "llm" ? (
-                    <View style={styles.toolPill}>
-                      <Text style={styles.pillType}>Skill</Text>
-                      <Text style={styles.pillName}>Expense Insights</Text>
-                      <Text style={styles.pillSource}>LLM</Text>
-                    </View>
-                  ) : null}
-                  {result.toolCalls.map((tool, index) => (
-                    <View key={`${tool.name}-${index}`} style={styles.toolPill}>
-                      <Text style={styles.pillType}>Tool</Text>
-                      <Text style={styles.pillName}>{labelForTool(tool.name)}</Text>
-                      <Text style={styles.dbBadge}>DB</Text>
-                      <Text style={styles.pillSource}>{tool.source}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            {result.byCategory?.length ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Category Breakdown</Text>
-                {result.byCategory.map((item) => (
-                  <View key={item.category} style={styles.categoryRow}>
-                    <Text style={styles.categoryName}>{item.category}</Text>
-                    <Text style={styles.categoryValue}>
-                      {formatAmount(item.total, commonCurrency(result.expenses))} · {item.count}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            {result.expenses.length ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Recent Expenses</Text>
-                {result.expenses.slice(0, 8).map((expense, index) => (
-                  <ExpenseRow styles={styles} key={expense.id} expense={expense} index={index} />
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -520,155 +384,135 @@ function warnIfOverBudget(total: number | undefined, budgetTarget: number | null
   }
 }
 
-function MetricCard({
-  styles,
-  label,
-  value,
-}: {
-  styles: ReturnType<typeof createStyles>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function ExpenseRow({
-  styles,
-  expense,
-  index,
-}: {
-  styles: ReturnType<typeof createStyles>;
-  expense: ExpenseItem;
-  index: number;
-}) {
-  return (
-    <View style={styles.expenseRow}>
-      <View style={styles.expenseNumber}>
-        <Text style={styles.expenseNumberText}>{index + 1}</Text>
-      </View>
-      <View style={styles.expenseMain}>
-        <Text style={styles.expenseDescription}>{expense.description}</Text>
-        <Text style={styles.expenseMeta}>
-          {expense.category} · {expense.date}
-        </Text>
-      </View>
-      <Text style={styles.expenseAmount}>{formatAmount(expense.amount, expense.currency || "AED")}</Text>
-    </View>
-  );
-}
-
-function labelForTool(toolName: string): string {
-  const labels: Record<string, string> = {
-    createExpense: "Create Expense",
-    listExpenses: "List Expenses",
-    expenseSummary: "Expense Summary",
-    deleteExpense: "Delete Expense",
-  };
-  return labels[toolName] || toolName;
-}
-
-function formatTotal(result: ExpenseMessageResponse): string {
-  return formatAmount(result.total, commonCurrency(result.expenses));
-}
-
-function commonCurrency(expenses: ExpenseItem[]): "AED" | "INR" | undefined {
-  const currencies = new Set(expenses.map((expense) => expense.currency || "AED"));
-  return currencies.size === 1 ? [...currencies][0] : undefined;
-}
-
-function formatAmount(value: number | undefined, currency?: "AED" | "INR"): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return currency ? `${currency} 0.00` : "0.00";
-  }
-
-  const formatted = value.toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
-  });
-  return currency ? `${currency} ${formatted}` : formatted;
-}
-
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       backgroundColor: colors.background,
       flex: 1,
     },
     content: {
-      gap: spacing.md,
-      padding: spacing.md,
+      gap: 13,
+      paddingHorizontal: 20,
       paddingBottom: spacing.xl,
-    },
-    glowPrimary: {
-      backgroundColor: "rgba(69, 245, 198, 0.18)",
-      borderRadius: 999,
-      height: 180,
-      position: "absolute",
-      right: -70,
-      top: -50,
-      width: 180,
-    },
-    glowAmber: {
-      backgroundColor: colors.secondarySoft,
-      borderRadius: 999,
-      height: 220,
-      left: -120,
-      position: "absolute",
-      top: 260,
-      width: 220,
+      paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
     hero: {
-      gap: spacing.xs,
-      paddingTop: spacing.lg,
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+      paddingTop: spacing.sm,
     },
     heroIcon: {
       alignItems: "center",
       backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 18,
-      borderWidth: 1,
-      height: 54,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 42,
       justifyContent: "center",
-      marginBottom: spacing.sm,
-      width: 54,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      width: 42,
     },
-    eyebrow: {
-      color: colors.primary,
-      fontSize: 12,
-      fontWeight: "900",
-      letterSpacing: 1.2,
-      textTransform: "uppercase",
+    heroCopy: {
+      flex: 1,
+      gap: 2,
     },
     title: {
       color: colors.text,
-      fontSize: 34,
+      fontSize: 22,
       fontWeight: "900",
-      letterSpacing: -1,
+      letterSpacing: -0.4,
     },
     subtitle: {
-      color: colors.muted,
-      fontSize: 16,
-      lineHeight: 24,
+      color: colors.cyan,
+      fontSize: 12,
+      fontWeight: "700",
+      lineHeight: 17,
+      maxWidth: 220,
+    },
+    monthCard: {
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.sm,
+      padding: spacing.sm,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+    },
+    monthTop: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    monthLabel: {
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: "900",
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+    },
+    monthAmount: {
+      color: colors.text,
+      fontSize: 23,
+      fontWeight: "900",
+      letterSpacing: -0.5,
+      marginTop: spacing.xs,
+    },
+    monthDelta: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      marginTop: spacing.xs,
+    },
+    ringOuter: {
+      alignItems: "center",
+      backgroundColor: colors.primary,
+      borderColor: colors.purple,
+      borderRadius: radius.pill,
+      borderRightColor: colors.cyan,
+      borderTopColor: colors.purple,
+      borderWidth: 12,
+      height: 70,
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.26,
+      shadowRadius: 18,
+      width: 70,
+    },
+    ringAccent: {
+      backgroundColor: colors.background,
+      borderRadius: radius.pill,
+      height: 34,
+      position: "absolute",
+      width: 34,
+    },
+    ringInner: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      height: 30,
+      width: 30,
     },
     card: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceGlass,
       borderColor: colors.border,
-      borderRadius: 22,
-      borderWidth: 1,
-      gap: spacing.md,
-      padding: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.sm,
+      padding: spacing.sm,
     },
     sectionHeader: {
       gap: 2,
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 17,
+      fontSize: 15,
       fontWeight: "900",
     },
     sectionHint: {
@@ -678,20 +522,20 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       letterSpacing: 0.8,
       textTransform: "uppercase",
     },
-    linkCardCompact: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 22,
-      borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 2,
+    monthActions: {
+      gap: 7,
     },
     linkRowCompact: {
       alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
       flexDirection: "row",
       justifyContent: "space-between",
-      minHeight: 44,
-      paddingVertical: spacing.xs,
+      minHeight: 35,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
     },
     linkRowLeft: {
       alignItems: "center",
@@ -700,17 +544,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     linkTitleCompact: {
       color: colors.text,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: "900",
     },
     amountShell: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 16,
-      borderWidth: 1,
-      gap: spacing.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
     },
     amountEntryRow: {
       alignItems: "center",
@@ -720,20 +564,20 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     amountLabel: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 10,
       fontWeight: "900",
       textTransform: "uppercase",
     },
     currencySwitch: {
       backgroundColor: colors.surface,
       borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
       flexDirection: "row",
       padding: 3,
     },
     currencyOption: {
-      borderRadius: 999,
+      borderRadius: radius.pill,
       paddingHorizontal: spacing.sm,
       paddingVertical: 5,
     },
@@ -742,7 +586,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     currencyText: {
       color: colors.muted,
-      fontSize: 11,
+      fontSize: 9,
       fontWeight: "900",
     },
     currencyTextSelected: {
@@ -764,52 +608,53 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     categoryHeaderLabel: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 10,
       fontWeight: "900",
       letterSpacing: 0.7,
       textTransform: "uppercase",
     },
     categoryHeaderValue: {
       color: colors.primary,
-      fontSize: 13,
+      fontSize: 11,
       fontWeight: "900",
     },
     categoryRail: {
       flexDirection: "row",
       gap: spacing.xs,
       paddingRight: spacing.md,
-      paddingVertical: 2,
+      paddingVertical: 1,
     },
     categoryCard: {
       alignItems: "center",
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      gap: spacing.xs,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      gap: 3,
       justifyContent: "center",
-      minHeight: 92,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.sm,
-      width: 92,
+      minHeight: 64,
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+      width: 62,
     },
     categoryCardSelected: {
       backgroundColor: colors.primarySoft,
       shadowColor: colors.primary,
-      shadowOpacity: 0.22,
-      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.16,
+      shadowRadius: 11,
     },
     categoryIcon: {
       alignItems: "center",
-      borderRadius: 16,
-      borderWidth: 1,
-      height: 40,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      height: 30,
       justifyContent: "center",
-      width: 40,
+      width: 30,
     },
     categoryCardText: {
       color: colors.text,
-      fontSize: 12,
+      fontSize: 9,
       fontWeight: "900",
       textAlign: "center",
     },
@@ -819,13 +664,13 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     noteInput: {
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.border,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
       color: colors.text,
-      fontSize: 15,
-      minHeight: 48,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      fontSize: 12,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
     },
   insightInput: {
     backgroundColor: colors.surfaceElevated,
@@ -858,12 +703,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 18,
+    backgroundColor: colors.primaryDim,
+    borderColor: colors.cyan,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: spacing.xs,
     justifyContent: "center",
-    minHeight: 54,
+    minHeight: 42,
+    shadowColor: colors.purple,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.34,
+    shadowRadius: 14,
   },
   secondaryButton: {
     alignItems: "center",
@@ -880,8 +731,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     opacity: 0.75,
   },
   primaryButtonText: {
-    color: colors.onPrimary,
-    fontSize: 16,
+    color: colors.text,
+    fontSize: 13,
     fontWeight: "900",
   },
   secondaryButtonText: {
@@ -892,11 +743,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   error: {
     backgroundColor: colors.dangerSoft,
     borderColor: colors.danger,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     color: colors.danger,
     lineHeight: 20,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   results: {
     gap: spacing.md,
