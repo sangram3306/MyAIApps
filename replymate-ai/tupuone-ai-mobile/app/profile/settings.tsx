@@ -26,10 +26,10 @@ import {
 
 const defaultTabOptions: { label: string; value: DefaultTabId }[] = [
   { label: "Home", value: "home" },
-  { label: "Chat", value: "chat" },
-  { label: "Tools", value: "tools" },
+  { label: "CineTrack", value: "movieTracker" },
+  { label: "General Chat", value: "chat" },
   { label: "Expenses", value: "expenses" },
-  { label: "Profile", value: "profile" },
+  { label: "Settings", value: "settings" },
 ];
 
 const themeOptions = [

@@ -1,11 +1,19 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
+import { getBackendUrl } from "../../storage/appStorage";
+import {
+  ExpenseItem,
+  getExpenseExportFromApi,
+  listWatchItemsFromApi,
+  WatchEntry,
+} from "../../services/api";
 
 const quickActions = [
   {
@@ -30,13 +38,6 @@ const quickActions = [
     accent: "primary",
   },
   {
-    icon: "wallet-outline",
-    title: "Expense Tracker",
-    subtitle: "Track & analyze",
-    route: "/(tabs)/expenses",
-    accent: "purple",
-  },
-  {
     icon: "color-wand-outline",
     title: "Creator Studio",
     subtitle: "Repurpose content",
@@ -50,12 +51,70 @@ const quickActions = [
     route: "/tools/coach",
     accent: "cyan",
   },
+  {
+    icon: "git-branch-outline",
+    title: "Decision Simulator",
+    subtitle: "Compare choices",
+    route: "/decision-simulator",
+    accent: "primary",
+  },
+  {
+    icon: "trending-up-outline",
+    title: "Personal Skill Tree",
+    subtitle: "Grow skills",
+    route: "/skill-tree",
+    accent: "cyan",
+  },
+  {
+    icon: "book-outline",
+    title: "Learning Roadmap",
+    subtitle: "Plan learning",
+    route: "/learning-roadmap",
+    accent: "purple",
+  },
 ] as const;
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+  const greeting = useMemo(() => getGreeting(), []);
+  const [monthSpend, setMonthSpend] = useState<GlanceSpend | null>(null);
+  const [watchPick, setWatchPick] = useState<WatchPick | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      async function loadGlance() {
+        try {
+          const backendUrl = await getBackendUrl();
+          const [expenseExport, watchList] = await Promise.all([
+            getExpenseExportFromApi({ backendUrl }).catch(() => null),
+            listWatchItemsFromApi({ backendUrl }).catch(() => null),
+          ]);
+
+          if (!active) {
+            return;
+          }
+
+          setMonthSpend(expenseExport ? buildMonthSpend(expenseExport.expenses) : null);
+          setWatchPick(watchList ? pickPlannedStreamingTitle(watchList.entries) : null);
+        } catch {
+          if (active) {
+            setMonthSpend(null);
+            setWatchPick(null);
+          }
+        }
+      }
+
+      void loadGlance();
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   return (
     <View style={styles.screen}>
@@ -63,12 +122,17 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.heroShell}>
           <View style={styles.headerTop}>
-            <Image
-              accessibilityLabel="SP ONE"
-              resizeMode="contain"
-              source={require("../../assets/brand/sp_one_label.png")}
-              style={styles.wordmark}
-            />
+            <View style={styles.brandBlock}>
+              <View style={styles.wordmarkClip}>
+                <Image
+                  accessibilityLabel="SP ONE"
+                  resizeMode="contain"
+                  source={require("../../assets/brand/sp_one_label.png")}
+                  style={styles.wordmark}
+                />
+              </View>
+              <Text style={styles.brandCredit}>by Sangram</Text>
+            </View>
             <Pressable
               accessibilityLabel="Open profile"
               onPress={() => router.push("/(tabs)/profile" as never)}
@@ -81,7 +145,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.heroCopy}>
-            <Text style={styles.heroKicker}>Good evening,</Text>
+            <Text style={styles.heroKicker}>{greeting},</Text>
             <Text style={styles.heroTitle}>Sangram 👋</Text>
             <Text style={styles.subtitle}>What would you like to do today?</Text>
           </View>
@@ -95,13 +159,13 @@ export default function HomeScreen() {
               style={styles.commandInput}
             />
             <View style={styles.commandIcon}>
-              <Ionicons name="mic" color={colors.onPrimary} size={15} />
+              <Ionicons name="arrow-forward" color={colors.onPrimary} size={15} />
             </View>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Quick actions" />
+          <SectionHeader title="Tools" />
           <View style={styles.quickGrid}>
             {quickActions.map((action) => (
               <QuickActionCard
@@ -117,16 +181,52 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Today at a glance" action="View analytics" />
-          <View style={styles.statsRow}>
-            <StatCard value="12" label="Tasks Completed" accent="primary" />
-            <StatCard value="AED 2,450" label="Expenses Tracked" accent="primary" />
-            <StatCard value="3" label="Tools Used" accent="purple" />
+          <SectionHeader title="Today at a glance" />
+          <View style={styles.glanceGrid}>
+            <GlanceCard
+              icon="wallet-outline"
+              label="Spend this month"
+              value={monthSpend ? formatAmount(monthSpend.total, monthSpend.currency) : "No spend yet"}
+              accent="primary"
+            />
+            <GlanceCard
+              icon="film-outline"
+              label={watchPick?.providers.length ? watchPick.providers.join(" + ") : "Prime IN + Netflix IN"}
+              value={watchPick?.title || "No planned pick yet"}
+              accent="purple"
+            />
           </View>
         </View>
       </ScrollView>
     </View>
   );
+}
+
+type GlanceSpend = {
+  total: number;
+  currency: "AED" | "INR";
+};
+
+type WatchPick = {
+  title: string;
+  providers: string[];
+};
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 5) {
+    return "Good night";
+  }
+  if (hour < 12) {
+    return "Good morning";
+  }
+  if (hour < 17) {
+    return "Good afternoon";
+  }
+  if (hour < 21) {
+    return "Good evening";
+  }
+  return "Good night";
 }
 
 function SectionHeader({ title, action }: { title: string; action?: string }) {
@@ -188,16 +288,110 @@ function QuickActionCard({
   );
 }
 
-function StatCard({ value, label, accent }: { value: string; label: string; accent: "primary" | "purple" }) {
+function GlanceCard({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  accent: "primary" | "purple";
+}) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStatStyles(colors), [colors]);
+  const styles = useMemo(() => createGlanceStyles(colors), [colors]);
   const isPurple = accent === "purple";
+
   return (
     <View style={[styles.card, isPurple ? styles.purpleCard : styles.primaryCard]}>
-      <Text style={[styles.value, isPurple && styles.purpleValue]}>{value}</Text>
+      <View style={[styles.iconShell, isPurple ? styles.purpleIconShell : styles.primaryIconShell]}>
+        <Ionicons name={icon} color={isPurple ? colors.purple : colors.primary} size={15} />
+      </View>
       <Text style={styles.label}>{label}</Text>
+      <Text numberOfLines={2} style={[styles.value, isPurple && styles.purpleValue]}>
+        {value}
+      </Text>
     </View>
   );
+}
+
+function buildMonthSpend(expenses: ExpenseItem[]): GlanceSpend {
+  const now = new Date();
+  const monthExpenses = expenses.filter((expense) => {
+    const parsed = parseExpenseDate(expense.date || expense.createdAt);
+    return parsed.getFullYear() === now.getFullYear() && parsed.getMonth() === now.getMonth();
+  });
+  const currency = commonCurrency(monthExpenses) || "AED";
+  const total = monthExpenses
+    .filter((expense) => (expense.currency || "AED") === currency)
+    .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+
+  return { total, currency };
+}
+
+function pickPlannedStreamingTitle(entries: WatchEntry[]): WatchPick | null {
+  const candidates = entries
+    .filter((entry) => entry.status === "planned")
+    .map((entry) => ({
+      entry,
+      providers: streamingProvidersInIndia(entry.availability || []),
+    }))
+    .filter((item) => item.providers.length > 0);
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const selected = candidates[Math.floor(Math.random() * candidates.length)];
+  return {
+    title: selected.entry.title,
+    providers: selected.providers,
+  };
+}
+
+function streamingProvidersInIndia(availability: WatchEntry["availability"]): string[] {
+  const providers = new Set<string>();
+
+  for (const item of availability || []) {
+    const provider = (item.provider || "").toLowerCase();
+    const region = (item.region || "").toLowerCase();
+    const isIndia = region === "in" || region.includes("india");
+    const isStreaming = item.type === "stream" || item.type === "free" || item.type === "ads";
+
+    if (!isIndia || !isStreaming) {
+      continue;
+    }
+
+    if (provider.includes("netflix")) {
+      providers.add("Netflix IN");
+    }
+    if (provider.includes("amazon") || provider.includes("prime")) {
+      providers.add("Prime IN");
+    }
+  }
+
+  return [...providers];
+}
+
+function parseExpenseDate(value: string): Date {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function commonCurrency(expenses: ExpenseItem[]): "AED" | "INR" | null {
+  const currencies = new Set(expenses.map((expense) => expense.currency || "AED"));
+  if (currencies.size === 1) {
+    return [...currencies][0] as "AED" | "INR";
+  }
+  return null;
+}
+
+function formatAmount(value: number, currency: "AED" | "INR"): string {
+  return `${currency} ${value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  })}`;
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
@@ -213,19 +407,41 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       paddingTop: Math.max(12, topInset + spacing.xs),
     },
     heroShell: {
-      gap: 12,
+      gap: 5,
       overflow: "hidden",
       paddingBottom: 0,
     },
     headerTop: {
-      alignItems: "center",
+      alignItems: "flex-start",
       flexDirection: "row",
-      justifyContent: "space-between",
-      minHeight: 34,
+      justifyContent: "flex-start",
+      minHeight: 54,
+      position: "relative",
+    },
+    brandBlock: {
+      alignItems: "flex-start",
+      gap: 0,
+    },
+    wordmarkClip: {
+      height: 42,
+      overflow: "hidden",
+      marginLeft: 0,
+      width: 172,
     },
     wordmark: {
-      height: 28,
-      width: 154,
+      height: 118,
+      left: -106,
+      position: "absolute",
+      top: -44,
+      width: 314,
+    },
+    brandCredit: {
+      color: colors.textMuted,
+      fontSize: 8,
+      fontWeight: "700",
+      letterSpacing: 0.6,
+      marginLeft: 24,
+      marginTop: -21,
     },
     avatar: {
       alignItems: "center",
@@ -239,6 +455,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.1,
       shadowRadius: 10,
+      position: "absolute",
+      right: 0,
+      top: 0,
       width: 35,
     },
     avatarInner: {
@@ -251,7 +470,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     heroCopy: {
       gap: 0,
-      marginTop: 2,
+      marginTop: -18,
     },
     heroKicker: {
       color: colors.text,
@@ -260,10 +479,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     heroTitle: {
       color: colors.text,
-      fontSize: 30,
+      fontSize: 26,
       fontWeight: "900",
-      letterSpacing: -1,
-      marginTop: -5,
+      letterSpacing: -0.7,
+      marginTop: -3,
     },
     subtitle: {
       color: colors.cyan,
@@ -307,9 +526,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       flexWrap: "wrap",
       gap: 9,
     },
-    statsRow: {
+    glanceGrid: {
       flexDirection: "row",
-      gap: 8,
+      gap: 9,
     },
   });
 }
@@ -413,16 +632,16 @@ function createActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   });
 }
 
-function createStatStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createGlanceStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       flex: 1,
-      minHeight: 90,
-      paddingHorizontal: 10,
-      paddingVertical: 9,
+      gap: 5,
+      minHeight: 96,
+      padding: 11,
     },
     primaryCard: {
       borderColor: colors.primaryBorder,
@@ -438,21 +657,34 @@ function createStatStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       shadowOpacity: 0.07,
       shadowRadius: 10,
     },
+    iconShell: {
+      alignItems: "center",
+      borderRadius: 9,
+      height: 26,
+      justifyContent: "center",
+      width: 26,
+    },
+    primaryIconShell: {
+      backgroundColor: colors.primaryDim,
+    },
+    purpleIconShell: {
+      backgroundColor: colors.secondarySoft,
+    },
+    label: {
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: "800",
+      lineHeight: 13,
+      textTransform: "uppercase",
+    },
     value: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 14,
       fontWeight: "900",
       lineHeight: 18,
     },
     purpleValue: {
-      color: colors.purple,
-    },
-    label: {
-      color: colors.textMuted,
-      fontSize: 10,
-      fontWeight: "600",
-      lineHeight: 14,
-      marginTop: 2,
+      color: colors.text,
     },
   });
 }

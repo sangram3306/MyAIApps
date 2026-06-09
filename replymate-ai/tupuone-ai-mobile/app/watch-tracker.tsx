@@ -100,7 +100,7 @@ export default function WatchTrackerScreen() {
     setLoading(true);
     try {
       const result = await listWatchItemsFromApi({ backendUrl: url });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setSource(result.source);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load watch tracker.");
@@ -143,7 +143,7 @@ export default function WatchTrackerScreen() {
         favorite,
         notes: notes.trim(),
       });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setEnrichmentSource(result.metadata.toolSources.enrichment);
       setTitle("");
       setNotes("");
@@ -162,7 +162,7 @@ export default function WatchTrackerScreen() {
     setUpdatingId(id);
     try {
       const result = await updateWatchStatusFromApi({ backendUrl, id, status: nextStatus });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setSource(result.source);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update status.");
@@ -178,7 +178,7 @@ export default function WatchTrackerScreen() {
     setDeletingId(id);
     try {
       const result = await deleteWatchItemFromApi({ backendUrl, id });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setSource(result.source);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not delete this item.");
@@ -199,10 +199,10 @@ export default function WatchTrackerScreen() {
         id: entry.id,
         updates: { favorite: !Boolean(entry.favorite) },
       });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setSource(result.source);
       if (selectedEntry?.id === entry.id && result.entry) {
-        setSelectedEntry(result.entry);
+        setSelectedEntry(normalizeWatchEntry(result.entry));
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update favorite.");
@@ -212,10 +212,11 @@ export default function WatchTrackerScreen() {
   }
 
   function openEntry(entry: WatchEntry) {
-    setSelectedEntry(entry);
+    const normalizedEntry = normalizeWatchEntry(entry);
+    setSelectedEntry(normalizedEntry);
     setIsEditingDetails(false);
-    setActiveAvailabilityRegion(defaultAvailabilityRegion(entry.availability));
-    setEditDraft(createEditDraft(entry));
+    setActiveAvailabilityRegion(defaultAvailabilityRegion(normalizedEntry.availability));
+    setEditDraft(createEditDraft(normalizedEntry));
   }
 
   async function handleSaveDetails() {
@@ -239,7 +240,7 @@ export default function WatchTrackerScreen() {
         synopsis: editDraft.synopsis.trim(),
         notes: editDraft.notes.trim(),
       };
-      if (!selectedEntry.availability.length) {
+      if (!normalizeAvailabilityList(selectedEntry.availability).length) {
         updates.availability = parseAvailability(editDraft.availability);
       }
       const result = await updateWatchDetailsFromApi({
@@ -247,11 +248,12 @@ export default function WatchTrackerScreen() {
         id: selectedEntry.id,
         updates,
       });
-      setEntries(result.entries);
+      setEntries(normalizeWatchEntries(result.entries));
       setSource(result.source);
       if (result.entry) {
-        setSelectedEntry(result.entry);
-        setEditDraft(createEditDraft(result.entry));
+        const normalizedEntry = normalizeWatchEntry(result.entry);
+        setSelectedEntry(normalizedEntry);
+        setEditDraft(createEditDraft(normalizedEntry));
       }
       setIsEditingDetails(false);
     } catch (caught) {
@@ -564,7 +566,7 @@ export default function WatchTrackerScreen() {
                     <EditField label="Box office" value={editDraft.boxOffice} onChangeText={(value) => setEditDraft({ ...editDraft, boxOffice: value })} styles={styles} />
                     <EditField label="Poster URL" value={editDraft.posterUrl} onChangeText={(value) => setEditDraft({ ...editDraft, posterUrl: value })} styles={styles} />
                     <EditField label="Ratings" value={editDraft.ratings} onChangeText={(value) => setEditDraft({ ...editDraft, ratings: value })} multiline styles={styles} />
-                    {!selectedEntry.availability.length ? (
+                    {!normalizeAvailabilityList(selectedEntry.availability).length ? (
                       <EditField label="Availability" value={editDraft.availability} onChangeText={(value) => setEditDraft({ ...editDraft, availability: value })} multiline styles={styles} />
                     ) : null}
                     <EditField label="Synopsis" value={editDraft.synopsis} onChangeText={(value) => setEditDraft({ ...editDraft, synopsis: value })} multiline styles={styles} />
@@ -588,11 +590,11 @@ export default function WatchTrackerScreen() {
                       </View>
                     ))}
                     <Text style={styles.ratingsText}>
-                      Ratings: {selectedEntry.ratings.length ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
+                      Ratings: {normalizeRatingsList(selectedEntry.ratings).length ? normalizeRatingsList(selectedEntry.ratings).map((r) => `${r.source} ${r.value}`).join(" | ") : "Unknown"}
                     </Text>
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>Where to watch</Text>
-                      {selectedEntry.availability.length ? (
+                      {normalizeAvailabilityList(selectedEntry.availability).length ? (
                         <>
                           <View style={styles.availabilityFilterRow}>
                             {["all", ...selectedAvailabilityRegions].map((region) => (
@@ -1219,18 +1221,51 @@ function formatWatchSource(source: "static" | "llm" | "fallback"): string {
   return "Fallback";
 }
 
+function normalizeWatchEntries(entries: WatchEntry[] | undefined): WatchEntry[] {
+  return Array.isArray(entries) ? entries.map(normalizeWatchEntry) : [];
+}
+
+function normalizeWatchEntry(entry: WatchEntry): WatchEntry {
+  return {
+    ...entry,
+    availability: normalizeAvailabilityList(entry.availability),
+    externalDetails: normalizeExternalDetails(entry.externalDetails),
+    leadActors: normalizeStringList(entry.leadActors),
+    ratings: normalizeRatingsList(entry.ratings),
+  };
+}
+
+function normalizeAvailabilityList(items: WatchEntry["availability"] | undefined): WatchEntry["availability"] {
+  return Array.isArray(items) ? items : [];
+}
+
+function normalizeExternalDetails(items: WatchEntry["externalDetails"] | undefined): NonNullable<WatchEntry["externalDetails"]> {
+  return Array.isArray(items) ? items : [];
+}
+
+function normalizeRatingsList(items: WatchEntry["ratings"] | undefined): WatchEntry["ratings"] {
+  return Array.isArray(items) ? items : [];
+}
+
+function normalizeStringList(items: string[] | undefined): string[] {
+  return Array.isArray(items) ? items : [];
+}
+
 function createEditDraft(entry: WatchEntry): WatchEditDraft {
+  const leadActors = normalizeStringList(entry.leadActors);
+  const ratings = normalizeRatingsList(entry.ratings);
+  const availability = normalizeAvailabilityList(entry.availability);
   return {
     title: entry.title,
     type: entry.type,
     releaseYear: entry.releaseYear,
     director: entry.director,
-    leadActors: entry.leadActors.join(", "),
+    leadActors: leadActors.join(", "),
     budget: entry.budget,
     boxOffice: entry.boxOffice,
     posterUrl: entry.posterUrl || "",
-    ratings: entry.ratings.map((rating) => `${rating.source}: ${rating.value}`).join("\n"),
-    availability: entry.availability.map((item) => `${item.provider} | ${item.region} | ${item.type}${item.link ? ` | ${item.link}` : ""}`).join("\n"),
+    ratings: ratings.map((rating) => `${rating.source}: ${rating.value}`).join("\n"),
+    availability: availability.map((item) => `${item.provider} | ${item.region} | ${item.type}${item.link ? ` | ${item.link}` : ""}`).join("\n"),
     synopsis: entry.synopsis,
     notes: entry.notes,
   };
@@ -1254,27 +1289,29 @@ function parseAvailability(value: string): Array<{ provider: string; region: str
     .slice(0, 40);
 }
 
-function availabilityRegionsFor(items: WatchEntry["availability"]): string[] {
-  return Array.from(new Set(items.map((item) => item.region).filter(Boolean))).sort();
+function availabilityRegionsFor(items: WatchEntry["availability"] | undefined): string[] {
+  return Array.from(new Set(normalizeAvailabilityList(items).map((item) => item.region).filter(Boolean))).sort();
 }
 
-function defaultAvailabilityRegion(items: WatchEntry["availability"]): "all" | string {
-  return items.some((item) => item.region === "IN") ? "IN" : "all";
+function defaultAvailabilityRegion(items: WatchEntry["availability"] | undefined): "all" | string {
+  return normalizeAvailabilityList(items).some((item) => item.region === "IN") ? "IN" : "all";
 }
 
-function filterAvailability(items: WatchEntry["availability"], region: "all" | string): WatchEntry["availability"] {
+function filterAvailability(items: WatchEntry["availability"] | undefined, region: "all" | string): WatchEntry["availability"] {
+  const availability = normalizeAvailabilityList(items);
   if (region === "all") {
-    return items;
+    return availability;
   }
-  return items.filter((item) => item.region === region);
+  return availability.filter((item) => item.region === region);
 }
 
 function watchInfoRowsFor(entry: WatchEntry): WatchInfoRow[] {
   const details = new Map(
-    (entry.externalDetails || [])
+    normalizeExternalDetails(entry.externalDetails)
       .filter((detail) => !["title", "year", "plot", "type", "imdb id"].includes(detail.label.trim().toLowerCase()))
       .map((detail) => [detail.label.trim().toLowerCase(), detail.value.trim()]),
   );
+  const leadActors = normalizeStringList(entry.leadActors);
   const rows: WatchInfoRow[] = [
     {
       value: compactDetailParts([
@@ -1292,7 +1329,7 @@ function watchInfoRowsFor(entry: WatchEntry): WatchInfoRow[] {
       ]),
       icon: "videocam-outline",
     },
-    { value: compactDetailParts([["Cast", entry.leadActors.join(", ")]]), icon: "people-outline" },
+    { value: compactDetailParts([["Cast", leadActors.join(", ")]]), icon: "people-outline" },
     {
       value: compactDetailParts([
         ["Language", details.get("language")],
@@ -1366,8 +1403,8 @@ function parseRatings(value: string): Array<{ source: string; value: string }> {
     .slice(0, 6);
 }
 
-function getImdbRating(ratings: Array<{ source: string; value: string }>): string {
-  const match = ratings.find((item) => {
+function getImdbRating(ratings: Array<{ source: string; value: string }> | undefined): string {
+  const match = normalizeRatingsList(ratings).find((item) => {
     const normalized = item.source.trim().toLowerCase();
     return normalized === "imdb" || normalized === "internet movie database";
   });

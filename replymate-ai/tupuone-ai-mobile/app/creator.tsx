@@ -215,19 +215,6 @@ export default function CreatorScreen() {
           </View>
         </View>
 
-      <View style={styles.stepper}>
-        {["Content", "Platform", "Tone", "Generate"].map((step, index) => (
-          <View key={step} style={styles.stepperItem}>
-            <View style={[styles.stepperDot, index === 0 && styles.stepperDotActive]}>
-              <Text style={[styles.stepperDotText, index === 0 && styles.stepperDotTextActive]}>
-                {index + 1}
-              </Text>
-            </View>
-            <Text style={[styles.stepperText, index === 0 && styles.stepperTextActive]}>{step}</Text>
-          </View>
-        ))}
-      </View>
-
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>1. Add Your Content</Text>
         <Text style={styles.sectionHint}>Paste your notes, ideas, article, or meeting notes here.</Text>
@@ -684,52 +671,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontSize: 12,
       fontWeight: "700",
       lineHeight: 17,
-    },
-    stepper: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: spacing.xs,
-      paddingVertical: spacing.sm,
-    },
-    stepperItem: {
-      alignItems: "center",
-      flex: 1,
-      gap: 7,
-    },
-    stepperDot: {
-      alignItems: "center",
-      backgroundColor: "rgba(2,4,9,0.9)",
-      borderColor: colors.border,
-      borderRadius: radius.pill,
-      borderWidth: StyleSheet.hairlineWidth,
-      height: 31,
-      justifyContent: "center",
-      width: 31,
-    },
-    stepperDotActive: {
-      backgroundColor: colors.primaryDim,
-      borderColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.25,
-      shadowRadius: 12,
-    },
-    stepperDotText: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: "900",
-    },
-    stepperDotTextActive: {
-      color: colors.primary,
-    },
-    stepperText: {
-      color: colors.textMuted,
-      fontSize: 10.5,
-      fontWeight: "800",
-      textAlign: "center",
-    },
-    stepperTextActive: {
-      color: colors.primary,
     },
     card: {
       backgroundColor: colors.surfaceGlass,

@@ -31,7 +31,7 @@ export default function WatchFavoritesScreen() {
         return;
       }
       const result = await listWatchItemsFromApi({ backendUrl });
-      setFavorites(result.entries.filter((entry) => Boolean(entry.favorite)));
+      setFavorites(normalizeWatchEntries(result.entries).filter((entry) => Boolean(entry.favorite)));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load favorites.");
     } finally {
@@ -132,8 +132,8 @@ export default function WatchFavoritesScreen() {
                 {selectedEntry.director && selectedEntry.director !== "Unknown" ? (
                   <Text style={styles.metaText}>Director: {selectedEntry.director}</Text>
                 ) : null}
-                {selectedEntry.leadActors.length ? (
-                  <Text style={styles.metaText}>Cast: {selectedEntry.leadActors.join(", ")}</Text>
+                {normalizeStringList(selectedEntry.leadActors).length ? (
+                  <Text style={styles.metaText}>Cast: {normalizeStringList(selectedEntry.leadActors).join(", ")}</Text>
                 ) : null}
                 {selectedEntry.synopsis ? <Text style={styles.synopsis}>{selectedEntry.synopsis}</Text> : null}
                 {selectedEntry.notes ? <Text style={styles.metaText}>Notes: {selectedEntry.notes}</Text> : null}
@@ -293,6 +293,24 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     metaText: { color: colors.muted, fontSize: 12, lineHeight: 18, textTransform: "capitalize" },
     error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderWidth: 1, borderRadius: 12, padding: spacing.sm },
   });
+}
+
+function normalizeWatchEntries(entries: WatchEntry[] | undefined): WatchEntry[] {
+  return Array.isArray(entries) ? entries.map(normalizeWatchEntry) : [];
+}
+
+function normalizeWatchEntry(entry: WatchEntry): WatchEntry {
+  return {
+    ...entry,
+    availability: Array.isArray(entry.availability) ? entry.availability : [],
+    externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
+    leadActors: normalizeStringList(entry.leadActors),
+    ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
+  };
+}
+
+function normalizeStringList(items: string[] | undefined): string[] {
+  return Array.isArray(items) ? items : [];
 }
 
 function initials(title: string): string {

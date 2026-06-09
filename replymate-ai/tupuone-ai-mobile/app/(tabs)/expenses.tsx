@@ -24,7 +24,11 @@ import {
   getBudgetWarningThresholdPreference,
   getQuickAddCategoriesPreference,
 } from "../../storage/appStorage";
-import { createExpenseFromApi } from "../../services/api";
+import {
+  createExpenseFromApi,
+  ExpenseMessageResponse,
+  sendExpenseMessageFromApi,
+} from "../../services/api";
 
 const baseCategories: {
   label: string;
@@ -66,6 +70,12 @@ const categoryLookup: Record<string, string> = {
   school: "Education",
 };
 
+const quickInsightPrompts = [
+  "Summarize all expenses",
+  "Summarize food expenses",
+  "Which category is highest?",
+];
+
 export default function ExpensesScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -85,6 +95,10 @@ export default function ExpensesScreen() {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [insightPrompt, setInsightPrompt] = useState("");
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState("");
+  const [insightResult, setInsightResult] = useState<ExpenseMessageResponse | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -179,6 +193,35 @@ export default function ExpensesScreen() {
       setError(caught instanceof Error ? caught.message : "Could not save expense.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleGenerateInsight() {
+    if (!backendUrl) {
+      setInsightError("ReplyMate AI could not find the backend URL. Please restart the app.");
+      return;
+    }
+
+    const prompt = insightPrompt.trim();
+    if (!prompt) {
+      setInsightError("Ask a spending question first.");
+      return;
+    }
+
+    setInsightLoading(true);
+    setInsightError("");
+    setInsightResult(null);
+
+    try {
+      const response = await sendExpenseMessageFromApi({
+        backendUrl,
+        message: prompt,
+      });
+      setInsightResult(response);
+    } catch (caught) {
+      setInsightError(caught instanceof Error ? caught.message : "Could not generate insight.");
+    } finally {
+      setInsightLoading(false);
     }
   }
 
@@ -345,8 +388,103 @@ export default function ExpensesScreen() {
                 <Text style={styles.primaryButtonText}>Save Expense</Text>
               </>
             )}
-          </Pressable>
+            </Pressable>
             {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>AI Insights</Text>
+            <Text style={styles.sectionHint}>LLM + MCP tools</Text>
+          </View>
+
+          <TextInput
+            multiline
+            placeholder="Ask: summarize food expenses, show this month's spending..."
+            placeholderTextColor={colors.muted}
+            style={styles.insightInput}
+            textAlignVertical="top"
+            value={insightPrompt}
+            onChangeText={setInsightPrompt}
+          />
+
+          <View style={styles.quickRow}>
+            {quickInsightPrompts.map((prompt) => (
+              <Pressable
+                key={prompt}
+                onPress={() => setInsightPrompt(prompt)}
+                style={styles.quickPill}
+              >
+                <Text style={styles.quickText}>{prompt}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            disabled={insightLoading}
+            onPress={handleGenerateInsight}
+            style={[styles.secondaryButton, insightLoading && styles.disabledButton]}
+          >
+            {insightLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="sparkles-outline" color={colors.primary} size={17} />
+                <Text style={styles.secondaryButtonText}>Generate Insight</Text>
+              </>
+            )}
+          </Pressable>
+
+          {insightError ? <Text style={styles.error}>{insightError}</Text> : null}
+
+          {insightResult ? (
+            <View style={styles.insightCard}>
+              <Text style={styles.sectionKicker}>Agent response</Text>
+              <Text style={styles.answer}>{insightResult.assistantReply}</Text>
+              {insightResult.toolCalls.length ? (
+                <View style={styles.pillWrap}>
+                  {insightResult.toolCalls.map((tool) => (
+                    <View key={`${tool.name}-${tool.source}`} style={styles.toolPill}>
+                      <Text style={styles.pillName}>{tool.name}</Text>
+                      <Text style={styles.pillSource}>{tool.source}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {insightResult.byCategory?.length ? (
+                <View style={styles.insightSection}>
+                  <Text style={styles.sectionKicker}>Category summary</Text>
+                  {insightResult.byCategory.map((item) => (
+                    <View key={item.category} style={styles.categoryRow}>
+                      <Text style={styles.categoryName}>{item.category}</Text>
+                      <Text style={styles.categoryValue}>
+                        {formatAmount(item.total, commonCurrency(insightResult.expenses))} · {item.count}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {insightResult.expenses.length ? (
+                <View style={styles.insightSection}>
+                  <Text style={styles.sectionKicker}>Transactions</Text>
+                  {insightResult.expenses.slice(0, 12).map((expense, index) => (
+                    <View key={expense.id} style={styles.expenseRow}>
+                      <View style={styles.expenseNumber}>
+                        <Text style={styles.expenseNumberText}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.expenseMain}>
+                        <Text style={styles.expenseDescription}>{expense.description}</Text>
+                        <Text style={styles.expenseMeta}>
+                          {expense.category} · {expense.date}
+                        </Text>
+                      </View>
+                      <Text style={styles.expenseAmount}>{formatAmount(expense.amount, expense.currency)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -382,6 +520,21 @@ function warnIfOverBudget(total: number | undefined, budgetTarget: number | null
       `You have reached ${threshold}% of your budget target.`,
     );
   }
+}
+
+function commonCurrency(expenses: ExpenseMessageResponse["expenses"]): "AED" | "INR" | undefined {
+  const currencies = new Set(expenses.map((expense) => expense.currency || "AED"));
+  return currencies.size === 1 ? [...currencies][0] : undefined;
+}
+
+function formatAmount(value: number | undefined, currency?: "AED" | "INR"): string {
+  const amount = typeof value === "number" ? value : 0;
+  const formatted = amount.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+  });
+
+  return currency ? `${currency} ${formatted}` : formatted;
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
@@ -759,6 +912,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.md,
+  },
+  insightSection: {
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
   },
   sectionKicker: {
     color: colors.primary,

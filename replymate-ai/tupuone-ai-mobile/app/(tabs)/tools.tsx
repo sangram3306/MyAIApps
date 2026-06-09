@@ -43,13 +43,6 @@ const tools = [
     route: "/watch-tracker",
     badge: "Movies",
   },
-  {
-    title: "Habit Tracker",
-    subtitle: "Build better habits with AI-powered insights.",
-    icon: "leaf-outline",
-    route: "",
-    badge: "Habits",
-  },
 ] as const;
 
 export default function AiToolsScreen() {

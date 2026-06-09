@@ -26,7 +26,6 @@ type ChatBubble = {
   content: string;
   userMessage?: string;
   toolCalls?: ChatMessageResponse["toolCalls"];
-  todos?: ChatMessageResponse["todos"];
   agentTrace?: string[];
   metadata?: ChatMessageResponse["metadata"];
 };
@@ -89,7 +88,6 @@ export default function ChatScreen() {
         content: result.assistantReply,
         userMessage: nextMessage,
         toolCalls: result.toolCalls,
-        todos: result.todos,
         agentTrace: result.agentTrace,
         metadata: result.metadata,
       };
@@ -113,13 +111,10 @@ export default function ChatScreen() {
           role: "assistant",
           content: "I could not process that message right now. Please try again shortly.",
           toolCalls: [],
-          todos: [],
           agentTrace: ["Request failed"],
           metadata: {
             toolsUsed: [],
             toolSources: {
-              classifyIntent: "fallback",
-              todoSkill: "fallback",
               answerGeneration: "fallback",
             },
           },
@@ -216,10 +211,6 @@ export default function ChatScreen() {
               value={message}
               onChangeText={setMessage}
             />
-            <View style={styles.micIcon}>
-              <Ionicons name="mic-outline" color={colors.primary} size={18} />
-            </View>
-
             <Pressable
               disabled={loading}
               onPress={() => handleSend()}
@@ -437,12 +428,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       paddingHorizontal: spacing.xs,
       paddingVertical: spacing.xs,
       lineHeight: 20,
-    },
-    micIcon: {
-      alignItems: "center",
-      height: 34,
-      justifyContent: "center",
-      width: 24,
     },
     sendButton: {
       alignItems: "center",

@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useAppTheme } from "../../context/app-theme";
 
 export default function TabsLayout() {
@@ -22,7 +22,7 @@ export default function TabsLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "800",
         },
         headerStyle: { backgroundColor: colors.background },
@@ -34,38 +34,41 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="home-outline" focused={focused} colors={colors} />,
+        }}
+      />
+      <Tabs.Screen
+        name="movie-tracker"
+        options={{
+          title: "CineTrack",
+          tabBarIcon: ({ focused }) => <TabIcon name="film-outline" focused={focused} colors={colors} tone="cyan" />,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tools"
-        options={{
-          title: "Tools",
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={color} size={size} />,
+          title: "General Chat",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="chatbox-ellipses-outline" focused={focused} colors={colors} tone="primary" featured />
+          ),
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
           title: "Expenses",
-          tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="wallet-outline" focused={focused} colors={colors} tone="purple" />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="settings"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color} size={size} />,
+          title: "Settings",
+          tabBarIcon: ({ focused }) => <TabIcon name="settings-outline" focused={focused} colors={colors} />,
         }}
       />
-      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="tools" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="decisions" options={{ href: null }} />
       <Tabs.Screen name="creator" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />
@@ -75,3 +78,51 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+function TabIcon({
+  name,
+  focused,
+  colors,
+  tone = "primary",
+  featured = false,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  focused: boolean;
+  colors: ReturnType<typeof useAppTheme>["colors"];
+  tone?: "primary" | "purple" | "cyan";
+  featured?: boolean;
+}) {
+  const accent = tone === "purple" ? colors.purple : tone === "cyan" ? colors.cyan : colors.primary;
+  const soft =
+    tone === "purple" ? colors.secondarySoft : tone === "cyan" ? colors.cyanSoft : colors.primaryDim;
+  const active = focused || featured;
+
+  return (
+    <View
+      style={[
+        styles.iconShell,
+        {
+          backgroundColor: active ? soft : colors.surfaceElevated,
+          borderColor: active ? accent : colors.border,
+          shadowColor: accent,
+          shadowOpacity: active ? 0.2 : 0,
+        },
+      ]}
+    >
+      <Ionicons name={name} color={focused || featured ? accent : colors.muted} size={17} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  iconShell: {
+    alignItems: "center",
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 28,
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 10,
+    width: 28,
+  },
+});
