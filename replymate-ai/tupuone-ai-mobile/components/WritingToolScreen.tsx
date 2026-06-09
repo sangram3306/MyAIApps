@@ -38,21 +38,29 @@ type Props = {
   mode: WritingMode;
 };
 
-const modeCopy: Record<WritingMode, { title: string; subtitle: string; button: string }> = {
+type IconName = keyof typeof Ionicons.glyphMap;
+
+const modeCopy: Record<WritingMode, { title: string; subtitle: string; button: string; icon: IconName; eyebrow: string }> = {
   reply: {
     title: "Smart Reply",
     subtitle: "Craft thoughtful replies with tone, role and context.",
     button: "Generate Replies",
+    icon: "chatbubbles-outline",
+    eyebrow: "Communication",
   },
   rewrite: {
     title: "Rewrite",
     subtitle: "Reshape your message for clarity, tone and intent.",
     button: "Rewrite Message",
+    icon: "create-outline",
+    eyebrow: "Transformation",
   },
   grammar: {
     title: "Grammar",
     subtitle: "Fix grammar and polish the message without changing intent.",
     button: "Fix Grammar",
+    icon: "text-outline",
+    eyebrow: "Refinement",
   },
 };
 
@@ -166,24 +174,46 @@ export function WritingToolScreen({ mode }: Props) {
       style={styles.keyboard}
     >
       <View style={styles.screen}>
-        <MatrixBackground density={8} />
+        <MatrixBackground density={10} />
+
+        {/* Ambient glow orbs */}
+        <View pointerEvents="none" style={styles.glowOrb1} />
+        <View pointerEvents="none" style={styles.glowOrb2} />
+
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          {/* Header */}
           <View style={styles.headerRow}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="chevron-back" color={colors.primary} size={20} />
+              <Ionicons name="chevron-back" color={colors.primary} size={18} />
             </Pressable>
             <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>Communication</Text>
+              <View style={styles.eyebrowRow}>
+                <View style={styles.eyebrowDot} />
+                <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
+              </View>
               <Text style={styles.title}>{copy.title}</Text>
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
             </View>
+            <View style={styles.heroIconContainer}>
+              <Ionicons name={copy.icon} color={colors.primary} size={22} />
+            </View>
           </View>
 
+          {/* Main input panel */}
           <View style={styles.panel}>
+            <View style={styles.panelGlow} />
+
             <View style={styles.inputBlock}>
-              <Text style={styles.label}>
-                {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
-              </Text>
+              <View style={styles.labelRow}>
+                <Ionicons
+                  name={mode === "reply" ? "mail-outline" : mode === "rewrite" ? "document-text-outline" : "checkmark-done-outline"}
+                  color={colors.primary}
+                  size={14}
+                />
+                <Text style={styles.label}>
+                  {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
+                </Text>
+              </View>
               <TextInput
                 multiline
                 placeholder={
@@ -193,7 +223,7 @@ export function WritingToolScreen({ mode }: Props) {
                       ? "Type the message you want to rewrite..."
                       : "Type text with grammar mistakes..."
                 }
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={colors.mutedSoft}
                 style={styles.input}
                 textAlignVertical="top"
                 value={message}
@@ -203,11 +233,14 @@ export function WritingToolScreen({ mode }: Props) {
 
             {mode === "reply" ? (
               <View style={styles.inputBlock}>
-                <Text style={styles.label}>Reply note</Text>
+                <View style={styles.labelRow}>
+                  <Ionicons name="bulb-outline" color={colors.primary} size={14} />
+                  <Text style={styles.label}>Reply note</Text>
+                </View>
                 <TextInput
                   multiline
                   placeholder="Add context or instructions for the reply..."
-                  placeholderTextColor={colors.muted}
+                  placeholderTextColor={colors.mutedSoft}
                   style={[styles.input, styles.noteInput]}
                   textAlignVertical="top"
                   value={replyNote}
@@ -219,7 +252,10 @@ export function WritingToolScreen({ mode }: Props) {
             {mode !== "grammar" ? (
               <View style={styles.selectorRow}>
                 <View style={styles.selectorColumn}>
-                  <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
+                  <View style={styles.labelRow}>
+                    <Ionicons name="color-palette-outline" color={colors.primary} size={14} />
+                    <Text style={styles.label}>{mode === "reply" ? "Reply tone" : "Writing style"}</Text>
+                  </View>
                   <ChipSelector
                     options={mode === "reply" ? replyTones : rewriteStyles}
                     selectedValue={tone}
@@ -227,7 +263,10 @@ export function WritingToolScreen({ mode }: Props) {
                   />
                 </View>
                 <View style={styles.selectorColumn}>
-                  <Text style={styles.label}>Role</Text>
+                  <View style={styles.labelRow}>
+                    <Ionicons name="person-outline" color={colors.primary} size={14} />
+                    <Text style={styles.label}>Role</Text>
+                  </View>
                   <ChipSelector
                     options={mode === "reply" ? replyRoles : rewriteRoles}
                     selectedValue={role}
@@ -237,20 +276,38 @@ export function WritingToolScreen({ mode }: Props) {
               </View>
             ) : null}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="warning-outline" color={colors.danger} size={16} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
 
             <Pressable
               disabled={loading}
               onPress={handleGenerate}
-              style={[styles.generateButton, loading && styles.generateButtonDisabled]}
+              style={[styles.primaryButton, loading && styles.disabledButton]}
             >
               {loading ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={styles.generateButtonText}>{copy.button}</Text>
+                <>
+                  <Ionicons name="sparkles-outline" color={colors.onPrimary} size={18} />
+                  <Text style={styles.primaryButtonText}>{copy.button}</Text>
+                </>
               )}
             </Pressable>
           </View>
+
+          {/* Results section */}
+          {replies.length > 0 ? (
+            <View style={styles.resultsHeader}>
+              <View style={styles.resultsHeaderDot} />
+              <Text style={styles.resultsHeaderText}>
+                {mode === "grammar" ? "Corrections" : `${replies.length} ${replies.length === 1 ? "result" : "results"} generated`}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.results}>
             {replies.length > 0 ? (
@@ -279,6 +336,7 @@ export function WritingToolScreen({ mode }: Props) {
                       ? "Your rewritten message options will appear here."
                       : "Your corrected message will appear here."
                 }
+                icon={mode === "reply" ? "chatbubbles-outline" : mode === "rewrite" ? "create-outline" : "text-outline"}
               />
             )}
           </View>
@@ -301,37 +359,79 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     container: {
       gap: spacing.lg,
       padding: spacing.md,
-      paddingBottom: spacing.xl,
+      paddingBottom: spacing.xl + 20,
       paddingTop: Math.max(spacing.md, topInset),
     },
+
+    /* Ambient glow orbs */
+    glowOrb1: {
+      backgroundColor: colors.primaryDim,
+      borderRadius: 999,
+      height: 220,
+      opacity: 0.12,
+      position: "absolute",
+      right: -80,
+      top: -40,
+      width: 220,
+    },
+    glowOrb2: {
+      backgroundColor: colors.secondarySoft,
+      borderRadius: 999,
+      bottom: 180,
+      height: 160,
+      left: -70,
+      opacity: 0.08,
+      position: "absolute",
+      width: 160,
+    },
+
+    /* Header */
     headerRow: {
+      alignItems: "flex-start",
       flexDirection: "row",
-      gap: spacing.md,
+      gap: spacing.sm,
     },
     backButton: {
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
+      backgroundColor: colors.surfaceGlass,
       borderColor: colors.primaryBorder,
       borderRadius: 14,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       height: 42,
       justifyContent: "center",
       width: 42,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
     },
     headerCopy: {
       flex: 1,
-      gap: 4,
+      gap: 6,
+    },
+    eyebrowRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 6,
+    },
+    eyebrowDot: {
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      height: 6,
+      width: 6,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.7,
+      shadowRadius: 4,
     },
     eyebrow: {
       color: colors.primary,
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: "900",
-      letterSpacing: 1,
+      letterSpacing: 1.5,
       textTransform: "uppercase",
     },
     title: {
       color: colors.text,
-      fontSize: 30,
+      fontSize: 28,
       fontWeight: "900",
       letterSpacing: -0.8,
     },
@@ -340,36 +440,78 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontSize: 13,
       lineHeight: 19,
     },
+    heroIconContainer: {
+      alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
+      borderRadius: 16,
+      borderWidth: 1,
+      height: 44,
+      justifyContent: "center",
+      width: 44,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.2,
+      shadowRadius: 14,
+    },
+
+    /* Panel */
     panel: {
       backgroundColor: colors.surfaceGlass,
-      borderColor: colors.border,
-      borderRadius: 22,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.primaryBorder,
+      borderRadius: 24,
+      borderWidth: 1,
       gap: spacing.lg,
+      overflow: "hidden",
       padding: spacing.md,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.06,
+      shadowRadius: 24,
     },
+    panelGlow: {
+      backgroundColor: colors.primaryDim,
+      borderRadius: 999,
+      height: 120,
+      left: "50%",
+      marginLeft: -60,
+      opacity: 0.14,
+      position: "absolute",
+      top: -60,
+      width: 120,
+    },
+
+    /* Input */
     inputBlock: {
       gap: spacing.sm,
     },
+    labelRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 6,
+    },
     label: {
       color: colors.primary,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: "900",
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
     },
     input: {
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.primaryBorder,
+      borderColor: colors.border,
       borderRadius: 18,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       color: colors.text,
-      fontSize: 16,
-      minHeight: 158,
+      fontSize: 15,
+      minHeight: 140,
       padding: spacing.md,
+      lineHeight: 22,
     },
     noteInput: {
       fontSize: 14,
       minHeight: 78,
     },
+
+    /* Selectors */
     selectorRow: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -381,33 +523,64 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.sm,
       minWidth: 150,
     },
-    error: {
+
+    /* Error */
+    errorContainer: {
+      alignItems: "center",
       backgroundColor: colors.dangerSoft,
       borderColor: colors.danger,
       borderRadius: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      color: colors.danger,
-      lineHeight: 20,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
       padding: spacing.md,
     },
-    generateButton: {
+    error: {
+      color: colors.danger,
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+      lineHeight: 19,
+    },
+
+    /* Generate button */
+    primaryButton: {
       alignItems: "center",
       backgroundColor: colors.primary,
       borderRadius: 18,
+      flexDirection: "row",
+      gap: spacing.xs,
       justifyContent: "center",
-      minHeight: 52,
-      padding: spacing.md,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.28,
-      shadowRadius: 18,
+      minHeight: 54,
     },
-    generateButtonDisabled: {
-      opacity: 0.7,
-    },
-    generateButtonText: {
+    disabledButton: { opacity: 0.72 },
+    primaryButtonText: {
       color: colors.onPrimary,
       fontSize: 16,
       fontWeight: "900",
+    },
+
+    /* Results */
+    resultsHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 8,
+    },
+    resultsHeaderDot: {
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      height: 5,
+      width: 5,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.6,
+      shadowRadius: 3,
+    },
+    resultsHeaderText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
     },
     results: {
       gap: spacing.md,
