@@ -69,6 +69,42 @@ export default function SpendingSummaryScreen() {
         ? `You are at ${budgetProgress.toFixed(0)}% of your target.`
         : `You have used ${budgetProgress.toFixed(0)}% of your budget target.`;
 
+  const refreshSummary = useCallback(
+    async (url = backendUrl, isActive = true) => {
+      if (!url) {
+        if (isActive) {
+          setExpenseExport(null);
+          setError("Expense summary is unavailable until the backend connects.");
+        }
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const exportData = await getExpenseExportFromApi({ backendUrl: url });
+        if (!isActive) {
+          return;
+        }
+
+        setExpenseExport(exportData);
+      } catch (caught) {
+        if (!isActive) {
+          return;
+        }
+
+        setExpenseExport(null);
+        setError(caught instanceof Error ? caught.message : "Could not load the summary.");
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    },
+    [backendUrl],
+  );
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -94,41 +130,8 @@ export default function SpendingSummaryScreen() {
       return () => {
         active = false;
       };
-    }, []),
+    }, [refreshSummary]),
   );
-
-  async function refreshSummary(url = backendUrl, isActive = true) {
-    if (!url) {
-      if (isActive) {
-        setExpenseExport(null);
-        setError("Expense summary is unavailable until the backend connects.");
-      }
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const exportData = await getExpenseExportFromApi({ backendUrl: url });
-      if (!isActive) {
-        return;
-      }
-
-      setExpenseExport(exportData);
-    } catch (caught) {
-      if (!isActive) {
-        return;
-      }
-
-      setExpenseExport(null);
-      setError(caught instanceof Error ? caught.message : "Could not load the summary.");
-    } finally {
-      if (isActive) {
-        setLoading(false);
-      }
-    }
-  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>

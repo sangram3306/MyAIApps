@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -152,16 +152,7 @@ export default function ExpensesScreen() {
     return [...featured, ...rest];
   }, [colors.secondary, quickAddCategories]);
 
-  useEffect(() => {
-    if (!autoCategorySuggestions || !note.trim()) {
-      return;
-    }
 
-    const inferred = inferCategory(note, quickAddCategories);
-    if (inferred && inferred !== category) {
-      setCategory(inferred);
-    }
-  }, [autoCategorySuggestions, category, note, quickAddCategories]);
 
   async function handleSaveExpense() {
     if (!backendUrl) {
@@ -372,7 +363,15 @@ export default function ExpensesScreen() {
             placeholderTextColor={colors.muted}
             style={styles.noteInput}
             value={note}
-            onChangeText={setNote}
+            onChangeText={(text) => {
+              setNote(text);
+              if (autoCategorySuggestions && text.trim()) {
+                const inferred = inferCategory(text, quickAddCategories);
+                if (inferred && inferred !== category) {
+                  setCategory(inferred);
+                }
+              }
+            }}
           />
 
           <Pressable

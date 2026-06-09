@@ -8,6 +8,10 @@ import { useAppTheme } from "../../context/app-theme";
 import { clearHistory, getHistory, saveFavorite } from "../../storage/appStorage";
 import { ReplyHistoryItem } from "../../storage/types";
 
+function generateId(): string {
+  return String(Date.now());
+}
+
 export default function HistoryScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -26,7 +30,7 @@ export default function HistoryScreen() {
 
   async function handleFavorite(item: ReplyHistoryItem, reply: string) {
     await saveFavorite({
-      id: `${Date.now()}`,
+      id: generateId(),
       reply,
       sourceMessage: item.message,
       tone: item.tone,

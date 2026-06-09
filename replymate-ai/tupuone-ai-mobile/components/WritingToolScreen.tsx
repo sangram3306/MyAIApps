@@ -55,6 +55,10 @@ const modeCopy: Record<WritingMode, { title: string; subtitle: string; button: s
   },
 };
 
+function generateId(): string {
+  return String(Date.now());
+}
+
 export function WritingToolScreen({ mode }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -125,7 +129,7 @@ export function WritingToolScreen({ mode }: Props) {
 
       setReplies(generated);
       await addHistoryItem({
-        id: Date.now().toString(),
+        id: generateId(),
         message: message.trim(),
         tone,
         role,
@@ -143,7 +147,7 @@ export function WritingToolScreen({ mode }: Props) {
 
   async function handleFavorite(reply: string) {
     await saveFavorite({
-      id: `${Date.now()}`,
+      id: generateId(),
       reply,
       sourceMessage: message,
       note: mode === "reply" ? replyNote.trim() : undefined,

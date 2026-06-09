@@ -30,6 +30,10 @@ type ChatBubble = {
   metadata?: ChatMessageResponse["metadata"];
 };
 
+function generateId(): string {
+  return String(Date.now());
+}
+
 export default function ChatScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -65,7 +69,7 @@ export default function ChatScreen() {
     }
 
     const userBubble: ChatBubble = {
-      id: `${Date.now()}-user`,
+      id: `${generateId()}-user`,
       role: "user",
       content: nextMessage,
     };
@@ -81,7 +85,7 @@ export default function ChatScreen() {
         message: nextMessage,
       });
 
-      const assistantId = `${Date.now()}-assistant`;
+      const assistantId = `${generateId()}-assistant`;
       const assistantBubble: ChatBubble = {
         id: assistantId,
         role: "assistant",
@@ -107,7 +111,7 @@ export default function ChatScreen() {
       setMessages((current) => [
         ...current,
         {
-          id: `${Date.now()}-assistant-error`,
+          id: `${generateId()}-assistant-error`,
           role: "assistant",
           content: "I could not process that message right now. Please try again shortly.",
           toolCalls: [],

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -57,15 +57,14 @@ export default function CoachScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getBackendUrl().then(setBackendUrl);
+      getBackendUrl().then((url) => {
+        setBackendUrl(url);
+        if (url) {
+          setError("");
+        }
+      });
     }, []),
   );
-
-  useEffect(() => {
-    if (backendUrl) {
-      setError("");
-    }
-  }, [backendUrl]);
 
   async function handleAnalyze() {
     if (!backendUrl) {
