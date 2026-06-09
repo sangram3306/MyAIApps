@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
@@ -26,7 +27,8 @@ const horizonOptions = ["this week", "this month", "next 3 months", "this year"]
 
 export default function DecisionSimulatorScreen({ showBackButton = true }: { showBackButton?: boolean }) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [question, setQuestion] = useState("");
   const [context, setContext] = useState("");
@@ -402,7 +404,7 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       backgroundColor: colors.background,
@@ -412,6 +414,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.md,
       padding: spacing.md,
       paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     backButton: {
       alignItems: "center",

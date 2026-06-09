@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { defaultLlmPreference, llmProviders } from "../constants/llm";
@@ -24,7 +25,8 @@ type OpenRouterModelGroup = "free" | "paid";
 
 export default function LlmProviderScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const fallbackProviders = useMemo(
     () =>
       llmProviders.map((provider) =>
@@ -426,7 +428,7 @@ function filterOpenRouterModels(models: LlmModelOption[], search: string): LlmMo
   });
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
@@ -436,10 +438,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.lg,
       padding: spacing.md,
       paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     header: {
       gap: spacing.sm,
-      paddingTop: spacing.md,
+      paddingTop: 0,
     },
     backButton: {
       alignItems: "center",

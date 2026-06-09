@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { ChatAgentEvent, ChatToolCall } from "../services/api";
@@ -16,7 +17,8 @@ type LoopStep = {
 
 export default function AgentDetailsScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const params = useLocalSearchParams<{ id?: string }>();
   const record = params.id ? getAgentDetails(params.id) : undefined;
 
@@ -294,12 +296,13 @@ function isDatabaseTool(toolName: string): boolean {
   return /todo|expense/i.test(toolName);
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     container: {
       backgroundColor: colors.background,
       flex: 1,
       padding: spacing.md,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     glowTop: {
       backgroundColor: colors.primarySoft,
@@ -313,7 +316,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     },
     header: {
       gap: spacing.sm,
-      paddingTop: spacing.md,
+      paddingTop: 0,
     },
     backButton: {
       alignItems: "center",
@@ -490,6 +493,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.md,
       justifyContent: "center",
       padding: spacing.md,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     emptyTitle: {
       color: colors.text,

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
@@ -28,7 +29,8 @@ type Period = (typeof periodOptions)[number]["value"];
 
 export default function ExpenseIntelligenceScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [period, setPeriod] = useState<Period>("month");
   const [report, setReport] = useState<ExpenseIntelligenceResponse | null>(null);
@@ -335,7 +337,7 @@ function formatAmount(amount: number, currency?: "AED" | "INR"): string {
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
@@ -345,6 +347,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.lg,
       padding: spacing.md,
       paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     backButton: {
       alignItems: "center",

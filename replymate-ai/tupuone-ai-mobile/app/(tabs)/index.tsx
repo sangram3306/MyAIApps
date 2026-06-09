@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
@@ -78,7 +77,6 @@ export default function HomeScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
-  const greeting = useMemo(() => getGreeting(), []);
   const [monthSpend, setMonthSpend] = useState<GlanceSpend | null>(null);
   const [watchPick, setWatchPick] = useState<WatchPick | null>(null);
 
@@ -119,7 +117,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <MatrixBackground density={14} />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <View style={styles.container}>
         <View style={styles.heroShell}>
           <View style={styles.headerTop}>
             <View style={styles.brandBlock}>
@@ -139,15 +137,9 @@ export default function HomeScreen() {
               style={styles.avatar}
             >
               <View style={styles.avatarInner}>
-                <Ionicons name="person" color={colors.primary} size={16} />
+                <Ionicons name="person" color={colors.primary} size={13} />
               </View>
             </Pressable>
-          </View>
-
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroKicker}>{greeting},</Text>
-            <Text style={styles.heroTitle}>Sangram 👋</Text>
-            <Text style={styles.subtitle}>What would you like to do today?</Text>
           </View>
 
           <Pressable onPress={() => router.push("/(tabs)/chat" as never)} style={styles.commandBar}>
@@ -197,7 +189,7 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -212,22 +204,7 @@ type WatchPick = {
   providers: string[];
 };
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 5) {
-    return "Good night";
-  }
-  if (hour < 12) {
-    return "Good morning";
-  }
-  if (hour < 17) {
-    return "Good afternoon";
-  }
-  if (hour < 21) {
-    return "Good evening";
-  }
-  return "Good night";
-}
+
 
 function SectionHeader({ title, action }: { title: string; action?: string }) {
   const { colors } = useAppTheme();
@@ -404,7 +381,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: 14,
       paddingBottom: spacing.xl,
       paddingHorizontal: 20,
-      paddingTop: Math.max(12, topInset + spacing.xs),
+      paddingTop: Math.max(4, topInset),
     },
     heroShell: {
       gap: 5,
@@ -412,15 +389,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       paddingBottom: 0,
     },
     headerTop: {
-      alignItems: "flex-start",
+      alignItems: "center",
       flexDirection: "row",
-      justifyContent: "flex-start",
-      minHeight: 54,
+      justifyContent: "center",
+      minHeight: 42,
       position: "relative",
+      width: "100%",
     },
     brandBlock: {
-      alignItems: "flex-start",
+      alignItems: "center",
       gap: 0,
+      marginLeft: 72,
+      top: -10,
     },
     wordmarkClip: {
       height: 42,
@@ -436,6 +416,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       width: 314,
     },
     brandCredit: {
+      alignSelf: "flex-start",
       color: colors.textMuted,
       fontSize: 8,
       fontWeight: "700",
@@ -449,46 +430,39 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       borderColor: colors.primaryBorder,
       borderRadius: radius.pill,
       borderWidth: StyleSheet.hairlineWidth,
-      height: 35,
+      height: 28,
       justifyContent: "center",
       shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.1,
       shadowRadius: 10,
       position: "absolute",
-      right: 0,
+      left: 0,
       top: 0,
-      width: 35,
+      width: 28,
     },
     avatarInner: {
       alignItems: "center",
       backgroundColor: colors.primaryDim,
       borderRadius: radius.pill,
-      height: 27,
+      height: 22,
       justifyContent: "center",
-      width: 27,
+      width: 22,
     },
     heroCopy: {
-      gap: 0,
-      marginTop: -18,
+      marginTop: 2,
+      marginBottom: spacing.xs,
     },
     heroKicker: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: "700",
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: "400",
     },
     heroTitle: {
       color: colors.text,
-      fontSize: 26,
-      fontWeight: "900",
-      letterSpacing: -0.7,
-      marginTop: -3,
-    },
-    subtitle: {
-      color: colors.cyan,
-      fontSize: 11,
-      fontWeight: "700",
-      lineHeight: 16,
+      fontSize: 15,
+      fontWeight: "800",
+      letterSpacing: -0.4,
     },
     commandBar: {
       alignItems: "center",
@@ -499,6 +473,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       flexDirection: "row",
       gap: spacing.sm,
       minHeight: 42,
+      marginTop: 20,
       paddingHorizontal: 10,
     },
     commandInput: {

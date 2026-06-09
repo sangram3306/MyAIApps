@@ -34,14 +34,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ focused }) => <TabIcon name="home-outline" focused={focused} colors={colors} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="home-outline" focused={focused} colors={colors} tone="primary" />,
         }}
       />
       <Tabs.Screen
         name="movie-tracker"
         options={{
           title: "CineTrack",
-          tabBarIcon: ({ focused }) => <TabIcon name="film-outline" focused={focused} colors={colors} tone="cyan" />,
+          tabBarIcon: ({ focused }) => <TabIcon name="film-outline" focused={focused} colors={colors} tone="primary" />,
         }}
       />
       <Tabs.Screen
@@ -49,7 +49,7 @@ export default function TabsLayout() {
         options={{
           title: "General Chat",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="chatbox-ellipses-outline" focused={focused} colors={colors} tone="primary" featured />
+            <TabIcon name="chatbox-ellipses-outline" focused={focused} colors={colors} tone="primary" />
           ),
         }}
       />
@@ -57,14 +57,14 @@ export default function TabsLayout() {
         name="expenses"
         options={{
           title: "Expenses",
-          tabBarIcon: ({ focused }) => <TabIcon name="wallet-outline" focused={focused} colors={colors} tone="purple" />,
+          tabBarIcon: ({ focused }) => <TabIcon name="wallet-outline" focused={focused} colors={colors} tone="primary" />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ focused }) => <TabIcon name="settings-outline" focused={focused} colors={colors} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="settings-outline" focused={focused} colors={colors} tone="primary" />,
         }}
       />
       <Tabs.Screen name="tools" options={{ href: null }} />
@@ -84,32 +84,29 @@ function TabIcon({
   focused,
   colors,
   tone = "primary",
-  featured = false,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   focused: boolean;
   colors: ReturnType<typeof useAppTheme>["colors"];
   tone?: "primary" | "purple" | "cyan";
-  featured?: boolean;
 }) {
   const accent = tone === "purple" ? colors.purple : tone === "cyan" ? colors.cyan : colors.primary;
   const soft =
     tone === "purple" ? colors.secondarySoft : tone === "cyan" ? colors.cyanSoft : colors.primaryDim;
-  const active = focused || featured;
 
   return (
     <View
       style={[
         styles.iconShell,
         {
-          backgroundColor: active ? soft : colors.surfaceElevated,
-          borderColor: active ? accent : colors.border,
+          backgroundColor: focused ? soft : colors.surfaceElevated,
+          borderColor: focused ? accent : colors.border,
           shadowColor: accent,
-          shadowOpacity: active ? 0.2 : 0,
+          shadowOpacity: focused ? 0.2 : 0,
         },
       ]}
     >
-      <Ionicons name={name} color={focused || featured ? accent : colors.muted} size={17} />
+      <Ionicons name={name} color={focused ? accent : colors.muted} size={17} />
     </View>
   );
 }

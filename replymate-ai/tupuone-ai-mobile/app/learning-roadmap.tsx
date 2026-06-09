@@ -12,19 +12,22 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
-import { buildLearningRoadmapFromApi, LearningRoadmapResponse } from "../services/api";
 import {
+  buildLearningRoadmapFromApi,
   deleteLearningRoadmapFromApi,
   getLearningRoadmapHistoryFromApi,
   saveLearningRoadmapFromApi,
+  LearningRoadmapResponse,
 } from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
 
 export default function LearningRoadmapScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [topic, setTopic] = useState("");
   const [goal, setGoal] = useState("learn the fundamentals");
@@ -434,12 +437,12 @@ function TraceCard({
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: { backgroundColor: colors.background, flex: 1 },
-    container: { gap: spacing.md, padding: spacing.md, paddingBottom: spacing.xl },
+    container: { gap: spacing.md, padding: spacing.md, paddingBottom: spacing.xl, paddingTop: Math.max(spacing.md, topInset) },
     placeholder: { color: colors.muted },
-    backButton: { alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 2, paddingTop: spacing.sm },
+    backButton: { alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 2, paddingTop: 0 },
     backText: { color: colors.text, fontSize: 14, fontWeight: "800" },
     hero: { gap: spacing.xs },
     badge: { alignItems: "center", alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderColor: colors.borderStrong, borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: 6 },

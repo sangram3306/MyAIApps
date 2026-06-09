@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import {
@@ -57,7 +58,8 @@ type WatchInfoRow = {
 
 export default function WatchTrackerScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<WatchStatus>("planned");
@@ -779,10 +781,10 @@ function ProfileList({
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+    container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl, paddingTop: Math.max(spacing.md, topInset) },
     backButton: { flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-start" },
     backText: { color: colors.text, fontWeight: "800" },
     hero: { gap: spacing.xs },

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl, getBudgetTargetPreference, getBudgetWarningThresholdPreference } from "../../storage/appStorage";
@@ -34,7 +35,8 @@ type SummaryData = {
 
 export default function SpendingSummaryScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
   const [expenseExport, setExpenseExport] = useState<ExpenseExportResponse | null>(null);
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
@@ -506,7 +508,7 @@ function formatAmount(value: number | undefined, currency?: "AED" | "INR"): stri
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
@@ -517,10 +519,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.md,
       padding: spacing.md,
       paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     hero: {
       gap: spacing.sm,
-      paddingTop: spacing.lg,
+      paddingTop: 0,
     },
     backButton: {
       alignItems: "center",

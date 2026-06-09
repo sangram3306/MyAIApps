@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "../../components/EmptyState";
 import { ReplyCard } from "../../components/ReplyCard";
 import { spacing } from "../../constants/theme";
@@ -10,7 +11,8 @@ import { FavoriteReply } from "../../storage/types";
 
 export default function FavoritesScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [favorites, setFavorites] = useState<FavoriteReply[]>([]);
 
   const loadFavorites = useCallback(() => {
@@ -46,7 +48,7 @@ export default function FavoritesScreen() {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: {
       backgroundColor: colors.background,
@@ -58,6 +60,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.md,
       padding: spacing.md,
       paddingBottom: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     title: {
       color: colors.text,

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChipSelector } from "./ChipSelector";
 import { EmptyState } from "./EmptyState";
 import { GrammarFixCard } from "./GrammarFixCard";
@@ -61,7 +62,8 @@ function generateId(): string {
 
 export function WritingToolScreen({ mode }: Props) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const copy = modeCopy[mode];
   const [message, setMessage] = useState("");
   const [replyNote, setReplyNote] = useState("");
@@ -286,7 +288,7 @@ export function WritingToolScreen({ mode }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     keyboard: {
       backgroundColor: colors.background,
@@ -300,7 +302,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       gap: spacing.lg,
       padding: spacing.md,
       paddingBottom: spacing.xl,
-      paddingTop: spacing.xl,
+      paddingTop: Math.max(spacing.md, topInset),
     },
     headerRow: {
       flexDirection: "row",

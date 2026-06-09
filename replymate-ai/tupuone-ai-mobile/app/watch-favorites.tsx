@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { listWatchItemsFromApi, WatchEntry } from "../services/api";
@@ -11,7 +12,8 @@ const typeFilters: Array<"all" | "movie" | "series"> = ["all", "movie", "series"
 
 export default function WatchFavoritesScreen() {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [favorites, setFavorites] = useState<WatchEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -165,10 +167,10 @@ function PosterBlock({
   );
 }
 
-function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+    container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl, paddingTop: Math.max(spacing.md, topInset) },
     backButton: { flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-start" },
     backText: { color: colors.text, fontWeight: "800" },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
