@@ -293,7 +293,7 @@ function formatToolName(toolName: string): string {
 }
 
 function isDatabaseTool(toolName: string): boolean {
-  return /todo|expense/i.test(toolName);
+  return /expense/i.test(toolName);
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {

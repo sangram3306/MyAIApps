@@ -47,7 +47,7 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
       {
         role: "system" as const,
         content:
-          "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not run todo tools, do not manage tasks, and do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action.",
+          "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action.",
       },
       {
         role: "user" as const,

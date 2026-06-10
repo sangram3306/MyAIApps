@@ -11,19 +11,13 @@ export type CineTrackChatResponse = {
     source: Source;
     summary: string;
   }>;
-  todos: Array<{
-    id: string;
-    title: string;
-    completed: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }>;
+
   agentTrace: string[];
   metadata: {
     toolsUsed: string[];
     toolSources: {
       classifyIntent: Source;
-      todoSkill: Source;
+
       answerGeneration: Source;
     };
   };
@@ -46,13 +40,13 @@ export async function handleCineTrackChatMessage(message: string): Promise<CineT
           summary: `Loaded ${entries.length} watch items`,
         },
       ],
-      todos: [],
+
       agentTrace: [...trace, "Returned fallback CineTrack response"],
       metadata: {
         toolsUsed: ["listWatchEntries"],
         toolSources: {
           classifyIntent: "static",
-          todoSkill: "static",
+
           answerGeneration: "fallback",
         },
       },
@@ -67,7 +61,7 @@ export async function handleCineTrackChatMessage(message: string): Promise<CineT
         {
           role: "system",
           content:
-            "You are CineTrack AI assistant. You ONLY answer movie/series watch-library questions using provided CineTrack context. Never mention todos, tasks, or other tools. If data is missing, say exactly what is missing and ask for one precise follow-up.",
+            "You are CineTrack AI assistant. You ONLY answer movie/series watch-library questions using provided CineTrack context. Never mention tools. If data is missing, say exactly what is missing and ask for one precise follow-up.",
         },
         {
           role: "user",
@@ -86,13 +80,13 @@ export async function handleCineTrackChatMessage(message: string): Promise<CineT
           summary: `Loaded ${entries.length} watch items`,
         },
       ],
-      todos: [],
+
       agentTrace: [...trace, "Generated CineTrack answer with LLM"],
       metadata: {
         toolsUsed: ["listWatchEntries"],
         toolSources: {
           classifyIntent: "static",
-          todoSkill: "static",
+
           answerGeneration: "llm",
         },
       },
@@ -109,13 +103,13 @@ export async function handleCineTrackChatMessage(message: string): Promise<CineT
           summary: `Loaded ${entries.length} watch items`,
         },
       ],
-      todos: [],
+
       agentTrace: [...trace, "Fell back to static CineTrack answer"],
       metadata: {
         toolsUsed: ["listWatchEntries"],
         toolSources: {
           classifyIntent: "static",
-          todoSkill: "static",
+
           answerGeneration: "fallback",
         },
       },

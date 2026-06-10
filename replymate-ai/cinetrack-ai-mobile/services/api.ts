@@ -143,13 +143,7 @@ export type ChatToolCall = {
   summary: string;
 };
 
-export type ChatTodoItem = {
-  id: string;
-  title: string;
-  completed: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
+
 
 export type ChatAgentEvent = {
   id: string;
@@ -163,14 +157,14 @@ export type ChatMessageResponse = {
   assistantReply: string;
   intent: string;
   toolCalls: ChatToolCall[];
-  todos: ChatTodoItem[];
+
   agentTrace: string[];
   agentEvents?: ChatAgentEvent[];
   metadata: {
     toolsUsed: string[];
     toolSources: {
       classifyIntent: "static" | "llm" | "fallback";
-      todoSkill: "static" | "llm" | "fallback";
+
       answerGeneration: "static" | "llm" | "fallback";
     };
   };
@@ -627,7 +621,7 @@ export async function sendChatMessageFromApi(params: {
     typeof data?.assistantReply !== "string" ||
     typeof data?.intent !== "string" ||
     !Array.isArray(data?.toolCalls) ||
-    !Array.isArray(data?.todos) ||
+
     !Array.isArray(data?.agentTrace)
   ) {
     throw new Error("Backend returned an unexpected response.");
