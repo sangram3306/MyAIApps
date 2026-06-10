@@ -251,7 +251,7 @@ export default function ExpensesScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+      keyboardVerticalOffset={0}
       style={styles.keyboard}
     >
       <MatrixBackground density={12} />

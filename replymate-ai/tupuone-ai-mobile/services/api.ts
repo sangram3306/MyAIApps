@@ -598,6 +598,7 @@ export async function analyzeCoachFromApi(params: {
 export async function sendChatMessageFromApi(params: {
   backendUrl: string;
   message: string;
+  signal?: AbortSignal;
 }): Promise<ChatMessageResponse> {
   const response = await fetch(`${params.backendUrl}/api/chat/message`, {
     method: "POST",
@@ -605,6 +606,7 @@ export async function sendChatMessageFromApi(params: {
     body: JSON.stringify({
       message: params.message,
     }),
+    signal: params.signal,
   });
 
   const data = (await response.json().catch(() => null)) as

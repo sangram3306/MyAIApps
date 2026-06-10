@@ -44,6 +44,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [messages, setMessages] = useState<ChatBubble[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,10 +80,13 @@ export default function ChatScreen() {
     setLoading(true);
     setError("");
 
+    abortControllerRef.current = new AbortController();
+
     try {
       const result = await sendChatMessageFromApi({
         backendUrl,
         message: nextMessage,
+        signal: abortControllerRef.current.signal,
       });
 
       const assistantId = `${generateId()}-assistant`;
@@ -105,7 +109,12 @@ export default function ChatScreen() {
       });
 
       setMessages((current) => [...current, assistantBubble]);
-    } catch (caught) {
+    } catch (caught: any) {
+      if (caught.name === "AbortError") {
+        setMessages((current) => current.filter((m) => m.id !== userBubble.id));
+        setMessage(nextMessage);
+        return;
+      }
       const detail = caught instanceof Error ? caught.message : "Please try again.";
       setError(detail);
       setMessages((current) => [
@@ -125,14 +134,22 @@ export default function ChatScreen() {
         },
       ]);
     } finally {
+      abortControllerRef.current = null;
       setLoading(false);
+    }
+  }
+
+  function handleStop() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
   }
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+      keyboardVerticalOffset={0}
       style={styles.keyboard}
     >
       <View style={styles.container}>
@@ -150,18 +167,7 @@ export default function ChatScreen() {
               <Text style={styles.threadSubtitle}>Your AI assistant for thinking, writing and planning.</Text>
             </View>
           </View>
-          <View style={styles.promptGrid}>
-            {[
-              "Plan a trip to Japan ✈️",
-              "Write a professional email 📨",
-              "Help me analyze my expenses 💰",
-              "Give me content ideas 💡",
-            ].map((prompt) => (
-              <Pressable key={prompt} onPress={() => void handleSend(prompt)} style={styles.promptPill}>
-                <Text style={styles.promptText}>{prompt}</Text>
-              </Pressable>
-            ))}
-          </View>
+
           <ScrollView
             ref={scrollRef}
             contentContainerStyle={styles.threadContent}
@@ -196,7 +202,7 @@ export default function ChatScreen() {
             ) : (
               <View style={styles.emptyHint}>
                 <Text style={styles.emptyHintTitle}>Start with a question</Text>
-                <Text style={styles.emptyHintCopy}>Choose a prompt above or ask SP ONE AI anything.</Text>
+                <Text style={styles.emptyHintCopy}>Ask SP ONE AI anything.</Text>
               </View>
             )}
           </ScrollView>
@@ -216,13 +222,12 @@ export default function ChatScreen() {
               onChangeText={setMessage}
             />
             <Pressable
-              disabled={loading}
-              onPress={() => handleSend()}
-              style={[styles.sendButton, loading && styles.sendButtonDisabled]}
-              accessibilityLabel="Send message"
+              onPress={() => (loading ? handleStop() : handleSend())}
+              style={[styles.sendButton]}
+              accessibilityLabel={loading ? "Stop generating" : "Send message"}
             >
               {loading ? (
-                <ActivityIndicator color="#08110D" />
+                <Ionicons name="stop" color="#08110D" size={18} />
               ) : (
                 <Ionicons name="arrow-up" color="#08110D" size={22} />
               )}
@@ -292,23 +297,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       maxWidth: 240,
       marginTop: 3,
     },
-    promptGrid: {
-      gap: 7,
-      paddingHorizontal: spacing.xs,
-    },
-    promptPill: {
-      backgroundColor: colors.surfaceGlass,
-      borderColor: colors.border,
-      borderRadius: radius.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 7,
-    },
-    promptText: {
-      color: colors.textMuted,
-      fontSize: 11,
-      fontWeight: "800",
-    },
+
     threadContent: {
       flexGrow: 1,
       gap: spacing.sm,
