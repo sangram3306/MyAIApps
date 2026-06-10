@@ -4,6 +4,7 @@ export interface IUser extends mongoose.Document {
   name: string;
   email: string;
   passwordHash: string;
+  profileImage?: string;
   createdAt: Date;
 }
 
@@ -23,6 +24,10 @@ const UserSchema = new mongoose.Schema({
   passwordHash: {
     type: String,
     required: true,
+  },
+  profileImage: {
+    type: String,
+    required: false,
   },
   createdAt: {
     type: Date,

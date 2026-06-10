@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, Image, Alert } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
+import { useAuth } from "../../context/auth";
 
 const profileRows = [
   { title: "My Account", subtitle: "Profile and personal details", icon: "person-outline", route: "" },
@@ -18,22 +20,53 @@ const profileRows = [
 
 export default function ProfileScreen() {
   const { colors } = useAppTheme();
+  const { user, signOut, updateProfileImage } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.3,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].base64) {
+      try {
+        const base64Str = `data:${result.assets[0].mimeType || 'image/jpeg'};base64,${result.assets[0].base64}`;
+        await updateProfileImage(base64Str);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload profile image.');
+      }
+    }
+  };
 
   return (
     <View style={styles.screen}>
       <MatrixBackground density={12} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.identityRow}>
-          <View style={styles.avatar}>
-            <View style={styles.avatarFace}>
-              <Ionicons name="person" color={colors.primary} size={25} />
-            </View>
-          </View>
+          <Pressable style={styles.avatar} onPress={handlePickImage}>
+            {user?.profileImage ? (
+              <Image source={{ uri: user.profileImage }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarFace}>
+                <Ionicons name="person" color={colors.primary} size={25} />
+              </View>
+            )}
+          </Pressable>
           <View style={styles.identityCopy}>
-            <Text style={styles.name}>Sangram</Text>
-            <Text style={styles.email}>sangram@example.com</Text>
+            <Text style={styles.name}>{user?.name || "User"}</Text>
+            <Text style={styles.email}>{user?.email || "No email provided"}</Text>
           </View>
         </View>
 
@@ -60,7 +93,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.logout}>
+        <Pressable style={styles.logout} onPress={signOut}>
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
       </ScrollView>
@@ -120,6 +153,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       shadowOpacity: 0.16,
       shadowRadius: 14,
       width: 58,
+    },
+    avatarImage: {
+      width: "100%",
+      height: "100%",
+      borderRadius: radius.pill,
     },
     avatarFace: {
       alignItems: "center",

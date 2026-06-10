@@ -6,6 +6,7 @@ interface User {
   name?: string;
   email: string;
   id: string;
+  profileImage?: string;
 }
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
   signIn: (email: string, password?: string) => Promise<void>;
   signUp: (name: string, email: string, password?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfileImage: (base64Image: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -102,8 +104,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const updateProfileImage = async (base64Image: string) => {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error("Backend URL not configured");
+    
+    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${backendUrl}/api/auth/me/profile-image`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ profileImage: base64Image }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to update profile image");
+    }
+
+    setUser(data.user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfileImage }}>
       {children}
     </AuthContext.Provider>
   );

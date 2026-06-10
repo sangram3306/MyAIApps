@@ -29,6 +29,7 @@ export async function registerUser(name: string, email: string, passwordRaw: str
       id: user._id.toString(),
       name: user.name,
       email: user.email,
+      profileImage: user.profileImage,
     },
     token,
   };
@@ -54,6 +55,7 @@ export async function loginUser(email: string, passwordRaw: string) {
       id: user._id.toString(),
       name: user.name,
       email: user.email,
+      profileImage: user.profileImage,
     },
     token,
   };
