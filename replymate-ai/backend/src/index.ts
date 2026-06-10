@@ -11,8 +11,12 @@ import learningRouter from "./routes/learningRoutes";
 import repliesRouter from "./routes/replies";
 import settingsRouter from "./routes/settingsRoutes";
 import watchRouter from "./routes/watchRoutes";
+import authRouter from "./routes/auth";
 import { getActiveLlmInfo, normalizeProvider, runWithLlmContext } from "./services/llmService";
+import { connectDB } from "./services/db";
 import { logEnvStatus } from "./utils/env";
+
+connectDB();
 
 logEnvStatus();
 
@@ -70,6 +74,7 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+app.use("/api/auth", authRouter);
 app.use("/api/replies", repliesRouter);
 app.use("/api/coach", coachRouter);
 app.use("/api/chat", chatRouter);

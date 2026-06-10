@@ -310,7 +310,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       padding: spacing.sm,
     },
     matrixWrap: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       overflow: "hidden",
     },
     matrixColumn: {

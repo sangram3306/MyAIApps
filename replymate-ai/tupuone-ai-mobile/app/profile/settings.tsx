@@ -7,6 +7,7 @@ import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing } from "../../constants/theme";
 import { defaultLlmPreference, LlmPreference, llmProviders } from "../../constants/llm";
 import { useAppTheme } from "../../context/app-theme";
+import { useAuth } from "../../context/auth";
 import {
   AppLockMode,
   DefaultTabId,
@@ -63,6 +64,7 @@ type RowTone = "primary" | "purple" | "danger";
 
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
+  const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [llmPreference, setLlmPreference] = useState<LlmPreference>(defaultLlmPreference);
@@ -318,6 +320,14 @@ export default function SettingsScreen() {
             subtitle="Permanently delete your account"
             tone="danger"
             onPress={() => Alert.alert("Coming soon", "Account deletion will be wired later.")}
+            styles={styles}
+          />
+          <SettingRow
+            icon="log-out-outline"
+            title="Sign Out"
+            subtitle="Sign out of SP ONE"
+            tone="danger"
+            onPress={signOut}
             styles={styles}
           />
         </SettingsGroup>

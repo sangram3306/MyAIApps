@@ -2,6 +2,9 @@ import { Tone } from "../constants/tones";
 import { Role } from "../constants/roles";
 import type { LlmProviderOption } from "../constants/llm";
 import { getLlmPreference } from "../storage/appStorage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const TOKEN_STORAGE_KEY = "@replymate_jwt";
 
 export type LlmOptionsResponse = {
   active: {
@@ -110,7 +113,7 @@ export async function getLlmOptionsFromApi(params: {
 }): Promise<LlmOptionsResponse> {
   const response = await fetch(`${params.backendUrl}/api/settings/llm-options`, {
     method: "GET",
-    headers: getJsonHeaders(),
+    headers: await getJsonHeaders(),
   });
 
   const data = (await response.json().catch(() => null)) as LlmOptionsResponse | { error?: string } | null;
@@ -1371,16 +1374,22 @@ export async function deleteWatchItemFromApi(params: {
 
 async function getApiHeaders(): Promise<Record<string, string>> {
   const preference = await getLlmPreference();
+  const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+  
   return {
     "Content-Type": "application/json",
     "X-LLM-Provider": preference.provider,
     "X-LLM-Model": preference.model,
     ...(preference.reasoningEnabled ? { "X-LLM-Reasoning": "1" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-function getJsonHeaders(): Record<string, string> {
+async function getJsonHeaders(): Promise<Record<string, string>> {
+  const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+  
   return {
     "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
