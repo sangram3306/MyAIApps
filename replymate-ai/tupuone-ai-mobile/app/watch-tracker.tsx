@@ -377,16 +377,25 @@ export default function WatchTrackerScreen() {
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Watcher profile</Text>
-            <Pressable onPress={handleBuildWatcherProfile} disabled={profileLoading} style={styles.profileButton}>
-              {profileLoading ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles-outline" color={colors.primary} size={14} />
-                  <Text style={styles.profileButtonText}>Analyze</Text>
-                </>
-              )}
-            </Pressable>
+            <View style={styles.profileHeaderButtons}>
+              <Pressable
+                onPress={() => router.push("/cinetrack-ai-workspace")}
+                style={styles.aiWorkspaceIconButton}
+                accessibilityLabel="Open AI Workspace"
+              >
+                <Ionicons name="search-outline" color={colors.primary} size={14} />
+              </Pressable>
+              <Pressable onPress={handleBuildWatcherProfile} disabled={profileLoading} style={styles.profileButton}>
+                {profileLoading ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles-outline" color={colors.primary} size={14} />
+                    <Text style={styles.profileButtonText}>Analyze</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           </View>
           {watcherProfile ? (
             <View style={styles.profileCard}>
@@ -408,12 +417,21 @@ export default function WatchTrackerScreen() {
               <Text style={styles.sectionTitle}>Saved titles</Text>
               <Text style={styles.sectionCount}>({filteredEntries.length})</Text>
             </View>
-            <Pressable
-              onPress={() => router.push("/watch-favorites")}
-              style={styles.favouritesCornerButton}
-            >
-              <Text style={styles.favouritesCornerText}>Favourites</Text>
-            </Pressable>
+            <View style={styles.sectionHeaderButtons}>
+              <Pressable
+                onPress={() => router.push("/watch-favorites")}
+                style={styles.favouritesCornerButton}
+              >
+                <Text style={styles.favouritesCornerText}>Favourites</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/cinetrack-ai-library")}
+                style={styles.cinetrackAiButton}
+                accessibilityLabel="Open full library"
+              >
+                <Ionicons name="expand-outline" color={colors.primary} size={14} />
+              </Pressable>
+            </View>
           </View>
           <View style={styles.typeTabsRow}>
             {typeFilters.map((item) => (
@@ -897,6 +915,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderWidth: 1, borderRadius: 12, padding: spacing.sm },
     primaryButton: { backgroundColor: colors.primary, borderRadius: 14, minHeight: 46, alignItems: "center", justifyContent: "center" },
     primaryButtonText: { color: colors.onPrimary, fontWeight: "900" },
+    profileHeaderButtons: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+    aiWorkspaceIconButton: {
+      borderColor: colors.primary,
+      borderWidth: 1,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+      width: 28,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     profileButton: {
       borderColor: colors.border,
       borderWidth: 1,
@@ -926,6 +955,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
     sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
     sectionCount: { color: colors.primary, fontSize: 13, fontWeight: "900" },
+    sectionHeaderButtons: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
     favouritesCornerButton: {
       borderColor: colors.border,
       borderWidth: 1,
@@ -935,6 +965,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       paddingVertical: 5,
     },
     favouritesCornerText: { color: colors.primary, fontSize: 12, fontWeight: "900" },
+    cinetrackAiButton: {
+      borderColor: colors.primary,
+      borderWidth: 1,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+      width: 28,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     typeTabsRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.xs },
     typeTab: {
       flex: 1,

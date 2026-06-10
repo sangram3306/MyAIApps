@@ -15,6 +15,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
+import { MatrixBackground } from "../components/PremiumUI";
 import {
   DecisionOption,
   DecisionSimulationResponse,
@@ -92,6 +93,7 @@ export default function DecisionSimulatorScreen({ showBackButton = true }: { sho
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.keyboard}
     >
+      <MatrixBackground density={10} />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {showBackButton ? (
           <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -436,14 +438,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     heroBadge: {
       alignItems: "center",
       alignSelf: "flex-start",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: "row",
       gap: spacing.xs,
       paddingHorizontal: spacing.sm,
       paddingVertical: 6,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
     },
     heroBadgeText: {
       color: colors.primary,
@@ -464,12 +470,15 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       lineHeight: 23,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
       borderRadius: 22,
       borderWidth: 1,
       gap: spacing.md,
       padding: spacing.md,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.04,
+      shadowRadius: 16,
     },
     sectionHeaderRow: {
       alignItems: "center",
@@ -541,8 +550,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       paddingVertical: spacing.sm,
     },
     choicePillSelected: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
     },
     choicePillText: {
       color: colors.muted,
@@ -580,12 +589,15 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     emptyCard: {
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
       borderRadius: 24,
       borderWidth: 1,
       gap: spacing.sm,
       padding: spacing.lg,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.04,
+      shadowRadius: 16,
     },
     emptyTitle: {
       color: colors.text,
@@ -602,12 +614,15 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.md,
     },
     recommendationCard: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
       borderRadius: 24,
       borderWidth: 1,
       gap: spacing.md,
       padding: spacing.md,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.05,
+      shadowRadius: 16,
     },
     recommendationHeader: {
       alignItems: "center",
@@ -633,8 +648,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     iconBox: {
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primaryBorder,
       borderRadius: 16,
       borderWidth: 1,
       height: 44,
@@ -643,8 +658,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     iconBoxSmall: {
       alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
       borderRadius: 12,
       borderWidth: 1,
       height: 34,
@@ -697,7 +712,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     optionCard: {
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
+      borderColor: colors.primaryBorder,
       borderRadius: 18,
       borderWidth: 1,
       gap: spacing.sm,
@@ -730,8 +745,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.sm,
     },
     miniList: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primaryBorder,
       borderRadius: 14,
       borderWidth: 1,
       flex: 1,
@@ -763,10 +778,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       height: 7,
       marginTop: 7,
       width: 7,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.5,
+      shadowRadius: 3,
     },
     ruleBox: {
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
+      borderColor: colors.primaryBorder,
       borderRadius: 16,
       borderWidth: 1,
       gap: spacing.xs,
@@ -778,8 +797,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.xs,
     },
     toolPill: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: "row",

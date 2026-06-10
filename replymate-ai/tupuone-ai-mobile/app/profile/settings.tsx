@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,14 +12,18 @@ import {
   DefaultTabId,
   ResponseCountPreference,
   clearAllLocalAppData,
+  getAlwaysUseLlmChatPreference,
   getAppLockModePreference,
   getDefaultTabPreference,
   getLlmPreference,
+  getLibraryAwareChatPreference,
   getReplyResponseCountPreference,
   getRewriteResponseCountPreference,
   getThemeModePreference,
+  saveAlwaysUseLlmChatPreference,
   saveAppLockModePreference,
   saveDefaultTabPreference,
+  saveLibraryAwareChatPreference,
   saveReplyResponseCountPreference,
   saveRewriteResponseCountPreference,
 } from "../../storage/appStorage";
@@ -53,7 +57,7 @@ const responseCountOptions: { label: string; value: `${ResponseCountPreference}`
   { label: "5", value: "5" },
 ];
 
-type DetailPanelId = "appearance" | "launch" | "language" | "writing" | "coach" | "privacy" | "lock" | null;
+type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "privacy" | "lock" | null;
 
 type RowTone = "primary" | "purple" | "danger";
 
@@ -68,6 +72,9 @@ export default function SettingsScreen() {
   const [rewriteResponseCount, setRewriteResponseCount] = useState<`${ResponseCountPreference}`>("5");
   const [expandedPanel, setExpandedPanel] = useState<DetailPanelId>(null);
   const [clearingData, setClearingData] = useState(false);
+  // CineTrack preferences
+  const [libraryAwareChat, setLibraryAwareChat] = useState(true);
+  const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
 
   const selectedProvider = llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
   const selectedModel = selectedProvider.models.find((model) => model.value === llmPreference.model);
@@ -81,12 +88,16 @@ export default function SettingsScreen() {
         getAppLockModePreference(),
         getReplyResponseCountPreference(),
         getRewriteResponseCountPreference(),
-      ]).then(([, llm, tab, lockMode, replyCount, rewriteCount]) => {
+        getLibraryAwareChatPreference(),
+        getAlwaysUseLlmChatPreference(),
+      ]).then(([, llm, tab, lockMode, replyCount, rewriteCount, libAware, alwaysLlm]) => {
         setLlmPreference(llm);
         setDefaultTab(tab);
         setAppLockMode(lockMode);
         setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
         setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
+        setLibraryAwareChat(libAware);
+        setAlwaysUseLlmChat(alwaysLlm);
       });
 
       return () => setExpandedPanel(null);
@@ -126,6 +137,8 @@ export default function SettingsScreen() {
       setAppLockMode("off");
       setReplyResponseCount("5");
       setRewriteResponseCount("5");
+      setLibraryAwareChat(true);
+      setAlwaysUseLlmChat(false);
       await setMode("system");
       Alert.alert("Data cleared", "Local SP ONE data has been cleared.");
     } catch (error) {
@@ -133,6 +146,16 @@ export default function SettingsScreen() {
     } finally {
       setClearingData(false);
     }
+  }
+
+  function handleLibraryAwareChatChange(value: boolean) {
+    setLibraryAwareChat(value);
+    void saveLibraryAwareChatPreference(value);
+  }
+
+  function handleAlwaysUseLlmChatChange(value: boolean) {
+    setAlwaysUseLlmChat(value);
+    void saveAlwaysUseLlmChatPreference(value);
   }
 
   function togglePanel(panel: Exclude<DetailPanelId, null>) {
@@ -182,19 +205,6 @@ export default function SettingsScreen() {
             </DetailCard>
           ) : null}
 
-          <SettingRow
-            icon="language-outline"
-            title="Language"
-            subtitle="English"
-            active={expandedPanel === "language"}
-            onPress={() => togglePanel("language")}
-            styles={styles}
-          />
-          {expandedPanel === "language" ? (
-            <DetailCard styles={styles}>
-              <Text style={styles.detailText}>Language selection is reserved for a future update.</Text>
-            </DetailCard>
-          ) : null}
         </SettingsGroup>
 
         <SettingsGroup title="AI" styles={styles}>
@@ -234,21 +244,31 @@ export default function SettingsScreen() {
           ) : null}
 
           <SettingRow
-            icon="flower-outline"
-            title="Smart Coach"
-            subtitle="Coaching preferences"
-            tone="purple"
-            active={expandedPanel === "coach"}
-            onPress={() => togglePanel("coach")}
+            icon="film-outline"
+            title="CineTrack"
+            subtitle={`Library-aware ${libraryAwareChat ? "ON" : "OFF"} · LLM ${alwaysUseLlmChat ? "always" : "smart"}`}
+            active={expandedPanel === "cinetrack"}
+            onPress={() => togglePanel("cinetrack")}
             styles={styles}
           />
-          {expandedPanel === "coach" ? (
+          {expandedPanel === "cinetrack" ? (
             <DetailCard styles={styles}>
-              <Text style={styles.detailText}>Smart Coach preferences are a placeholder for a future coaching setup.</Text>
-              <Pressable onPress={() => router.push("/tools/coach" as never)} style={styles.inlineButton}>
-                <Text style={styles.inlineButtonText}>Open Smart Coach</Text>
-                <Ionicons name="arrow-forward" color={colors.primary} size={14} />
-              </Pressable>
+              <SwitchRow
+                icon="library-outline"
+                title="Library-aware AI"
+                subtitle="Use saved titles as context in CineTrack AI chat"
+                value={libraryAwareChat}
+                onValueChange={handleLibraryAwareChatChange}
+                styles={styles}
+              />
+              <SwitchRow
+                icon="sparkles-outline"
+                title="Always use LLM"
+                subtitle="Bypass local rules, call LLM for every CineTrack query"
+                value={alwaysUseLlmChat}
+                onValueChange={handleAlwaysUseLlmChatChange}
+                styles={styles}
+              />
             </DetailCard>
           ) : null}
         </SettingsGroup>
@@ -350,6 +370,42 @@ function SettingRow({
 
 function DetailCard({ children, styles }: { children: ReactNode; styles: ReturnType<typeof createStyles> }) {
   return <View style={styles.detailCard}>{children}</View>;
+}
+
+function SwitchRow({
+  icon,
+  title,
+  subtitle,
+  value,
+  onValueChange,
+  styles,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} color={colors.primary} size={17} />
+      </View>
+      <View style={styles.rowCopyWrap}>
+        <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
+        <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.border, true: colors.primaryDim }}
+        thumbColor={value ? colors.primary : colors.textMuted}
+        ios_backgroundColor={colors.border}
+      />
+    </View>
+  );
 }
 
 function SegmentedControl<T extends string>({
@@ -562,6 +618,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       color: colors.primary,
       fontSize: 11,
       fontWeight: "900",
+    },
+    switchRow: {
+      alignItems: "center",
+      borderBottomColor: colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 58,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 10,
     },
   });
 }

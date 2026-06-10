@@ -146,6 +146,7 @@ export function WritingToolScreen({ mode }: Props) {
         note: mode === "reply" ? replyNote.trim() : undefined,
         replies: generated,
         createdAt: new Date().toISOString(),
+        mode,
       });
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Please try again.";
@@ -156,15 +157,19 @@ export function WritingToolScreen({ mode }: Props) {
   }
 
   async function handleFavorite(reply: string) {
-    await saveFavorite({
-      id: generateId(),
-      reply,
-      sourceMessage: message,
-      note: mode === "reply" ? replyNote.trim() : undefined,
-      tone,
-      role,
-      createdAt: new Date().toISOString(),
-    });
+    if (mode === "grammar") return;
+    await saveFavorite(
+      {
+        id: generateId(),
+        reply,
+        sourceMessage: message,
+        note: mode === "reply" ? replyNote.trim() : undefined,
+        tone,
+        role,
+        createdAt: new Date().toISOString(),
+      },
+      mode
+    );
     Alert.alert("Saved", "Reply added to favorites.");
   }
 
@@ -187,16 +192,22 @@ export function WritingToolScreen({ mode }: Props) {
               <Ionicons name="chevron-back" color={colors.primary} size={18} />
             </Pressable>
             <View style={styles.headerCopy}>
-              <View style={styles.eyebrowRow}>
-                <View style={styles.eyebrowDot} />
-                <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
-              </View>
               <Text style={styles.title}>{copy.title}</Text>
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
             </View>
-            <View style={styles.heroIconContainer}>
-              <Ionicons name={copy.icon} color={colors.primary} size={22} />
-            </View>
+            {mode === "grammar" ? (
+              <View style={styles.heroIconContainer}>
+                <Ionicons name={copy.icon} color={colors.primary} size={22} />
+              </View>
+            ) : (
+              <Pressable
+                accessibilityLabel="Open favorites"
+                onPress={() => router.push(`/favorites-${mode}` as never)}
+                style={styles.favoritesHeaderButton}
+              >
+                <Ionicons name="star" color={colors.amber} size={22} />
+              </Pressable>
+            )}
           </View>
 
           {/* Main input panel */}
@@ -360,7 +371,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.lg,
       padding: spacing.md,
       paddingBottom: spacing.xl + 20,
-      paddingTop: Math.max(spacing.md, topInset),
+      paddingTop: Math.max(spacing.lg, topInset + spacing.sm),
     },
 
     /* Ambient glow orbs */
@@ -451,6 +462,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       width: 44,
       shadowColor: colors.primary,
       shadowOpacity: 0.2,
+      shadowRadius: 14,
+    },
+    favoritesHeaderButton: {
+      alignItems: "center",
+      backgroundColor: "rgba(250,204,21,0.12)",
+      borderColor: "rgba(250,204,21,0.35)",
+      borderRadius: 16,
+      borderWidth: 1,
+      height: 44,
+      justifyContent: "center",
+      width: 44,
+      shadowColor: colors.amber,
+      shadowOpacity: 0.25,
       shadowRadius: 14,
     },
 

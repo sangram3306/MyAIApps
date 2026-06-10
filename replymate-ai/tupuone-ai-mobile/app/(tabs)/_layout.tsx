@@ -72,7 +72,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="decisions" options={{ href: null }} />
       <Tabs.Screen name="creator" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />
-      <Tabs.Screen name="favorites" options={{ href: null }} />
       <Tabs.Screen name="coach" options={{ href: null }} />
       <Tabs.Screen name="summary" options={{ href: null }} />
     </Tabs>

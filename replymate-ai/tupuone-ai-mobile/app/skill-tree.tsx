@@ -15,6 +15,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
+import { MatrixBackground } from "../components/PremiumUI";
 import {
   buildSkillTreeFromApi,
   deleteSkillTreeFromApi,
@@ -180,6 +181,7 @@ export default function SkillTreeScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.keyboard}
     >
+      <MatrixBackground density={10} />
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -456,20 +458,24 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     badge: {
       alignItems: "center",
       alignSelf: "flex-start",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.primaryDim,
+      borderColor: colors.primaryBorder,
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: "row",
       gap: spacing.xs,
       paddingHorizontal: spacing.sm,
       paddingVertical: 6,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
     },
     badgeText: { color: colors.primary, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
     title: { color: colors.text, fontSize: 34, fontWeight: "900", letterSpacing: -1 },
     subtitle: { color: colors.muted, fontSize: 15, lineHeight: 23 },
-    card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: spacing.md, padding: spacing.md },
-    heroCard: { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong, borderRadius: 24, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
+    card: { backgroundColor: colors.surfaceGlass, borderColor: colors.primaryBorder, borderRadius: 22, borderWidth: 1, gap: spacing.md, padding: spacing.md, shadowColor: colors.primary, shadowOpacity: 0.04, shadowRadius: 16 },
+    heroCard: { backgroundColor: colors.surfaceGlass, borderColor: colors.primaryBorder, borderRadius: 24, borderWidth: 1, gap: spacing.sm, padding: spacing.md, shadowColor: colors.primary, shadowOpacity: 0.05, shadowRadius: 16 },
     field: { gap: spacing.xs },
     fieldRow: { flexDirection: "row", gap: spacing.sm },
     label: { color: colors.primary, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
@@ -478,8 +484,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     inlineActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs },
     secondaryButton: {
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primaryBorder,
       borderRadius: 12,
       borderWidth: 1,
       flexDirection: "row",
@@ -502,8 +508,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     sourcePill: {
       alignItems: "center",
       alignSelf: "flex-start",
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primaryBorder,
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: "row",
@@ -520,22 +526,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     bodyText: { color: colors.text, flex: 1, fontSize: 14, lineHeight: 21 },
     mutedText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     nodeList: { gap: spacing.sm },
-    nodeCard: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderRadius: 16, borderWidth: 1, gap: spacing.xs, padding: spacing.md },
+    nodeCard: { backgroundColor: colors.surfaceElevated, borderColor: colors.primaryBorder, borderRadius: 16, borderWidth: 1, gap: spacing.xs, padding: spacing.md },
     nodeHeader: { alignItems: "flex-start", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
     nodeTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: "900" },
     nodeMeta: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     bulletRow: { alignItems: "flex-start", flexDirection: "row", gap: spacing.sm },
-    dot: { backgroundColor: colors.primary, borderRadius: 999, height: 7, marginTop: 7, width: 7 },
+    dot: { backgroundColor: colors.primary, borderRadius: 999, height: 7, marginTop: 7, width: 7, shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 3 },
     toolWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-    toolPill: { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong, borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+    toolPill: { backgroundColor: colors.primaryDim, borderColor: colors.primaryBorder, borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
     toolName: { color: colors.text, fontSize: 11, fontWeight: "900" },
     toolSource: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
-    emptyCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
+    emptyCard: { alignItems: "center", backgroundColor: colors.surfaceGlass, borderColor: colors.primaryBorder, borderRadius: 22, borderWidth: 1, gap: spacing.sm, padding: spacing.lg, shadowColor: colors.primary, shadowOpacity: 0.04, shadowRadius: 16 },
     emptyTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
     historyItem: {
       alignItems: "center",
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
+      borderColor: colors.primaryBorder,
       borderRadius: 14,
       borderWidth: 1,
       flexDirection: "row",

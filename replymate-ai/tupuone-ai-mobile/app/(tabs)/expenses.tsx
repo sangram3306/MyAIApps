@@ -27,6 +27,7 @@ import {
 import {
   createExpenseFromApi,
   ExpenseMessageResponse,
+  getExpenseExportFromApi,
   sendExpenseMessageFromApi,
 } from "../../services/api";
 
@@ -99,6 +100,9 @@ export default function ExpensesScreen() {
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState("");
   const [insightResult, setInsightResult] = useState<ExpenseMessageResponse | null>(null);
+  const [thisMonthTotal, setThisMonthTotal] = useState<number | null>(null);
+  const [lastMonthTotal, setLastMonthTotal] = useState<number | null>(null);
+  const [monthCurrency, setMonthCurrency] = useState<"AED" | "INR">("AED");
 
   useFocusEffect(
     useCallback(() => {
@@ -122,6 +126,34 @@ export default function ExpensesScreen() {
         setBudgetWarningThreshold(threshold);
         setAutoCategorySuggestions(autoCategory);
         setQuickAddCategories(quickAdds);
+
+        // Fetch current & last month totals for the dashboard card
+        if (url) {
+          try {
+            const exportData = await getExpenseExportFromApi({ backendUrl: url });
+            if (!isActive) return;
+            const now = new Date();
+            const cy = now.getFullYear();
+            const cm = now.getMonth();
+            const ly = cm === 0 ? cy - 1 : cy;
+            const lm = cm === 0 ? 11 : cm - 1;
+            let thisMo = 0;
+            let lastMo = 0;
+            let detectedCurrency: "AED" | "INR" = "AED";
+            for (const exp of exportData.expenses) {
+              const d = new Date(exp.date);
+              if (isNaN(d.getTime())) continue;
+              if (exp.currency) detectedCurrency = exp.currency;
+              if (d.getFullYear() === cy && d.getMonth() === cm) thisMo += exp.amount || 0;
+              if (d.getFullYear() === ly && d.getMonth() === lm) lastMo += exp.amount || 0;
+            }
+            setThisMonthTotal(thisMo);
+            setLastMonthTotal(lastMo);
+            setMonthCurrency(detectedCurrency);
+          } catch {
+            // Non-critical — dashboard card simply shows "—" if unavailable
+          }
+        }
       }
 
       void loadData();
@@ -245,8 +277,25 @@ export default function ExpensesScreen() {
           <View style={styles.monthTop}>
             <View>
               <Text style={styles.monthLabel}>This month</Text>
-              <Text style={styles.monthAmount}>AED 2,450.75</Text>
-              <Text style={styles.monthDelta}>↗ 18% vs last month</Text>
+              <Text style={styles.monthAmount}>
+                {thisMonthTotal === null
+                  ? "—"
+                  : `${monthCurrency} ${thisMonthTotal.toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                      minimumFractionDigits: thisMonthTotal % 1 === 0 ? 0 : 2,
+                    })}`}
+              </Text>
+              {thisMonthTotal !== null && lastMonthTotal !== null ? (
+                <Text style={styles.monthDelta}>
+                  {lastMonthTotal === 0
+                    ? "No data for last month"
+                    : (() => {
+                        const pct = ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100;
+                        const sign = pct >= 0 ? "↗" : "↘";
+                        return `${sign} ${Math.abs(pct).toFixed(0)}% vs last month`;
+                      })()}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.ringOuter}>
               <View style={styles.ringAccent} />

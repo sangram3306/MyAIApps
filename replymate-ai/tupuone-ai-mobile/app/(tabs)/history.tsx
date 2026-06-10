@@ -31,14 +31,18 @@ export default function HistoryScreen() {
   }
 
   async function handleFavorite(item: ReplyHistoryItem, reply: string) {
-    await saveFavorite({
-      id: generateId(),
-      reply,
-      sourceMessage: item.message,
-      tone: item.tone,
-      role: item.role,
-      createdAt: new Date().toISOString(),
-    });
+    const itemMode = item.mode === "rewrite" ? "rewrite" : "reply";
+    await saveFavorite(
+      {
+        id: generateId(),
+        reply,
+        sourceMessage: item.message,
+        tone: item.tone,
+        role: item.role,
+        createdAt: new Date().toISOString(),
+      },
+      itemMode
+    );
     Alert.alert("Saved", "Reply added to favorites.");
   }
 

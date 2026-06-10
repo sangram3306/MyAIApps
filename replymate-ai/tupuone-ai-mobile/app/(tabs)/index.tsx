@@ -79,6 +79,7 @@ export default function HomeScreen() {
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [monthSpend, setMonthSpend] = useState<GlanceSpend | null>(null);
   const [watchPick, setWatchPick] = useState<WatchPick | null>(null);
+  const [watchCandidates, setWatchCandidates] = useState<WatchPick[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,10 +98,13 @@ export default function HomeScreen() {
           }
 
           setMonthSpend(expenseExport ? buildMonthSpend(expenseExport.expenses) : null);
-          setWatchPick(watchList ? pickPlannedStreamingTitle(watchList.entries) : null);
+          const candidates = watchList ? getStreamingCandidates(watchList.entries) : [];
+          setWatchCandidates(candidates);
+          setWatchPick(pickDailyTitle(candidates));
         } catch {
           if (active) {
             setMonthSpend(null);
+            setWatchCandidates([]);
             setWatchPick(null);
           }
         }
@@ -113,6 +117,22 @@ export default function HomeScreen() {
       };
     }, []),
   );
+
+  function handleRefreshWatchPick() {
+    if (!watchCandidates.length) {
+      return;
+    }
+    if (watchCandidates.length === 1) {
+      setWatchPick(watchCandidates[0]);
+      return;
+    }
+    let nextPick = watchPick;
+    while (!nextPick || nextPick.title === watchPick?.title) {
+      const randomIndex = Math.floor(Math.random() * watchCandidates.length);
+      nextPick = watchCandidates[randomIndex];
+    }
+    setWatchPick(nextPick);
+  }
 
   return (
     <View style={styles.screen}>
@@ -186,6 +206,7 @@ export default function HomeScreen() {
               label={watchPick?.providers.length ? watchPick.providers.join(" + ") : "Prime IN + Netflix IN"}
               value={watchPick?.title || "No planned pick yet"}
               accent="purple"
+              onRefresh={watchCandidates.length > 1 ? handleRefreshWatchPick : undefined}
             />
           </View>
         </View>
@@ -270,11 +291,13 @@ function GlanceCard({
   label,
   value,
   accent,
+  onRefresh,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   accent: "primary" | "purple";
+  onRefresh?: () => void;
 }) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createGlanceStyles(colors), [colors]);
@@ -282,8 +305,15 @@ function GlanceCard({
 
   return (
     <View style={[styles.card, isPurple ? styles.purpleCard : styles.primaryCard]}>
-      <View style={[styles.iconShell, isPurple ? styles.purpleIconShell : styles.primaryIconShell]}>
-        <Ionicons name={icon} color={isPurple ? colors.purple : colors.primary} size={15} />
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconShell, isPurple ? styles.purpleIconShell : styles.primaryIconShell]}>
+          <Ionicons name={icon} color={isPurple ? colors.purple : colors.primary} size={15} />
+        </View>
+        {onRefresh ? (
+          <Pressable hitSlop={12} onPress={onRefresh} style={styles.refreshButton}>
+            <Ionicons name="refresh" color={isPurple ? colors.purple : colors.primary} size={13} />
+          </Pressable>
+        ) : null}
       </View>
       <Text style={styles.label}>{label}</Text>
       <Text numberOfLines={2} style={[styles.value, isPurple && styles.purpleValue]}>
@@ -307,24 +337,27 @@ function buildMonthSpend(expenses: ExpenseItem[]): GlanceSpend {
   return { total, currency };
 }
 
-function pickPlannedStreamingTitle(entries: WatchEntry[]): WatchPick | null {
-  const candidates = entries
+function getStreamingCandidates(entries: WatchEntry[]): WatchPick[] {
+  return entries
     .filter((entry) => entry.status === "planned")
     .map((entry) => ({
-      entry,
+      title: entry.title,
       providers: streamingProvidersInIndia(entry.availability || []),
     }))
     .filter((item) => item.providers.length > 0);
+}
 
+function pickDailyTitle(candidates: WatchPick[]): WatchPick | null {
   if (!candidates.length) {
     return null;
   }
-
-  const selected = candidates[Math.floor(Math.random() * candidates.length)];
-  return {
-    title: selected.entry.title,
-    providers: selected.providers,
-  };
+  const dateStr = new Date().toDateString(); // E.g., "Wed Jun 10 2026"
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % candidates.length;
+  return candidates[index];
 }
 
 function streamingProvidersInIndia(availability: WatchEntry["availability"]): string[] {
@@ -429,7 +462,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.primaryBorder,
       borderRadius: radius.pill,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       height: 28,
       justifyContent: "center",
       shadowColor: colors.primary,
@@ -469,7 +502,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       backgroundColor: colors.surface,
       borderColor: colors.primaryBorder,
       borderRadius: radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       flexDirection: "row",
       gap: spacing.sm,
       minHeight: 42,
@@ -536,7 +569,7 @@ function createActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       flexBasis: "47%",
       flexGrow: 1,
       gap: 5,
@@ -551,14 +584,14 @@ function createActionStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       shadowRadius: 10,
     },
     purpleCard: {
-      borderColor: colors.secondarySoft,
+      borderColor: colors.purple + "59",
       shadowColor: colors.purple,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.06,
       shadowRadius: 10,
     },
     cyanCard: {
-      borderColor: colors.cyanSoft,
+      borderColor: colors.cyan + "59",
       shadowColor: colors.cyan,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.06,
@@ -612,11 +645,22 @@ function createGlanceStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       flex: 1,
       gap: 5,
       minHeight: 96,
       padding: 11,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      width: "100%",
+    },
+    refreshButton: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 2,
     },
     primaryCard: {
       borderColor: colors.primaryBorder,
@@ -626,7 +670,7 @@ function createGlanceStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       shadowRadius: 10,
     },
     purpleCard: {
-      borderColor: colors.secondarySoft,
+      borderColor: colors.purple + "59",
       shadowColor: colors.purple,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.07,

@@ -28,6 +28,8 @@ type SummaryPoint = {
 type SummaryData = {
   points: SummaryPoint[];
   total: number;
+  currentPeriodTotal: number;
+  currentPeriodCount: number;
   average: number;
   count: number;
   currency?: "AED" | "INR";
@@ -193,14 +195,14 @@ export default function SpendingSummaryScreen() {
               <SummaryMetricCard
                 styles={styles}
                 label={summaryPeriod === "monthly" ? "This month" : "This year"}
-                value={formatAmount(summaryData.total, summaryData.currency)}
+                value={formatAmount(summaryData.currentPeriodTotal, summaryData.currency)}
               />
               <SummaryMetricCard
                 styles={styles}
                 label={summaryPeriod === "monthly" ? "Avg / month" : "Avg / year"}
                 value={formatAmount(summaryData.average, summaryData.currency)}
               />
-              <SummaryMetricCard styles={styles} label="Entries" value={`${summaryData.count}`} />
+              <SummaryMetricCard styles={styles} label="Entries" value={`${summaryData.currentPeriodCount}`} />
             </View>
 
             <View style={styles.insightGrid}>
@@ -325,7 +327,26 @@ function buildSummaryData(expenses: ExpenseItem[], period: SummaryPeriod): Summa
   const count = points.reduce((sum, item) => sum + item.count, 0);
   const average = points.length ? total / points.length : 0;
 
-  return { points, total, average, count, currency };
+  // Compute current-period-only totals (current month or current year)
+  let currentPeriodTotal = 0;
+  let currentPeriodCount = 0;
+  if (period === "monthly") {
+    const currentMonthIndex = new Date().getMonth();
+    const currentBucket = points[currentMonthIndex];
+    if (currentBucket) {
+      currentPeriodTotal = currentBucket.total;
+      currentPeriodCount = currentBucket.count;
+    }
+  } else {
+    const currentYearKey = String(new Date().getFullYear());
+    const currentBucket = points.find((p) => p.key === currentYearKey);
+    if (currentBucket) {
+      currentPeriodTotal = currentBucket.total;
+      currentPeriodCount = currentBucket.count;
+    }
+  }
+
+  return { points, total, currentPeriodTotal, currentPeriodCount, average, count, currency };
 }
 
 function getPeakPeriodLabel(

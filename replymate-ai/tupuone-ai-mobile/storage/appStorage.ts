@@ -10,6 +10,8 @@ export type ResponseCountPreference = 1 | 2 | 3 | 4 | 5;
 const keys = {
   history: "replymate.history",
   favorites: "replymate.favorites",
+  favoritesReply: "replymate.favorites.reply",
+  favoritesRewrite: "replymate.favorites.rewrite",
   llmPreference: "replymate.llmPreference",
   themeMode: "replymate.themeMode",
   defaultTab: "replymate.defaultTab",
@@ -21,6 +23,10 @@ const keys = {
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
   quickAddCategories: "replymate.expenses.quickAddCategories",
+  // ── CineTrack tool preferences ──
+  oneHandedMode: "cinetrack.oneHandedMode",
+  libraryAwareChat: "cinetrack.libraryAwareChat",
+  alwaysUseLlmChat: "cinetrack.alwaysUseLlmChat",
 };
 
 export type DefaultTabId = "home" | "movieTracker" | "chat" | "expenses" | "settings";
@@ -162,6 +168,32 @@ export async function getHistory(): Promise<ReplyHistoryItem[]> {
   return readJson<ReplyHistoryItem[]>(keys.history, []);
 }
 
+// ─── CineTrack tool preferences ──────────────────────────────────────────────
+
+export async function getOneHandedModePreference(): Promise<boolean> {
+  return readJson<boolean>(keys.oneHandedMode, false);
+}
+
+export async function saveOneHandedModePreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.oneHandedMode, JSON.stringify(value));
+}
+
+export async function getLibraryAwareChatPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.libraryAwareChat, true);
+}
+
+export async function saveLibraryAwareChatPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.libraryAwareChat, JSON.stringify(value));
+}
+
+export async function getAlwaysUseLlmChatPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.alwaysUseLlmChat, false);
+}
+
+export async function saveAlwaysUseLlmChatPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.alwaysUseLlmChat, JSON.stringify(value));
+}
+
 export async function addHistoryItem(item: ReplyHistoryItem): Promise<void> {
   const current = await getHistory();
   await AsyncStorage.setItem(keys.history, JSON.stringify([item, ...current].slice(0, 50)));
@@ -171,24 +203,44 @@ export async function clearHistory(): Promise<void> {
   await AsyncStorage.removeItem(keys.history);
 }
 
-export async function getFavorites(): Promise<FavoriteReply[]> {
-  return readJson<FavoriteReply[]>(keys.favorites, []);
+export async function getFavorites(mode: "reply" | "rewrite"): Promise<FavoriteReply[]> {
+  const key = mode === "reply" ? keys.favoritesReply : keys.favoritesRewrite;
+  const newFavs = await readJson<FavoriteReply[]>(key, []);
+  if (newFavs.length > 0) {
+    return newFavs;
+  }
+  // Fallback: If new key is empty, check legacy shared favorites key and migrate/filter
+  const oldFavs = await readJson<FavoriteReply[]>(keys.favorites, []);
+  if (oldFavs.length > 0) {
+    const replyFavs = oldFavs.filter(
+      (item) => item.mode === "reply" || item.note !== undefined
+    );
+    const rewriteFavs = oldFavs.filter(
+      (item) => item.mode === "rewrite" || item.note === undefined
+    );
+    await AsyncStorage.setItem(keys.favoritesReply, JSON.stringify(replyFavs));
+    await AsyncStorage.setItem(keys.favoritesRewrite, JSON.stringify(rewriteFavs));
+    await AsyncStorage.removeItem(keys.favorites);
+    return mode === "reply" ? replyFavs : rewriteFavs;
+  }
+  return [];
 }
 
-export async function saveFavorite(item: FavoriteReply): Promise<void> {
-  const current = await getFavorites();
+export async function saveFavorite(item: FavoriteReply, mode: "reply" | "rewrite"): Promise<void> {
+  const key = mode === "reply" ? keys.favoritesReply : keys.favoritesRewrite;
+  const current = await getFavorites(mode);
   if (current.some((favorite) => favorite.reply === item.reply)) {
     return;
   }
-  await AsyncStorage.setItem(keys.favorites, JSON.stringify([item, ...current]));
+  const updated = [{ ...item, mode }, ...current];
+  await AsyncStorage.setItem(key, JSON.stringify(updated));
 }
 
-export async function removeFavorite(id: string): Promise<void> {
-  const current = await getFavorites();
-  await AsyncStorage.setItem(
-    keys.favorites,
-    JSON.stringify(current.filter((item) => item.id !== id)),
-  );
+export async function removeFavorite(id: string, mode: "reply" | "rewrite"): Promise<void> {
+  const key = mode === "reply" ? keys.favoritesReply : keys.favoritesRewrite;
+  const current = await getFavorites(mode);
+  const updated = current.filter((item) => item.id !== id);
+  await AsyncStorage.setItem(key, JSON.stringify(updated));
 }
 
 export async function buildLocalExportPayload(): Promise<ExportPayload> {
@@ -205,7 +257,6 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     autoCategorySuggestions,
     quickAddCategories,
     history,
-    favorites,
   ] =
     await Promise.all([
       getLlmPreference(),
@@ -220,8 +271,13 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getAutoCategorySuggestionsPreference(),
       getQuickAddCategoriesPreference(),
       getHistory(),
-      getFavorites(),
     ]);
+
+  const [favReply, favRewrite] = await Promise.all([
+    getFavorites("reply"),
+    getFavorites("rewrite"),
+  ]);
+  const favorites = [...favReply, ...favRewrite];
 
   return {
     exportedAt: new Date().toISOString(),

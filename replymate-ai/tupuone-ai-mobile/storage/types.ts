@@ -9,6 +9,7 @@ export type ReplyHistoryItem = {
   role?: Role;
   replies: string[];
   createdAt: string;
+  mode?: "reply" | "rewrite" | "grammar";
 };
 
 export type FavoriteReply = {
@@ -19,4 +20,5 @@ export type FavoriteReply = {
   tone?: Tone;
   role?: Role;
   createdAt: string;
+  mode?: "reply" | "rewrite" | "grammar";
 };
