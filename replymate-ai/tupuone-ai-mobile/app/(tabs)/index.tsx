@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
+import { useAuth } from "../../context/auth";
 import { getBackendUrl } from "../../storage/appStorage";
 import {
   ExpenseItem,
@@ -75,6 +76,7 @@ const quickActions = [
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [monthSpend, setMonthSpend] = useState<GlanceSpend | null>(null);
@@ -149,16 +151,20 @@ export default function HomeScreen() {
                   style={styles.wordmark}
                 />
               </View>
-              <Text style={styles.brandCredit}>by Sangram</Text>
+              <Text style={styles.brandCredit}>by {user?.name?.split(" ")[0] || "User"}</Text>
             </View>
             <Pressable
               accessibilityLabel="Open profile"
               onPress={() => router.push("/(tabs)/profile" as never)}
               style={styles.avatar}
             >
-              <View style={styles.avatarInner}>
-                <Ionicons name="person" color={colors.primary} size={13} />
-              </View>
+              {user?.profileImage ? (
+                <Image source={{ uri: user.profileImage }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarInner}>
+                  <Ionicons name="person" color={colors.primary} size={13} />
+                </View>
+              )}
             </Pressable>
           </View>
 
@@ -473,6 +479,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       left: 0,
       top: 0,
       width: 28,
+    },
+    avatarImage: {
+      width: "100%",
+      height: "100%",
+      borderRadius: radius.pill,
     },
     avatarInner: {
       alignItems: "center",
