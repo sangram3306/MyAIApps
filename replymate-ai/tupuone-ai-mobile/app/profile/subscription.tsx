@@ -19,7 +19,7 @@ const PRO_FEATURES = [
   {
     title: "Unlimited Advanced Reasoning",
     description: "Get smarter, deeper answers without any usage caps or daily limits.",
-    icon: "brain",
+    icon: "hardware-chip",
     color: "#FF3366", // accent
   },
   {
@@ -139,7 +139,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       flex: 1,
     },
     container: {
-      paddingBottom: spacing.xxxl + 80, // Space for bottom bar
+      paddingBottom: 200 + bottomInset, // Massive space for bottom bar and safe area
       gap: 20,
       paddingHorizontal: 20,
       paddingTop: Math.max(spacing.md, topInset + spacing.xs),
