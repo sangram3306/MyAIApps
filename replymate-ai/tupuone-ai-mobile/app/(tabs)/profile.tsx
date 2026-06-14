@@ -70,14 +70,17 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={[styles.proCard, user?.plan !== "pro" && { backgroundColor: colors.surfaceGlass, borderColor: colors.border, shadowOpacity: 0 }]}>
+        <Pressable 
+          style={[styles.proCard, user?.plan !== "pro" && { backgroundColor: colors.surfaceGlass, borderColor: colors.border, shadowOpacity: 0 }]}
+          onPress={() => router.push("/profile/subscription" as never)}
+        >
           <View>
             <Text style={[styles.proTitle, user?.plan !== "pro" && { color: colors.amber }]}>{user?.plan === "pro" ? "Pro Plan" : "Basic Plan"}</Text>
             <Text style={styles.proSubtitle}>{user?.plan === "pro" ? "Active" : "Free Tier"}</Text>
             {user?.plan === "pro" ? (
-              <Text style={styles.proMeta}>Whitelisted Access</Text>
+              <Text style={styles.proMeta}>Unlimited Access</Text>
             ) : (
-              <Text style={styles.proMeta}>Upgrade to unlock premium AI models</Text>
+              <Text style={styles.proMeta}>Upgrade to Pro</Text>
             )}
           </View>
           <View style={[styles.crownBadge, user?.plan !== "pro" && { backgroundColor: "rgba(250,204,21,0.1)" }]}>
@@ -87,7 +90,7 @@ export default function ProfileScreen() {
               <Ionicons name="star-outline" color={colors.amber} size={21} />
             )}
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.rows}>
           {profileRows.slice(0, 4).map((row) => (

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { loginUser, registerUser, verifyToken, updateProfileDetails, resetPassword, getUserPlan } from "../services/authService";
+import { loginUser, registerUser, verifyToken, updateProfileDetails, resetPassword, enforcePlanExpiration } from "../services/authService";
 import { User } from "../models/User";
 
 const router = Router();
@@ -54,18 +54,19 @@ router.get("/me", async (req, res) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.userId);
+    let user = await User.findById(decoded.userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
+    user = await enforcePlanExpiration(user);
     res.json({
       user: {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
         profileImage: user.profileImage,
-        plan: getUserPlan(user.email),
+        plan: user.plan,
       },
     });
   } catch (error) {
@@ -107,7 +108,7 @@ router.put("/me/profile-image", async (req, res) => {
         name: user.name,
         email: user.email,
         profileImage: user.profileImage,
-        plan: getUserPlan(user.email),
+        plan: user.plan,
       },
     });
   } catch (error) {
@@ -158,7 +159,7 @@ router.put("/me/profile", async (req, res) => {
         name: user.name,
         email: user.email,
         profileImage: user.profileImage,
-        plan: getUserPlan(user.email),
+        plan: user.plan,
       },
     });
   } catch (error) {
@@ -183,6 +184,108 @@ router.put("/me/password", async (req, res) => {
     res.json({ success: true, message: "Password reset successfully" });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Could not reset password" });
+  }
+});
+
+router.post("/unsubscribe", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Missing or invalid authorization header" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = verifyToken(token);
+    const user = await User.findByIdAndUpdate(
+      decoded.userId,
+      { plan: "basic" },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        profileImage: user.profileImage,
+        plan: user.plan,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Could not unsubscribe" });
+  }
+});
+
+router.post("/subscribe-coupon", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Missing or invalid authorization header" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = verifyToken(token);
+    const { coupon } = req.body;
+    
+    if (!coupon || typeof coupon !== "string") {
+      res.status(400).json({ error: "Coupon code is required" });
+      return;
+    }
+
+    // Parse env coupons: '{"ONE_MONTH":"1M", "SUMMER":"3M", "YEARLY":"1Y", "FOREVER":"UNLIMITED"}'
+    let validCoupons: Record<string, string> = {};
+    try {
+      validCoupons = JSON.parse(process.env.PRO_COUPONS || "{}");
+    } catch (e) {
+      console.error("Failed to parse PRO_COUPONS from env");
+    }
+
+    const duration = validCoupons[coupon.trim().toUpperCase()];
+    if (!duration) {
+      res.status(400).json({ error: "Invalid or expired coupon code" });
+      return;
+    }
+
+    let proExpirationDate = null;
+    if (duration !== "UNLIMITED") {
+      const now = new Date();
+      if (duration === "1M") now.setMonth(now.getMonth() + 1);
+      else if (duration === "3M") now.setMonth(now.getMonth() + 3);
+      else if (duration === "1Y") now.setFullYear(now.getFullYear() + 1);
+      proExpirationDate = now;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      decoded.userId,
+      { plan: "pro", proExpirationDate },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        profileImage: user.profileImage,
+        plan: user.plan,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Could not process coupon" });
   }
 });
 

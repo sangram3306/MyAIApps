@@ -19,6 +19,8 @@ interface AuthContextType {
   updateProfileImage: (base64Image: string) => Promise<void>;
   updateProfileDetails: (name: string, email: string) => Promise<void>;
   resetPassword: (newPassword: string) => Promise<void>;
+  unsubscribe: () => Promise<void>;
+  subscribeWithCoupon: (coupon: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -177,8 +179,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const unsubscribe = async () => {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error("Backend URL not configured");
+    
+    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${backendUrl}/api/auth/unsubscribe`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to unsubscribe");
+    }
+
+    setUser(data.user);
+  };
+
+  const subscribeWithCoupon = async (coupon: string) => {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error("Backend URL not configured");
+    
+    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${backendUrl}/api/auth/subscribe-coupon`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ coupon })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to subscribe with coupon");
+    }
+
+    setUser(data.user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfileImage, updateProfileDetails, resetPassword }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfileImage, updateProfileDetails, resetPassword, unsubscribe, subscribeWithCoupon }}>
       {children}
     </AuthContext.Provider>
   );

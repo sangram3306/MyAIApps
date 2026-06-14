@@ -5,6 +5,8 @@ export interface IUser extends mongoose.Document {
   email: string;
   passwordHash: string;
   profileImage?: string;
+  plan: "pro" | "basic";
+  proExpirationDate?: Date | null;
   createdAt: Date;
 }
 
@@ -32,6 +34,15 @@ const UserSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  plan: {
+    type: String,
+    enum: ["basic", "pro"],
+    default: "basic",
+  },
+  proExpirationDate: {
+    type: Date,
+    default: null,
   },
 });
 

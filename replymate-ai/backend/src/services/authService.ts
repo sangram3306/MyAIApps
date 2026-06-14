@@ -5,10 +5,15 @@ import { User } from "../models/User";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod";
 const JWT_EXPIRES_IN = "30d";
 
-export function getUserPlan(email: string): "pro" | "basic" {
-  const whitelistStr = process.env.PRO_WHITELIST_EMAILS || "";
-  const whitelist = whitelistStr.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
-  return whitelist.includes(email.toLowerCase()) ? "pro" : "basic";
+export async function enforcePlanExpiration(user: any) {
+  if (user.plan === "pro" && user.proExpirationDate) {
+    if (new Date() > new Date(user.proExpirationDate)) {
+      user.plan = "basic";
+      user.proExpirationDate = null;
+      await user.save();
+    }
+  }
+  return user;
 }
 
 export async function registerUser(name: string, email: string, passwordRaw: string) {
@@ -20,11 +25,13 @@ export async function registerUser(name: string, email: string, passwordRaw: str
   const saltRounds = 10;
   const passwordHash = await bcrypt.hash(passwordRaw, saltRounds);
 
-  const user = await User.create({
+  let user = await User.create({
     name,
     email,
     passwordHash,
   });
+
+  user = await enforcePlanExpiration(user);
 
   const token = jwt.sign({ userId: user._id, email: user.email, name: user.name }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
@@ -36,17 +43,19 @@ export async function registerUser(name: string, email: string, passwordRaw: str
       name: user.name,
       email: user.email,
       profileImage: user.profileImage,
-      plan: getUserPlan(user.email),
+      plan: user.plan,
     },
     token,
   };
 }
 
 export async function loginUser(email: string, passwordRaw: string) {
-  const user = await User.findOne({ email: email.toLowerCase() });
+  let user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     throw new Error("Invalid email or password");
   }
+
+  user = await enforcePlanExpiration(user);
 
   const isValid = await bcrypt.compare(passwordRaw, user.passwordHash);
   if (!isValid) {
@@ -63,7 +72,7 @@ export async function loginUser(email: string, passwordRaw: string) {
       name: user.name,
       email: user.email,
       profileImage: user.profileImage,
-      plan: getUserPlan(user.email),
+      plan: user.plan,
     },
     token,
   };
