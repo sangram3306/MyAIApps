@@ -83,11 +83,13 @@ export default function SubscriptionScreen() {
 
         <View style={styles.heroSection}>
           <View style={styles.crownContainer}>
-            <Ionicons name="star" color={colors.amber} size={50} />
+            <Ionicons name="diamond" color="#8B5CF6" size={50} />
           </View>
           <Text style={styles.appName}>SP ONE PRO</Text>
           <Text style={styles.motto}>
-            Upgrade your experience and unleash unlimited possibilities with our premium AI models.
+            {user?.plan === "pro"
+              ? "You are a Pro member. Enjoy unlimited access to all our premium AI models and features."
+              : "Upgrade your experience and unleash unlimited possibilities with our premium AI models."}
           </Text>
         </View>
 
@@ -112,11 +114,20 @@ export default function SubscriptionScreen() {
 
       <View style={styles.bottomBar}>
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Monthly Plan</Text>
-          <Text style={styles.priceText}>
-            <Text style={styles.currencySymbol}>$</Text>{price}
-            <Text style={styles.billingPeriod}> /mo</Text>
-          </Text>
+          {user?.plan === "pro" ? (
+            <>
+              <Text style={styles.priceLabel}>Status</Text>
+              <Text style={[styles.priceText, { color: "#8B5CF6", fontSize: 24 }]}>Active</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.priceLabel}>Monthly Plan</Text>
+              <Text style={styles.priceText}>
+                <Text style={styles.currencySymbol}>$</Text>{price}
+                <Text style={styles.billingPeriod}> /mo</Text>
+              </Text>
+            </>
+          )}
         </View>
         {user?.plan === "pro" ? (
           <Pressable style={[styles.subscribeButton, { backgroundColor: colors.danger }]} onPress={handleUnsubscribe}>
@@ -168,43 +179,43 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       width: 90,
       height: 90,
       borderRadius: 45,
-      backgroundColor: "rgba(250,204,21,0.1)",
-      borderColor: "rgba(250,204,21,0.3)",
+      backgroundColor: "rgba(139, 92, 246, 0.1)",
+      borderColor: "rgba(139, 92, 246, 0.3)",
       borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: spacing.md,
-      shadowColor: colors.amber,
+      shadowColor: "#8B5CF6",
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.5,
       shadowRadius: 20,
     },
     appName: {
-      color: colors.amber,
-      fontSize: 32,
-      fontWeight: "900",
-      letterSpacing: 2,
+      color: "#8B5CF6",
+      fontSize: 28,
+      fontWeight: "800",
+      letterSpacing: 1,
     },
     motto: {
       color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: "500",
+      fontSize: 16,
+      fontWeight: "400",
       textAlign: "center",
       marginTop: spacing.sm,
-      lineHeight: 22,
-      paddingHorizontal: spacing.sm,
+      lineHeight: 24,
+      paddingHorizontal: spacing.md,
     },
     sectionHeader: {
-      marginTop: spacing.sm,
+      marginTop: spacing.md,
       marginBottom: -spacing.sm,
       paddingHorizontal: spacing.xs,
     },
     sectionTitle: {
       color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: "800",
+      fontSize: 14,
+      fontWeight: "700",
       textTransform: "uppercase",
-      letterSpacing: 0.5,
+      letterSpacing: 1,
     },
     featuresContainer: {
       gap: spacing.md,
@@ -212,16 +223,20 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     featureCard: {
       backgroundColor: colors.surfaceGlass,
       borderColor: colors.border,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
-      padding: spacing.lg,
+      padding: 20,
       flexDirection: "row",
       alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
     },
     featureIconBox: {
-      width: 48,
-      height: 48,
-      borderRadius: radius.md,
+      width: 52,
+      height: 52,
+      borderRadius: radius.lg,
       alignItems: "center",
       justifyContent: "center",
       marginRight: spacing.md,
@@ -231,15 +246,15 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     featureTitle: {
       color: colors.text,
-      fontSize: 15,
-      fontWeight: "800",
-      marginBottom: 4,
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 6,
     },
     featureDescription: {
       color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: "500",
-      lineHeight: 18,
+      fontSize: 14,
+      fontWeight: "400",
+      lineHeight: 20,
     },
     bottomBar: {
       position: "absolute",
@@ -249,9 +264,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       backgroundColor: colors.surfaceGlass,
       borderTopColor: colors.border,
       borderTopWidth: StyleSheet.hairlineWidth,
-      paddingHorizontal: 20,
-      paddingTop: spacing.md,
-      paddingBottom: Math.max(spacing.md, bottomInset),
+      paddingHorizontal: 24,
+      paddingTop: spacing.lg,
+      paddingBottom: Math.max(spacing.lg, bottomInset),
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -261,43 +276,45 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     priceLabel: {
       color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: "700",
+      fontSize: 13,
+      fontWeight: "600",
       textTransform: "uppercase",
-      letterSpacing: 0.5,
-      marginBottom: 2,
+      letterSpacing: 1,
+      marginBottom: 4,
     },
     priceText: {
       color: colors.text,
-      fontSize: 28,
-      fontWeight: "900",
+      fontSize: 34,
+      fontWeight: "800",
     },
     currencySymbol: {
-      fontSize: 18,
+      fontSize: 20,
+      fontWeight: "600",
       color: colors.textMuted,
       marginRight: 2,
     },
     billingPeriod: {
-      fontSize: 14,
+      fontSize: 15,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontWeight: "500",
     },
     subscribeButton: {
-      backgroundColor: colors.amber,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: 14,
+      backgroundColor: "#8B5CF6",
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: 16,
       borderRadius: radius.full,
-      shadowColor: colors.amber,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
+      shadowColor: "#8B5CF6",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
     },
     subscribeText: {
-      color: "#000",
-      fontSize: 15,
-      fontWeight: "800",
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
       textTransform: "uppercase",
-      letterSpacing: 0.5,
+      letterSpacing: 1,
     },
   });
 }
