@@ -7,6 +7,7 @@ interface User {
   email: string;
   id: string;
   profileImage?: string;
+  plan?: "pro" | "basic";
 }
 
 interface AuthContextType {
@@ -16,6 +17,8 @@ interface AuthContextType {
   signUp: (name: string, email: string, password?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfileImage: (base64Image: string) => Promise<void>;
+  updateProfileDetails: (name: string, email: string) => Promise<void>;
+  resetPassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -128,8 +131,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   };
 
+  const updateProfileDetails = async (name: string, email: string) => {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error("Backend URL not configured");
+    
+    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${backendUrl}/api/auth/me/profile`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name, email }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to update profile");
+    }
+
+    setUser(data.user);
+  };
+
+  const resetPassword = async (newPassword: string) => {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error("Backend URL not configured");
+    
+    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${backendUrl}/api/auth/me/password`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ newPassword }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to reset password");
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfileImage }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfileImage, updateProfileDetails, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

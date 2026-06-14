@@ -5,6 +5,12 @@ import { User } from "../models/User";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod";
 const JWT_EXPIRES_IN = "30d";
 
+export function getUserPlan(email: string): "pro" | "basic" {
+  const whitelistStr = process.env.PRO_WHITELIST_EMAILS || "";
+  const whitelist = whitelistStr.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  return whitelist.includes(email.toLowerCase()) ? "pro" : "basic";
+}
+
 export async function registerUser(name: string, email: string, passwordRaw: string) {
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) {
@@ -30,6 +36,7 @@ export async function registerUser(name: string, email: string, passwordRaw: str
       name: user.name,
       email: user.email,
       profileImage: user.profileImage,
+      plan: getUserPlan(user.email),
     },
     token,
   };
@@ -56,6 +63,7 @@ export async function loginUser(email: string, passwordRaw: string) {
       name: user.name,
       email: user.email,
       profileImage: user.profileImage,
+      plan: getUserPlan(user.email),
     },
     token,
   };
@@ -67,4 +75,48 @@ export function verifyToken(token: string) {
   } catch (error) {
     throw new Error("Invalid or expired token");
   }
+}
+
+export async function updateProfileDetails(userId: string, name: string, email: string) {
+  if (!name) throw new Error("Name is required");
+  if (!email) throw new Error("Email is required");
+
+  // Check if email is already taken by another user
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser && existingUser._id.toString() !== userId) {
+    throw new Error("Email is already registered by another account");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { name, email: email.toLowerCase() },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    throw new Error("User not found");
+  }
+
+  return updatedUser;
+}
+
+export async function resetPassword(userId: string, newPasswordRaw: string) {
+  if (!newPasswordRaw || newPasswordRaw.length < 6) {
+    throw new Error("Password must be at least 6 characters");
+  }
+
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(newPasswordRaw, saltRounds);
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { passwordHash },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    throw new Error("User not found");
+  }
+
+  return updatedUser;
 }

@@ -10,12 +10,12 @@ import { useAppTheme } from "../../context/app-theme";
 import { useAuth } from "../../context/auth";
 
 const profileRows = [
-  { title: "My Account", subtitle: "Profile and personal details", icon: "person-outline", route: "" },
+  { title: "My Account", subtitle: "Profile and personal details", icon: "person-outline", route: "/profile/account" },
   { title: "Settings", subtitle: "Appearance, AI and preferences", icon: "settings-outline", route: "/profile/settings" },
   { title: "Privacy & Security", subtitle: "Lock, privacy and app security", icon: "shield-checkmark-outline", route: "/profile/settings" },
-  { title: "Export Data", subtitle: "Download or share app data", icon: "download-outline", route: "/profile/settings" },
-  { title: "Help & Support", subtitle: "Guides and support placeholder", icon: "help-circle-outline", route: "" },
-  { title: "About SP ONE", subtitle: "All-in-one AI companion", icon: "information-circle-outline", route: "" },
+  { title: "Export/Import Data", subtitle: "Download or restore app data", icon: "download-outline", route: "/profile/export" },
+  { title: "Help & Support", subtitle: "Guides and support placeholder", icon: "help-circle-outline", route: "/profile/support" },
+  { title: "About SP ONE", subtitle: "All-in-one AI companion", icon: "information-circle-outline", route: "/profile/about" },
 ] as const;
 
 export default function ProfileScreen() {
@@ -70,14 +70,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.proCard}>
+        <View style={[styles.proCard, user?.plan !== "pro" && { backgroundColor: colors.surfaceGlass, borderColor: colors.border, shadowOpacity: 0 }]}>
           <View>
-            <Text style={styles.proTitle}>Pro Plan</Text>
-            <Text style={styles.proSubtitle}>Active</Text>
-            <Text style={styles.proMeta}>Renews on Jun 15, 2026</Text>
+            <Text style={[styles.proTitle, user?.plan !== "pro" && { color: colors.amber }]}>{user?.plan === "pro" ? "Pro Plan" : "Basic Plan"}</Text>
+            <Text style={styles.proSubtitle}>{user?.plan === "pro" ? "Active" : "Free Tier"}</Text>
+            {user?.plan === "pro" ? (
+              <Text style={styles.proMeta}>Whitelisted Access</Text>
+            ) : (
+              <Text style={styles.proMeta}>Upgrade to unlock premium AI models</Text>
+            )}
           </View>
-          <View style={styles.crownBadge}>
-            <Ionicons name="sparkles" color={colors.amber} size={21} />
+          <View style={[styles.crownBadge, user?.plan !== "pro" && { backgroundColor: "rgba(250,204,21,0.1)" }]}>
+            {user?.plan === "pro" ? (
+              <Ionicons name="sparkles" color={colors.amber} size={21} />
+            ) : (
+              <Ionicons name="star-outline" color={colors.amber} size={21} />
+            )}
           </View>
         </View>
 

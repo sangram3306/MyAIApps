@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,11 +21,13 @@ import { defaultLlmPreference, llmProviders } from "../constants/llm";
 import type { LlmModelOption, LlmPreference, LlmProviderOption } from "../constants/llm";
 import { getBackendUrl, getLlmPreference, saveLlmPreference } from "../storage/appStorage";
 import { DeepSeekBalanceResponse, getDeepSeekBalanceFromApi, getLlmOptionsFromApi } from "../services/api";
+import { useAuth } from "../context/auth";
 
 type OpenRouterModelGroup = "free" | "paid";
 
 export default function LlmProviderScreen() {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const fallbackProviders = useMemo(
@@ -54,6 +57,13 @@ export default function LlmProviderScreen() {
     () => selectedProvider.models.filter((model) => !isOpenRouterFreeModel(model)),
     [selectedProvider.models],
   );
+
+  function isModelLocked(providerId: string, model: LlmModelOption): boolean {
+    if (user?.plan === "pro") return false;
+    if (providerId === "deepseek") return true;
+    if (providerId === "openrouter" && !isOpenRouterFreeModel(model)) return true;
+    return false;
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -114,6 +124,11 @@ export default function LlmProviderScreen() {
   );
 
   async function handleProviderChange(providerId: LlmPreference["provider"]) {
+    if (providerId === "deepseek" && user?.plan !== "pro") {
+      Alert.alert("Pro Plan Required", "Upgrade to Pro to unlock DeepSeek models.");
+      return;
+    }
+
     const provider = providerOptions.find((item) => item.id === providerId);
     if (!provider?.enabled || !provider.models[0]) {
       return;
@@ -134,6 +149,11 @@ export default function LlmProviderScreen() {
 
   async function handleModelChange(model: string) {
     const nextModel = selectedProvider?.models.find((item) => item.value === model);
+    if (nextModel && isModelLocked(selectedProvider.id, nextModel)) {
+      Alert.alert("Pro Plan Required", "Upgrade to Pro to unlock this model.");
+      return;
+    }
+
     const nextPreference = {
       ...llmPreference,
       model,
@@ -193,22 +213,28 @@ export default function LlmProviderScreen() {
             <View style={styles.modelDropdownOptions}>
               {filteredModels.slice(0, 30).map((model) => {
                 const selected = model.value === llmPreference.model;
+                const locked = isModelLocked("openrouter", model);
                 return (
                   <Pressable
                     key={model.value}
                     onPress={() => {
+                      if (locked) {
+                        Alert.alert("Pro Plan Required", "Upgrade to Pro to unlock this model.");
+                        return;
+                      }
                       setOpenRouterDropdown(null);
                       setOpenRouterSearch("");
                       void handleModelChange(model.value);
                     }}
-                    style={[styles.modelDropdownOption, selected && styles.modelDropdownOptionSelected]}
+                    style={[styles.modelDropdownOption, selected && styles.modelDropdownOptionSelected, locked && { opacity: 0.7 }]}
                   >
                     <View style={styles.modelDropdownOptionTextWrap}>
                       <Text
-                        style={[styles.modelDropdownOptionText, selected && styles.modelDropdownOptionTextSelected]}
+                        style={[styles.modelDropdownOptionText, selected && styles.modelDropdownOptionTextSelected, locked && { color: colors.muted }]}
                         numberOfLines={2}
                       >
-                        {model.label}
+                        {locked ? "🔒 " : ""}{model.label}
+                        {locked && <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "900" }}> PRO</Text>}
                       </Text>
                       <Text style={styles.modelDropdownOptionValue} numberOfLines={1}>
                         {model.value}
@@ -283,8 +309,11 @@ export default function LlmProviderScreen() {
                 ]}
               >
                 <View style={styles.providerTopRow}>
-                  <Text style={[styles.providerName, selected && styles.providerNameSelected]}>
-                    {provider.label}
+                  <Text style={[styles.providerName, selected && styles.providerNameSelected, provider.id === "deepseek" && user?.plan !== "pro" && { color: colors.muted }]}>
+                    {provider.id === "deepseek" && user?.plan !== "pro" ? "🔒 " : ""}{provider.label}
+                    {provider.id === "deepseek" && user?.plan !== "pro" && (
+                      <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "900" }}> PRO</Text>
+                    )}
                   </Text>
                   <View style={styles.providerMeta}>
                     {provider.badge ? (
@@ -321,14 +350,16 @@ export default function LlmProviderScreen() {
             <View style={styles.modelList}>
               {selectedProvider.models.map((model) => {
                 const selected = model.value === llmPreference.model;
+                const locked = isModelLocked(selectedProvider.id, model);
                 return (
                   <Pressable
                     key={model.value}
                     onPress={() => handleModelChange(model.value)}
-                    style={[styles.modelPill, selected && styles.modelPillSelected]}
+                    style={[styles.modelPill, selected && styles.modelPillSelected, locked && { opacity: 0.7 }]}
                   >
-                    <Text style={[styles.modelPillText, selected && styles.modelPillTextSelected]}>
-                      {model.label}
+                    <Text style={[styles.modelPillText, selected && styles.modelPillTextSelected, locked && { color: colors.muted }]}>
+                      {locked ? "🔒 " : ""}{model.label}
+                      {locked && <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "900" }}> PRO</Text>}
                     </Text>
                   </Pressable>
                 );

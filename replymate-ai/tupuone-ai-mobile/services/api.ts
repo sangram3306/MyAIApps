@@ -1372,6 +1372,26 @@ export async function deleteWatchItemFromApi(params: {
   };
 }
 
+export async function deleteAccountFromApi(params: {
+  backendUrl: string;
+}): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${params.backendUrl}/api/auth/me`, {
+    method: "DELETE",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as { success?: boolean; message?: string; error?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not delete account.");
+  }
+
+  return {
+    success: true,
+    message: data?.message || "Account deleted.",
+  };
+}
+
 async function getApiHeaders(): Promise<Record<string, string>> {
   const preference = await getLlmPreference();
   const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);

@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useMemo, useState } from "react";
+import { type ComponentProps, useCallback, useMemo, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
@@ -79,6 +79,7 @@ export default function CinetrackAiLibraryScreen() {
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editDraft, setEditDraft] = useState<WatchEditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const params = useLocalSearchParams<{ openTitle?: string }>();
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const typedStatusEntries = entries.filter((entry) => {
@@ -147,6 +148,15 @@ export default function CinetrackAiLibraryScreen() {
       void loadEntries();
     }, [loadEntries]),
   );
+
+  useEffect(() => {
+    if (params.openTitle && entries.length > 0) {
+      const entryToOpen = entries.find((e) => e.title === params.openTitle);
+      if (entryToOpen && selectedEntry?.id !== entryToOpen.id) {
+        openEntry(entryToOpen);
+      }
+    }
+  }, [entries, params.openTitle]);
 
   async function handleFavoriteToggle(entry: WatchEntry) {
     if (!backendUrl) return;
@@ -415,10 +425,9 @@ export default function CinetrackAiLibraryScreen() {
                       </View>
                     ))}
                     <Text style={styles.ratingsText}>
-                      Ratings:{" "}
                       {selectedEntry.ratings.length
-                        ? selectedEntry.ratings.map((r) => `${r.source} ${r.value}`).join(" | ")
-                        : "Unknown"}
+                        ? selectedEntry.ratings.map((r) => `${r.source === "Internet Movie Database" ? "IMDb" : r.source} Rating: ${r.value}`).join(" | ")
+                        : "IMDb Rating: Unknown"}
                     </Text>
 
                     {/* Where to watch */}

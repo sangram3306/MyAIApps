@@ -113,7 +113,6 @@ router.get("/llm-options", async (_req, res) => {
       {
         id: "deepseek",
         label: "DeepSeek",
-        badge: "Paid",
         enabled: true,
         models: [
           {

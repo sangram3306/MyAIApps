@@ -35,7 +35,6 @@ export const llmProviders: LlmProviderOption[] = [
   {
     id: "deepseek",
     label: "DeepSeek",
-    badge: "Paid",
     enabled: true,
     models: [
       {

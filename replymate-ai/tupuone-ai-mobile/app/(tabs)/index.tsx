@@ -14,6 +14,8 @@ import {
   listWatchItemsFromApi,
   WatchEntry,
 } from "../../services/api";
+import { CinetrackReadonlyModal } from "../../components/CinetrackReadonlyModal";
+import { SettingsSidebar } from "../../components/SettingsSidebar";
 
 const quickActions = [
   {
@@ -82,6 +84,8 @@ export default function HomeScreen() {
   const [monthSpend, setMonthSpend] = useState<GlanceSpend | null>(null);
   const [watchPick, setWatchPick] = useState<WatchPick | null>(null);
   const [watchCandidates, setWatchCandidates] = useState<WatchPick[]>([]);
+  const [selectedWatchEntry, setSelectedWatchEntry] = useState<WatchEntry | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -142,6 +146,13 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <View style={styles.heroShell}>
           <View style={styles.headerTop}>
+            <Pressable
+              accessibilityLabel="Open settings"
+              onPress={() => setIsSidebarOpen(true)}
+              style={styles.menuButton}
+            >
+              <Ionicons name="menu-outline" color={colors.text} size={28} />
+            </Pressable>
             <View style={styles.brandBlock}>
               <View style={styles.wordmarkClip}>
                 <Image
@@ -213,10 +224,20 @@ export default function HomeScreen() {
               value={watchPick?.title || "No planned pick yet"}
               accent="purple"
               onRefresh={watchCandidates.length > 1 ? handleRefreshWatchPick : undefined}
+              onPress={() => {
+                if (watchPick?.entry) {
+                  setSelectedWatchEntry(watchPick.entry);
+                }
+              }}
             />
           </View>
         </View>
       </View>
+      <CinetrackReadonlyModal 
+        entry={selectedWatchEntry} 
+        onClose={() => setSelectedWatchEntry(null)} 
+      />
+      <SettingsSidebar visible={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
     </View>
   );
 }
@@ -229,6 +250,7 @@ type GlanceSpend = {
 type WatchPick = {
   title: string;
   providers: string[];
+  entry?: WatchEntry;
 };
 
 
@@ -298,19 +320,21 @@ function GlanceCard({
   value,
   accent,
   onRefresh,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   accent: "primary" | "purple";
   onRefresh?: () => void;
+  onPress?: () => void;
 }) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createGlanceStyles(colors), [colors]);
   const isPurple = accent === "purple";
 
   return (
-    <View style={[styles.card, isPurple ? styles.purpleCard : styles.primaryCard]}>
+    <Pressable onPress={onPress} style={[styles.card, isPurple ? styles.purpleCard : styles.primaryCard]}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconShell, isPurple ? styles.purpleIconShell : styles.primaryIconShell]}>
           <Ionicons name={icon} color={isPurple ? colors.purple : colors.primary} size={15} />
@@ -325,7 +349,7 @@ function GlanceCard({
       <Text numberOfLines={2} style={[styles.value, isPurple && styles.purpleValue]}>
         {value}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -349,6 +373,7 @@ function getStreamingCandidates(entries: WatchEntry[]): WatchPick[] {
     .map((entry) => ({
       title: entry.title,
       providers: streamingProvidersInIndia(entry.availability || []),
+      entry,
     }))
     .filter((item) => item.providers.length > 0);
 }
@@ -463,6 +488,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       marginLeft: 24,
       marginTop: -21,
     },
+    menuButton: {
+      alignItems: "center",
+      justifyContent: "center",
+      position: "absolute",
+      left: 0,
+      top: 0,
+      height: 28,
+      width: 28,
+      zIndex: 10,
+    },
     avatar: {
       alignItems: "center",
       backgroundColor: colors.surfaceElevated,
@@ -476,7 +511,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       shadowOpacity: 0.1,
       shadowRadius: 10,
       position: "absolute",
-      left: 0,
+      right: 0,
       top: 0,
       width: 28,
     },

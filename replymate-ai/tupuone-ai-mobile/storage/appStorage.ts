@@ -299,6 +299,37 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
   };
 }
 
+export async function importLocalPayload(payload: ExportPayload): Promise<void> {
+  const { app, history, favorites } = payload;
+  if (!app) throw new Error("Invalid payload format: missing app preferences.");
+
+  // Save app preferences
+  if (app.llmPreference !== undefined) await saveLlmPreference(app.llmPreference);
+  if (app.themeMode !== undefined) await saveThemeModePreference(app.themeMode);
+  if (app.defaultTab !== undefined) await saveDefaultTabPreference(app.defaultTab);
+  if (app.quickActionsEnabled !== undefined) await saveQuickActionsPreference(app.quickActionsEnabled);
+  if (app.appLockMode !== undefined) await saveAppLockModePreference(app.appLockMode);
+  if (app.replyResponseCount !== undefined) await saveReplyResponseCountPreference(app.replyResponseCount);
+  if (app.rewriteResponseCount !== undefined) await saveRewriteResponseCountPreference(app.rewriteResponseCount);
+  if (app.budgetTarget !== undefined) await saveBudgetTargetPreference(app.budgetTarget);
+  if (app.budgetWarningThreshold !== undefined) await saveBudgetWarningThresholdPreference(app.budgetWarningThreshold);
+  if (app.autoCategorySuggestions !== undefined) await saveAutoCategorySuggestionsPreference(app.autoCategorySuggestions);
+  if (app.quickAddCategories !== undefined) await saveQuickAddCategoriesPreference(app.quickAddCategories);
+
+  // Save history
+  if (Array.isArray(history)) {
+    await AsyncStorage.setItem(keys.history, JSON.stringify(history));
+  }
+
+  // Save favorites (split back into reply and rewrite)
+  if (Array.isArray(favorites)) {
+    const replyFavs = favorites.filter((f) => f.mode === "reply");
+    const rewriteFavs = favorites.filter((f) => f.mode === "rewrite");
+    await AsyncStorage.setItem(keys.favoritesReply, JSON.stringify(replyFavs));
+    await AsyncStorage.setItem(keys.favoritesRewrite, JSON.stringify(rewriteFavs));
+  }
+}
+
 export async function clearAllLocalAppData(): Promise<void> {
   await Promise.all(
     Object.values(keys).map((key) => AsyncStorage.removeItem(key)),
