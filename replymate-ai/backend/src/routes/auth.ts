@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { loginUser, registerUser, verifyToken, updateProfileDetails, resetPassword, enforcePlanExpiration } from "../services/authService";
 import { User } from "../models/User";
+import { Coupon } from "../models/Coupon";
 
 const router = Router();
 
@@ -244,20 +245,31 @@ router.post("/subscribe-coupon", async (req, res) => {
       return;
     }
 
-    // Parse env coupons: '{"ONE_MONTH":"1M", "SUMMER":"3M", "YEARLY":"1Y", "FOREVER":"UNLIMITED"}'
-    let validCoupons: Record<string, string> = {};
-    try {
-      validCoupons = JSON.parse(process.env.PRO_COUPONS || "{}");
-    } catch (e) {
-      console.error("Failed to parse PRO_COUPONS from env");
-    }
+    const code = coupon.trim().toUpperCase();
+    const dbCoupon = await Coupon.findOne({ code, isActive: true });
 
-    const duration = validCoupons[coupon.trim().toUpperCase()];
-    if (!duration) {
+    if (!dbCoupon) {
       res.status(400).json({ error: "Invalid or expired coupon code" });
       return;
     }
 
+    if (dbCoupon.maxUses > 0 && dbCoupon.currentUses >= dbCoupon.maxUses) {
+      res.status(400).json({ error: "Coupon usage limit reached" });
+      return;
+    }
+
+    const userToUpdate = await User.findById(decoded.userId);
+    if (!userToUpdate) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (userToUpdate.redeemedCoupons && userToUpdate.redeemedCoupons.includes(code)) {
+      res.status(400).json({ error: "You have already used this coupon" });
+      return;
+    }
+
+    const duration = dbCoupon.duration;
     let proExpirationDate = null;
     if (duration !== "UNLIMITED") {
       const now = new Date();
@@ -269,9 +281,17 @@ router.post("/subscribe-coupon", async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       decoded.userId,
-      { plan: "pro", proExpirationDate },
+      { 
+        plan: "pro", 
+        proExpirationDate,
+        $push: { redeemedCoupons: code }
+      },
       { new: true }
     );
+
+    await Coupon.findByIdAndUpdate(dbCoupon._id, {
+      $inc: { currentUses: 1 }
+    });
 
     if (!user) {
       res.status(404).json({ error: "User not found" });

@@ -7,6 +7,7 @@ export interface IUser extends mongoose.Document {
   profileImage?: string;
   plan: "pro" | "basic";
   proExpirationDate?: Date | null;
+  redeemedCoupons: string[];
   createdAt: Date;
 }
 
@@ -43,6 +44,10 @@ const UserSchema = new mongoose.Schema({
   proExpirationDate: {
     type: Date,
     default: null,
+  },
+  redeemedCoupons: {
+    type: [String],
+    default: [],
   },
 });
 

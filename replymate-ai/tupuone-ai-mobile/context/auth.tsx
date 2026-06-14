@@ -193,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
       },
+      body: JSON.stringify({}),
     });
 
     const data = await res.json();
