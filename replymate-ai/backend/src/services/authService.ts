@@ -44,6 +44,7 @@ export async function registerUser(name: string, email: string, passwordRaw: str
       email: user.email,
       profileImage: user.profileImage,
       plan: user.plan,
+      proExpirationDate: user.proExpirationDate,
     },
     token,
   };
@@ -73,6 +74,7 @@ export async function loginUser(email: string, passwordRaw: string) {
       email: user.email,
       profileImage: user.profileImage,
       plan: user.plan,
+      proExpirationDate: user.proExpirationDate,
     },
     token,
   };

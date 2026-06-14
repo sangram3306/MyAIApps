@@ -67,6 +67,7 @@ router.get("/me", async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         plan: user.plan,
+        proExpirationDate: user.proExpirationDate,
       },
     });
   } catch (error) {
@@ -109,6 +110,7 @@ router.put("/me/profile-image", async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         plan: user.plan,
+        proExpirationDate: user.proExpirationDate,
       },
     });
   } catch (error) {
@@ -160,6 +162,7 @@ router.put("/me/profile", async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         plan: user.plan,
+        proExpirationDate: user.proExpirationDate,
       },
     });
   } catch (error) {
@@ -216,6 +219,7 @@ router.post("/unsubscribe", async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         plan: user.plan,
+        proExpirationDate: user.proExpirationDate,
       },
     });
   } catch (error) {
@@ -282,6 +286,7 @@ router.post("/subscribe-coupon", async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         plan: user.plan,
+        proExpirationDate: user.proExpirationDate,
       },
     });
   } catch (error) {

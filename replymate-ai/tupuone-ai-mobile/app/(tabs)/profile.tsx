@@ -78,7 +78,11 @@ export default function ProfileScreen() {
             <Text style={[styles.proTitle, user?.plan !== "pro" && { color: colors.amber }]}>{user?.plan === "pro" ? "Pro Plan" : "Basic Plan"}</Text>
             <Text style={styles.proSubtitle}>{user?.plan === "pro" ? "Active" : "Free Tier"}</Text>
             {user?.plan === "pro" ? (
-              <Text style={styles.proMeta}>Unlimited Access</Text>
+              <Text style={styles.proMeta}>
+                {user.proExpirationDate 
+                  ? `Expires on ${new Date(user.proExpirationDate).toLocaleDateString()}` 
+                  : "Unlimited Access"}
+              </Text>
             ) : (
               <Text style={styles.proMeta}>Upgrade to Pro</Text>
             )}

@@ -8,6 +8,7 @@ interface User {
   id: string;
   profileImage?: string;
   plan?: "pro" | "basic";
+  proExpirationDate?: string | null;
 }
 
 interface AuthContextType {
