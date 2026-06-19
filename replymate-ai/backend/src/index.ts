@@ -71,6 +71,10 @@ app.get("/health", (_req: Request, res: Response) => {
     service: "ReplyMate AI backend",
     mockMode: !llm.apiKeyLoaded,
     llm,
+    geminiApiKeyLoaded: Boolean(
+      process.env.GEMINI_API_KEY?.trim() ||
+      process.env.GOOGLE_GEMINI_API_KEY?.trim()
+    ),
   });
 });
 

@@ -234,7 +234,7 @@ export async function searchSimilarEntries(
  */
 export async function embedAllWatchEntries(
   entries: WatchEntry[],
-): Promise<{ embedded: number; skipped: number; failed: number }> {
+): Promise<{ embedded: number; skipped: number; failed: number; errors?: string[] }> {
   const existingIds = new Set(
     (await WatchEmbedding.find({}, { watchEntryId: 1 }).lean()).map(
       (doc) => doc.watchEntryId,
@@ -244,6 +244,7 @@ export async function embedAllWatchEntries(
   let embedded = 0;
   let skipped = 0;
   let failed = 0;
+  const errors: string[] = [];
 
   for (const entry of entries) {
     if (existingIds.has(entry.id)) {
@@ -255,10 +256,14 @@ export async function embedAllWatchEntries(
       await embedWatchEntry(entry);
       embedded += 1;
     } catch (error) {
-      console.error(`[embedding] Failed to embed "${entry.title}":`, error instanceof Error ? error.message : error);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[embedding] Failed to embed "${entry.title}":`, msg);
       failed += 1;
+      if (errors.length < 10) {
+        errors.push(`${entry.title}: ${msg}`);
+      }
     }
   }
 
-  return { embedded, skipped, failed };
+  return { embedded, skipped, failed, errors };
 }
