@@ -3,7 +3,7 @@ import type { WatchEntry } from "../agents/watchAgent";
 
 // ─── Gemini Embedding API ────────────────────────────────────────────────────
 
-const EMBEDDING_MODEL = "text-embedding-004";
+const EMBEDDING_MODEL = "gemini-embedding-2";
 const EMBEDDING_DIMENSIONS = 768;
 
 type GeminiEmbeddingResponse = {
@@ -53,6 +53,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         model: `models/${EMBEDDING_MODEL}`,
         content: {
           parts: [{ text: trimmedText }],
+        },
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+        config: {
+          outputDimensionality: EMBEDDING_DIMENSIONS,
         },
       }),
     },
