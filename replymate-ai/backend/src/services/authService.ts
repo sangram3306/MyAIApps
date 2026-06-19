@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET environment variable is required.");
 }
@@ -85,7 +85,7 @@ export async function loginUser(email: string, passwordRaw: string) {
 
 export function verifyToken(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; name: string };
+    return jwt.verify(token, JWT_SECRET) as unknown as { userId: string; email: string; name: string };
   } catch (error) {
     throw new Error("Invalid or expired token");
   }
