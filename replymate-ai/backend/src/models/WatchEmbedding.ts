@@ -1,4 +1,5 @@
-import mongoose, { Schema, Document } from "mongoose";
+import { Schema, Document } from "mongoose";
+import { replymateConnection } from "../services/db";
 
 export interface IWatchEmbedding extends Document {
   watchEntryId: string;
@@ -34,4 +35,4 @@ const watchEmbeddingSchema = new Schema<IWatchEmbedding>(
   { timestamps: true },
 );
 
-export const WatchEmbedding = mongoose.model<IWatchEmbedding>("WatchEmbedding", watchEmbeddingSchema);
+export const WatchEmbedding = replymateConnection.model<IWatchEmbedding>("WatchEmbedding", watchEmbeddingSchema);
