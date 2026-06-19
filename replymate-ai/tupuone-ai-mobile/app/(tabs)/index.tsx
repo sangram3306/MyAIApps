@@ -162,7 +162,7 @@ export default function HomeScreen() {
                   style={styles.wordmark}
                 />
               </View>
-              <Text style={styles.brandCredit}>by {user?.name?.split(" ")[0] || "User"}</Text>
+              <Text style={styles.brandCredit}>by Sangram</Text>
             </View>
             <Pressable
               accessibilityLabel="Open profile"

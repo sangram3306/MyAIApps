@@ -3,7 +3,7 @@ import { z } from "zod";
 import { loginUser, registerUser, verifyToken, updateProfileDetails, resetPassword, enforcePlanExpiration } from "../services/authService";
 import { User } from "../models/User";
 import { Coupon } from "../models/Coupon";
-
+import { isValidImageBase64 } from "../utils/imageValidation";
 const router = Router();
 
 const loginSchema = z.object({
@@ -90,6 +90,11 @@ router.put("/me/profile-image", async (req, res) => {
     
     if (!profileImage || typeof profileImage !== 'string') {
       res.status(400).json({ error: "profileImage is required and must be a string" });
+      return;
+    }
+
+    if (!isValidImageBase64(profileImage)) {
+      res.status(400).json({ error: "Invalid image format. Only JPEG, PNG, GIF, and WebP images under 5MB are allowed." });
       return;
     }
 

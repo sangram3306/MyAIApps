@@ -7,6 +7,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { View } from "react-native";
 import { AppThemeProvider, useAppTheme } from "../context/app-theme";
 import { AuthProvider, useAuth } from "../context/auth";
+import { AppLock } from "../components/AppLock";
 
 export default function RootLayout() {
   return (
@@ -14,7 +15,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AppThemeProvider>
           <AuthProvider>
-            <RootNavigator />
+            <AppLock>
+              <RootNavigator />
+            </AppLock>
           </AuthProvider>
         </AppThemeProvider>
       </SafeAreaProvider>
