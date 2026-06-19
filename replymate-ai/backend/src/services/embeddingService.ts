@@ -55,9 +55,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
           parts: [{ text: trimmedText }],
         },
         outputDimensionality: EMBEDDING_DIMENSIONS,
-        config: {
-          outputDimensionality: EMBEDDING_DIMENSIONS,
-        },
       }),
     },
   );
