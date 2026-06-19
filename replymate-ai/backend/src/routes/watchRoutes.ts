@@ -9,6 +9,7 @@ import {
   updateWatchStatus,
 } from "../agents/watchAgent";
 import { logWatchSchema, updateWatchDetailsSchema, updateWatchStatusSchema } from "../schemas/watchSchemas";
+import { embedAllWatchEntries, embedWatchEntry, removeWatchEmbedding, searchSimilarEntries } from "../services/embeddingService";
 
 const router = Router();
 
@@ -18,6 +19,9 @@ router.get("/profile", handleWatcherProfileRequest);
 router.patch("/items/:id", handleUpdateWatchDetailsRequest);
 router.patch("/items/:id/status", handleUpdateWatchStatusRequest);
 router.delete("/items/:id", handleDeleteWatchRequest);
+router.post("/search", handleSearchRequest);
+router.post("/embed-all", handleEmbedAllRequest);
+
 
 export async function handleLogWatchRequest(
   req: { body: unknown },
@@ -35,6 +39,12 @@ export async function handleLogWatchRequest(
       favorite: input.favorite,
       notes: input.notes,
     });
+    // Generate embedding in background (non-blocking)
+    if (result.entry) {
+      void embedWatchEntry(result.entry).catch((err) =>
+        console.error("[watch] background embed failed", err instanceof Error ? err.message : err),
+      );
+    }
     return res.json(result);
   } catch (error) {
     if (error instanceof ZodError) {
@@ -121,6 +131,12 @@ export async function handleUpdateWatchDetailsRequest(
   try {
     const input = updateWatchDetailsSchema.parse(req.body);
     const result = await updateWatchDetails({ id, ...input });
+    // Re-embed updated entry in background
+    if (result.entry) {
+      void embedWatchEntry(result.entry).catch((err) =>
+        console.error("[watch] background re-embed failed", err instanceof Error ? err.message : err),
+      );
+    }
     return res.json(result);
   } catch (error) {
     if (error instanceof ZodError) {
@@ -147,9 +163,54 @@ export async function handleDeleteWatchRequest(
 
   try {
     const result = await removeWatchItem(id);
+    // Remove embedding in background
+    void removeWatchEmbedding(id).catch((err) =>
+      console.error("[watch] background embedding removal failed", err instanceof Error ? err.message : err),
+    );
     return res.json(result);
   } catch {
     return res.status(500).json({ error: "Could not delete watch item." });
+  }
+}
+
+export async function handleSearchRequest(
+  req: { body: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const body = req.body as { query?: string; limit?: number } | null;
+    const query = typeof body?.query === "string" ? body.query.trim() : "";
+    if (!query) {
+      return res.status(400).json({ error: "Query string is required." });
+    }
+    const limit = typeof body?.limit === "number" ? Math.min(Math.max(body.limit, 1), 30) : 10;
+    const results = await searchSimilarEntries(query, limit);
+    return res.json({ entries: results });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    console.error("[watch] vector search failed", detail);
+    return res.status(500).json({ error: `Vector search failed: ${detail}` });
+  }
+}
+
+export async function handleEmbedAllRequest(
+  _req: unknown,
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const list = await listWatchItems();
+    const result = await embedAllWatchEntries(list.entries);
+    return res.json(result);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    console.error("[watch] embed-all failed", detail);
+    return res.status(500).json({ error: `Bulk embedding failed: ${detail}` });
   }
 }
 

@@ -17,6 +17,19 @@ const registerSchema = z.object({
   password: z.string().min(6),
 });
 
+const updateProfileSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email(),
+});
+
+const updatePasswordSchema = z.object({
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const subscribeCouponSchema = z.object({
+  coupon: z.string().min(1, "Coupon code is required"),
+});
+
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = registerSchema.parse(req.body);
@@ -157,7 +170,7 @@ router.put("/me/profile", async (req, res) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = verifyToken(token);
-    const { name, email } = req.body;
+    const { name, email } = updateProfileSchema.parse(req.body);
 
     const user = await updateProfileDetails(decoded.userId, name, email);
 
@@ -172,7 +185,11 @@ router.put("/me/profile", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : "Could not update profile" });
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.errors[0].message });
+    } else {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not update profile" });
+    }
   }
 });
 
@@ -186,13 +203,17 @@ router.put("/me/password", async (req, res) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = verifyToken(token);
-    const { newPassword } = req.body;
+    const { newPassword } = updatePasswordSchema.parse(req.body);
 
     await resetPassword(decoded.userId, newPassword);
 
     res.json({ success: true, message: "Password reset successfully" });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : "Could not reset password" });
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.errors[0].message });
+    } else {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not reset password" });
+    }
   }
 });
 
@@ -243,12 +264,7 @@ router.post("/subscribe-coupon", async (req, res) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = verifyToken(token);
-    const { coupon } = req.body;
-    
-    if (!coupon || typeof coupon !== "string") {
-      res.status(400).json({ error: "Coupon code is required" });
-      return;
-    }
+    const { coupon } = subscribeCouponSchema.parse(req.body);
 
     const code = coupon.trim().toUpperCase();
     const dbCoupon = await Coupon.findOne({ code, isActive: true });
@@ -315,7 +331,11 @@ router.post("/subscribe-coupon", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : "Could not process coupon" });
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.errors[0].message });
+    } else {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not process coupon" });
+    }
   }
 });
 

@@ -11,10 +11,14 @@ import {
   getLibraryAwareChatPreference,
   getLlmPreference,
   getOneHandedModePreference,
+  getRagEnabledPreference,
+  getSmartContextEnabledPreference,
   saveAlwaysUseLlmChatPreference,
   saveDefaultTabPreference,
   saveLibraryAwareChatPreference,
   saveOneHandedModePreference,
+  saveRagEnabledPreference,
+  saveSmartContextEnabledPreference,
 } from "../../storage/appStorage";
 import { llmProviders } from "../../constants/llm";
 
@@ -39,6 +43,8 @@ export default function SettingsScreen() {
   const [oneHandedMode, setOneHandedMode] = useState(false);
   const [libraryAwareChat, setLibraryAwareChat] = useState(true);
   const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [defaultLaunchTab, setDefaultLaunchTab] = useState<DefaultTabId>("library");
 
   useFocusEffect(
@@ -52,6 +58,8 @@ export default function SettingsScreen() {
       getOneHandedModePreference().then(setOneHandedMode);
       getLibraryAwareChatPreference().then(setLibraryAwareChat);
       getAlwaysUseLlmChatPreference().then(setAlwaysUseLlmChat);
+      getRagEnabledPreference().then(setRagEnabled);
+      getSmartContextEnabledPreference().then(setSmartContextEnabled);
       getDefaultTabPreference().then((tab) => {
         setDefaultLaunchTab(tab === "home" ? "library" : tab);
       });
@@ -76,6 +84,34 @@ export default function SettingsScreen() {
   function handleAlwaysUseLlmChatChange(enabled: boolean) {
     setAlwaysUseLlmChat(enabled);
     void saveAlwaysUseLlmChatPreference(enabled);
+    if (enabled) {
+      setRagEnabled(false);
+      void saveRagEnabledPreference(false);
+      setSmartContextEnabled(false);
+      void saveSmartContextEnabledPreference(false);
+    }
+  }
+
+  function handleRagEnabledChange(enabled: boolean) {
+    setRagEnabled(enabled);
+    void saveRagEnabledPreference(enabled);
+    if (enabled) {
+      setAlwaysUseLlmChat(false);
+      void saveAlwaysUseLlmChatPreference(false);
+      setSmartContextEnabled(false);
+      void saveSmartContextEnabledPreference(false);
+    }
+  }
+
+  function handleSmartContextEnabledChange(enabled: boolean) {
+    setSmartContextEnabled(enabled);
+    void saveSmartContextEnabledPreference(enabled);
+    if (enabled) {
+      setAlwaysUseLlmChat(false);
+      void saveAlwaysUseLlmChatPreference(false);
+      setRagEnabled(false);
+      void saveRagEnabledPreference(false);
+    }
   }
 
   return (
@@ -177,7 +213,7 @@ export default function SettingsScreen() {
             <Ionicons name="sparkles-outline" color={colors.primary} size={16} />
             <View style={styles.rowCopy}>
               <Text style={styles.rowTitle}>Always use LLM</Text>
-              <Text style={styles.rowMeta}>Bypass local rules and call LLM for every message.</Text>
+              <Text style={styles.rowMeta}>Send full library to LLM for every query.</Text>
             </View>
           </View>
           <View style={styles.switchWrap}>
@@ -186,6 +222,42 @@ export default function SettingsScreen() {
               onValueChange={handleAlwaysUseLlmChatChange}
               trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
               thumbColor={alwaysUseLlmChat ? colors.primary : colors.muted}
+            />
+          </View>
+        </View>
+
+        <View style={styles.switchRow}>
+          <View style={styles.switchMain}>
+            <Ionicons name="search-outline" color={colors.primary} size={16} />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>RAG Search</Text>
+              <Text style={styles.rowMeta}>Use vector embeddings to find top 10 relevant titles.</Text>
+            </View>
+          </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={ragEnabled}
+              onValueChange={handleRagEnabledChange}
+              trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
+              thumbColor={ragEnabled ? colors.primary : colors.muted}
+            />
+          </View>
+        </View>
+
+        <View style={styles.switchRow}>
+          <View style={styles.switchMain}>
+            <Ionicons name="flash-outline" color={colors.primary} size={16} />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>Smart Context</Text>
+              <Text style={styles.rowMeta}>Send taste summary + fast keyword filtering.</Text>
+            </View>
+          </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={smartContextEnabled}
+              onValueChange={handleSmartContextEnabledChange}
+              trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
+              thumbColor={smartContextEnabled ? colors.primary : colors.muted}
             />
           </View>
         </View>

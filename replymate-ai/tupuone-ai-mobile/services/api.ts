@@ -2,9 +2,9 @@ import { Tone } from "../constants/tones";
 import { Role } from "../constants/roles";
 import type { LlmProviderOption } from "../constants/llm";
 import { getLlmPreference } from "../storage/appStorage";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_STORAGE_KEY = "@replymate_jwt";
+const TOKEN_STORAGE_KEY = "replymate_jwt";
 
 export type LlmOptionsResponse = {
   active: {
@@ -596,6 +596,29 @@ export async function analyzeCoachFromApi(params: {
   }
 
   return data as CoachAnalyzeResponse;
+}
+
+export async function searchWatchEntriesFromApi(params: {
+  backendUrl: string;
+  query: string;
+  limit?: number;
+}): Promise<{ entries: WatchEntry[] }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/search`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({ query: params.query, limit: params.limit }),
+  });
+
+  const data = (await response.json().catch(() => null)) as {
+    error?: string;
+    entries?: WatchEntry[];
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not search watch entries.");
+  }
+
+  return { entries: data?.entries || [] };
 }
 
 export async function sendChatMessageFromApi(params: {
@@ -1394,7 +1417,7 @@ export async function deleteAccountFromApi(params: {
 
 async function getApiHeaders(): Promise<Record<string, string>> {
   const preference = await getLlmPreference();
-  const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+  const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
   
   return {
     "Content-Type": "application/json",
@@ -1406,7 +1429,7 @@ async function getApiHeaders(): Promise<Record<string, string>> {
 }
 
 async function getJsonHeaders(): Promise<Record<string, string>> {
-  const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+  const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
   
   return {
     "Content-Type": "application/json",

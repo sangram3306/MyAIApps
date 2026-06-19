@@ -16,6 +16,7 @@ const keys = {
   themeMode: "replymate.themeMode",
   defaultTab: "replymate.defaultTab",
   quickActionsEnabled: "replymate.quickActionsEnabled",
+  searchAutocompleteEnabled: "replymate.searchAutocompleteEnabled",
   appLockMode: "replymate.appLockMode",
   replyResponseCount: "replymate.replyResponseCount",
   rewriteResponseCount: "replymate.rewriteResponseCount",
@@ -27,6 +28,8 @@ const keys = {
   oneHandedMode: "cinetrack.oneHandedMode",
   libraryAwareChat: "cinetrack.libraryAwareChat",
   alwaysUseLlmChat: "cinetrack.alwaysUseLlmChat",
+  ragEnabled: "cinetrack.ragEnabled",
+  smartContextEnabled: "cinetrack.smartContextEnabled",
 };
 
 export type DefaultTabId = "home" | "movieTracker" | "chat" | "expenses" | "settings";
@@ -38,6 +41,7 @@ export type ExportPayload = {
     themeMode: ThemeMode;
     defaultTab: DefaultTabId;
     quickActionsEnabled: boolean;
+    searchAutocompleteEnabled: boolean;
     appLockMode: AppLockMode;
     replyResponseCount: ResponseCountPreference;
     rewriteResponseCount: ResponseCountPreference;
@@ -105,6 +109,14 @@ export async function getQuickActionsPreference(): Promise<boolean> {
 
 export async function saveQuickActionsPreference(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(keys.quickActionsEnabled, JSON.stringify(enabled));
+}
+
+export async function getSearchAutocompletePreference(): Promise<boolean> {
+  return readJson<boolean>(keys.searchAutocompleteEnabled, true);
+}
+
+export async function saveSearchAutocompletePreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.searchAutocompleteEnabled, JSON.stringify(enabled));
 }
 
 export async function getAppLockModePreference(): Promise<AppLockMode> {
@@ -194,6 +206,22 @@ export async function saveAlwaysUseLlmChatPreference(value: boolean): Promise<vo
   await AsyncStorage.setItem(keys.alwaysUseLlmChat, JSON.stringify(value));
 }
 
+export async function getRagEnabledPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.ragEnabled, false);
+}
+
+export async function saveRagEnabledPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.ragEnabled, JSON.stringify(value));
+}
+
+export async function getSmartContextEnabledPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.smartContextEnabled, false);
+}
+
+export async function saveSmartContextEnabledPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.smartContextEnabled, JSON.stringify(value));
+}
+
 export async function addHistoryItem(item: ReplyHistoryItem): Promise<void> {
   const current = await getHistory();
   await AsyncStorage.setItem(keys.history, JSON.stringify([item, ...current].slice(0, 50)));
@@ -249,6 +277,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     themeMode,
     defaultTab,
     quickActionsEnabled,
+    searchAutocompleteEnabled,
     appLockMode,
     replyResponseCount,
     rewriteResponseCount,
@@ -263,6 +292,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getThemeModePreference(),
       getDefaultTabPreference(),
       getQuickActionsPreference(),
+      getSearchAutocompletePreference(),
       getAppLockModePreference(),
       getReplyResponseCountPreference(),
       getRewriteResponseCountPreference(),
@@ -286,6 +316,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       themeMode,
       defaultTab,
       quickActionsEnabled,
+      searchAutocompleteEnabled,
       appLockMode,
       replyResponseCount,
       rewriteResponseCount,
@@ -308,6 +339,7 @@ export async function importLocalPayload(payload: ExportPayload): Promise<void> 
   if (app.themeMode !== undefined) await saveThemeModePreference(app.themeMode);
   if (app.defaultTab !== undefined) await saveDefaultTabPreference(app.defaultTab);
   if (app.quickActionsEnabled !== undefined) await saveQuickActionsPreference(app.quickActionsEnabled);
+  if (app.searchAutocompleteEnabled !== undefined) await saveSearchAutocompletePreference(app.searchAutocompleteEnabled);
   if (app.appLockMode !== undefined) await saveAppLockModePreference(app.appLockMode);
   if (app.replyResponseCount !== undefined) await saveReplyResponseCountPreference(app.replyResponseCount);
   if (app.rewriteResponseCount !== undefined) await saveRewriteResponseCountPreference(app.rewriteResponseCount);

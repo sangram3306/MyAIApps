@@ -7,7 +7,7 @@ import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { useAuth } from "../../context/auth";
-import { getBackendUrl } from "../../storage/appStorage";
+import { getBackendUrl, getSearchAutocompletePreference } from "../../storage/appStorage";
 import {
   ExpenseItem,
   getExpenseExportFromApi,
@@ -76,6 +76,171 @@ const quickActions = [
   },
 ] as const;
 
+interface SearchItem {
+  type: "tool" | "setting";
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  route: string;
+  keywords: string[];
+}
+
+const SEARCH_INDEX: SearchItem[] = [
+  {
+    type: "tool",
+    title: "Smart Reply",
+    subtitle: "Instantly draft replies using AI",
+    icon: "chatbox-ellipses-outline",
+    route: "/tools/reply",
+    keywords: ["reply", "chat", "message", "write", "draft"],
+  },
+  {
+    type: "tool",
+    title: "Rewrite Polish",
+    subtitle: "Polish your writing tone and structure",
+    icon: "create-outline",
+    route: "/tools/rewrite",
+    keywords: ["rewrite", "polish", "edit", "write", "tone"],
+  },
+  {
+    type: "tool",
+    title: "Fix Grammar",
+    subtitle: "Correct grammar and spelling issues",
+    icon: "checkmark-done-outline",
+    route: "/tools/grammar",
+    keywords: ["grammar", "spell", "fix", "correct", "english"],
+  },
+  {
+    type: "tool",
+    title: "Creator Studio",
+    subtitle: "Repurpose content across social channels",
+    icon: "color-wand-outline",
+    route: "/(tabs)/creator",
+    keywords: ["creator", "platform", "repurpose", "social", "studio"],
+  },
+  {
+    type: "tool",
+    title: "Smart Coach",
+    subtitle: "Relationship guidance and advice",
+    icon: "sparkles-outline",
+    route: "/tools/coach",
+    keywords: ["coach", "relationship", "advise", "smart"],
+  },
+  {
+    type: "tool",
+    title: "Decision Simulator",
+    subtitle: "Compare choices and simulate outcomes",
+    icon: "git-branch-outline",
+    route: "/decision-simulator",
+    keywords: ["decision", "simulate", "compare", "choice"],
+  },
+  {
+    type: "tool",
+    title: "Personal Skill Tree",
+    subtitle: "Grow skills and track progression",
+    icon: "trending-up-outline",
+    route: "/skill-tree",
+    keywords: ["skill", "grow", "tree", "learn", "track"],
+  },
+  {
+    type: "tool",
+    title: "Learning Roadmap",
+    subtitle: "Structured roadmap to master topics",
+    icon: "book-outline",
+    route: "/learning-roadmap",
+    keywords: ["learning", "roadmap", "plan", "master", "topic"],
+  },
+  {
+    type: "tool",
+    title: "Expense Intelligence",
+    subtitle: "Manage and analyze your budgets",
+    icon: "wallet-outline",
+    route: "/(tabs)/expenses",
+    keywords: ["expense", "budget", "wallet", "spend", "money"],
+  },
+  {
+    type: "tool",
+    title: "CineTrack AI Library",
+    subtitle: "Track movies, series and check watch favorites",
+    icon: "film-outline",
+    route: "/cinetrack-ai-library",
+    keywords: ["movie", "show", "series", "watch", "film", "cinetrack"],
+  },
+  {
+    type: "setting",
+    title: "Appearance Settings",
+    subtitle: "Change theme (Light, Dark, System)",
+    icon: "contrast-outline",
+    route: "/profile/settings?expand=appearance",
+    keywords: ["theme", "appearance", "dark", "light", "system", "colors"],
+  },
+  {
+    type: "setting",
+    title: "Launch Screen Settings",
+    subtitle: "Choose default starting tab of the app",
+    icon: "phone-portrait-outline",
+    route: "/profile/settings?expand=launch",
+    keywords: ["launch", "start", "tab", "default", "screen"],
+  },
+  {
+    type: "setting",
+    title: "Model Provider Settings",
+    subtitle: "Choose AI models (Gemini, OpenAI, OpenRouter)",
+    icon: "hardware-chip-outline",
+    route: "/llm-provider",
+    keywords: ["model", "provider", "ai", "llm", "api", "gemini", "openai"],
+  },
+  {
+    type: "setting",
+    title: "Writing Output Settings",
+    subtitle: "Set reply and rewrite response variations count",
+    icon: "create-outline",
+    route: "/profile/settings?expand=writing",
+    keywords: ["writing", "output", "count", "reply", "rewrite", "variation"],
+  },
+  {
+    type: "setting",
+    title: "CineTrack Preferences",
+    subtitle: "Configure Library-aware AI & LLM chat bypass",
+    icon: "film-outline",
+    route: "/profile/settings?expand=cinetrack",
+    keywords: ["cinetrack", "movie", "settings", "preference", "context"],
+  },
+  {
+    type: "setting",
+    title: "App Lock Settings",
+    subtitle: "Enable Biometrics (Face ID, Fingerprint, Passcode)",
+    icon: "lock-closed-outline",
+    route: "/profile/settings?expand=lock",
+    keywords: ["lock", "app", "faceid", "fingerprint", "passcode", "security"],
+  },
+
+  {
+    type: "setting",
+    title: "About SP ONE",
+    subtitle: "About page and credits",
+    icon: "information-circle-outline",
+    route: "/profile/about",
+    keywords: ["about", "spone", "credit", "version"],
+  },
+  {
+    type: "setting",
+    title: "Subscriptions & Payment",
+    subtitle: "Manage subscription plans and pro features",
+    icon: "card-outline",
+    route: "/profile/subscription",
+    keywords: ["subscription", "payment", "pro", "plan", "coupon", "billing"],
+  },
+  {
+    type: "setting",
+    title: "Support & Help Desk",
+    subtitle: "Contact support or read help files",
+    icon: "help-circle-outline",
+    route: "/profile/support",
+    keywords: ["support", "help", "contact", "desk", "feedback"],
+  },
+];
+
 export default function HomeScreen() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
@@ -86,10 +251,39 @@ export default function HomeScreen() {
   const [watchCandidates, setWatchCandidates] = useState<WatchPick[]>([]);
   const [selectedWatchEntry, setSelectedWatchEntry] = useState<WatchEntry | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [searchAutocompleteEnabled, setSearchAutocompleteEnabled] = useState(true);
+
+  const searchResults = useMemo(() => {
+    if (!searchAutocompleteEnabled) return [];
+    const q = searchText.trim().toLowerCase();
+    if (!q) return [];
+    return SEARCH_INDEX.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.subtitle.toLowerCase().includes(q) ||
+        item.keywords.some((k) => k.includes(q))
+    ).slice(0, 5);
+  }, [searchText, searchAutocompleteEnabled]);
+
+  const handleSearchSubmit = () => {
+    const query = searchText.trim();
+    setSearchText("");
+    router.push({
+      pathname: "/(tabs)/chat",
+      params: query ? { query } : undefined,
+    } as any);
+  };
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
+
+      getSearchAutocompletePreference().then((val) => {
+        if (active) {
+          setSearchAutocompleteEnabled(val);
+        }
+      });
 
       async function loadGlance() {
         try {
@@ -160,8 +354,7 @@ export default function HomeScreen() {
                   resizeMode="contain"
                   source={require("../../assets/brand/sp_one_label.png")}
                   style={styles.wordmark}
-                />
-              </View>
+                  /></View>
               <Text style={styles.brandCredit}>by Sangram</Text>
             </View>
             <Pressable
@@ -179,18 +372,49 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable onPress={() => router.push("/(tabs)/chat" as never)} style={styles.commandBar}>
-            <TextInput
-              editable={false}
-              pointerEvents="none"
-              placeholder="Ask anything or choose an action..."
-              placeholderTextColor={colors.textMuted}
-              style={styles.commandInput}
-            />
-            <View style={styles.commandIcon}>
-              <Ionicons name="arrow-forward" color={colors.onPrimary} size={15} />
+          <View style={styles.searchContainer}>
+            <View style={styles.commandBar}>
+              <TextInput
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder={searchAutocompleteEnabled ? "Ask anything or choose an action..." : "Ask anything..."}
+                placeholderTextColor={colors.textMuted}
+                style={styles.commandInput}
+                onSubmitEditing={handleSearchSubmit}
+              />
+              <Pressable
+                onPress={handleSearchSubmit}
+                style={styles.commandIcon}
+                accessibilityLabel="Send to chat"
+              >
+                <Ionicons name="arrow-forward" color={colors.onPrimary} size={15} />
+              </Pressable>
             </View>
-          </Pressable>
+
+            {searchResults.length > 0 ? (
+              <View style={styles.dropdownShell}>
+                {searchResults.map((item) => (
+                  <Pressable
+                    key={item.route}
+                    onPress={() => {
+                      setSearchText("");
+                      router.push(item.route as any);
+                    }}
+                    style={styles.dropdownItem}
+                  >
+                    <View style={[styles.dropdownIconShell, item.type === "setting" && styles.dropdownIconShellPurple]}>
+                      <Ionicons name={item.icon} color={item.type === "setting" ? colors.purple : colors.primary} size={14} />
+                    </View>
+                    <View style={styles.dropdownTextWrap}>
+                      <Text style={styles.dropdownItemTitle}>{item.title}</Text>
+                      <Text style={styles.dropdownItemSubtitle}>{item.subtitle}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" color={colors.primaryBorder} size={14} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -449,8 +673,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     heroShell: {
       gap: 5,
-      overflow: "hidden",
       paddingBottom: 0,
+      zIndex: 10,
     },
     headerTop: {
       alignItems: "center",
@@ -543,6 +767,63 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontWeight: "800",
       letterSpacing: -0.4,
     },
+    searchContainer: {
+      marginTop: 20,
+      position: "relative",
+      zIndex: 100,
+      width: "100%",
+    },
+    dropdownShell: {
+      position: "absolute",
+      top: 48,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      overflow: "hidden",
+      zIndex: 1000,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 15,
+      elevation: 8,
+    },
+    dropdownItem: {
+      alignItems: "center",
+      borderBottomColor: colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 48,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 8,
+    },
+    dropdownIconShell: {
+      alignItems: "center",
+      backgroundColor: colors.primaryDim,
+      borderRadius: radius.sm,
+      height: 28,
+      justifyContent: "center",
+      width: 28,
+    },
+    dropdownIconShellPurple: {
+      backgroundColor: colors.secondarySoft,
+    },
+    dropdownTextWrap: {
+      flex: 1,
+      gap: 1,
+    },
+    dropdownItemTitle: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    dropdownItemSubtitle: {
+      color: colors.textMuted,
+      fontSize: 10,
+    },
     commandBar: {
       alignItems: "center",
       backgroundColor: colors.surface,
@@ -552,7 +833,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       flexDirection: "row",
       gap: spacing.sm,
       minHeight: 42,
-      marginTop: 20,
       paddingHorizontal: 10,
     },
     commandInput: {

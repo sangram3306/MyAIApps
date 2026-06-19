@@ -597,6 +597,29 @@ export async function analyzeCoachFromApi(params: {
   return data as CoachAnalyzeResponse;
 }
 
+export async function searchWatchEntriesFromApi(params: {
+  backendUrl: string;
+  query: string;
+  limit?: number;
+}): Promise<{ entries: WatchEntry[] }> {
+  const response = await fetch(`${params.backendUrl}/api/watch/search`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({ query: params.query, limit: params.limit }),
+  });
+
+  const data = (await response.json().catch(() => null)) as {
+    error?: string;
+    entries?: WatchEntry[];
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not search watch entries.");
+  }
+
+  return { entries: data?.entries || [] };
+}
+
 export async function sendChatMessageFromApi(params: {
   backendUrl: string;
   message: string;

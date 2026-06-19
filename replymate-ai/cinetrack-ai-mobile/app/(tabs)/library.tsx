@@ -734,16 +734,11 @@ function normalizeWatchEntry(entry: WatchEntry): WatchEntry {
     leadActors: Array.isArray(entry.leadActors) ? entry.leadActors : [],
     ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
     availability: Array.isArray(entry.availability) ? entry.availability : [],
-    genres: Array.isArray(entry.genres) ? entry.genres : [],
     externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
   };
 }
 
 function genresForEntry(entry: WatchEntry): string[] {
-  const primary = Array.isArray(entry.genres) ? entry.genres.map((item) => item.trim()).filter(Boolean) : [];
-  if (primary.length) {
-    return primary;
-  }
   const detailList = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
   const genreDetail = detailList.find((detail) => detail.label.trim().toLowerCase() === "genre");
   if (!genreDetail?.value) {

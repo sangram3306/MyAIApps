@@ -302,7 +302,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       backgroundColor: "#8B5CF6",
       paddingHorizontal: spacing.xxl,
       paddingVertical: 16,
-      borderRadius: radius.full,
+      borderRadius: radius.pill,
       shadowColor: "#8B5CF6",
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.35,

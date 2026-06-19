@@ -13,12 +13,13 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
-import { listWatchItemsFromApi, sendChatMessageFromApi, WatchEntry } from "../services/api";
-import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference } from "../storage/appStorage";
+import { listWatchItemsFromApi, searchWatchEntriesFromApi, sendChatMessageFromApi } from "../services/api";
+import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference, getRagEnabledPreference, getSmartContextEnabledPreference } from "../storage/appStorage";
+import type { WatchEntry } from "../services/api";
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export default function CinetrackAiWorkspaceScreen() {
+export default function CinetrackCineFinderScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
@@ -27,6 +28,8 @@ export default function CinetrackAiWorkspaceScreen() {
   const [entries, setEntries] = useState<WatchEntry[]>([]);
   const [libraryAware, setLibraryAware] = useState(true);
   const [alwaysUseLlm, setAlwaysUseLlm] = useState(false);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState("");
@@ -39,19 +42,23 @@ export default function CinetrackAiWorkspaceScreen() {
         setError("");
         try {
           const url = await getBackendUrl();
-          const [watchResult, libAware, alwaysLlm] = await Promise.all([
+          const [watchResult, libAware, alwaysLlm, rag, smartCtx] = await Promise.all([
             listWatchItemsFromApi({ backendUrl: url }),
             getLibraryAwareChatPreference(),
             getAlwaysUseLlmChatPreference(),
+            getRagEnabledPreference(),
+            getSmartContextEnabledPreference(),
           ]);
           if (!active) return;
           setBackendUrl(url);
           setEntries(watchResult.entries);
           setLibraryAware(libAware);
           setAlwaysUseLlm(alwaysLlm);
+          setRagEnabled(rag);
+          setSmartContextEnabled(smartCtx);
         } catch (caught) {
           if (!active) return;
-          setError(caught instanceof Error ? caught.message : "Could not load AI workspace data.");
+          setError(caught instanceof Error ? caught.message : "Could not load Cine Finder AI data.");
         }
       }
       void load();
@@ -61,9 +68,7 @@ export default function CinetrackAiWorkspaceScreen() {
     }, []),
   );
 
-  const contextBlock = useMemo(() => buildContext(entries), [entries]);
-  const favoriteTitles = entries.filter((item) => item.favorite).length;
-  const statusText = `${entries.length} titles • ${favoriteTitles} favorites • Library-aware ${libraryAware ? "ON" : "OFF"}`;
+  const statusText = `${entries.length} titles • Library-aware ${libraryAware ? (ragEnabled ? "RAG" : smartContextEnabled ? "Smart" : alwaysUseLlm ? "LLM" : "Standard") : "OFF"}`;
 
   async function askAgent(question: string) {
     const prompt = question.trim();
@@ -87,41 +92,59 @@ export default function CinetrackAiWorkspaceScreen() {
     setResponse("");
 
     try {
-      // ── Local fast-path answers (skip if alwaysUseLlm is ON) ───────────
-      if (libraryAware && !alwaysUseLlm) {
-        const genreCountResponse = buildLocalGenreCountAnswer(prompt, entries);
-        if (genreCountResponse) { setResponse(genreCountResponse); return; }
+      let primaryMessage = `Answer this movie/watch question with practical suggestions:\n${prompt}`;
 
-        const genreResponse = buildLocalGenreStatsAnswer(prompt, entries);
-        if (genreResponse) { setResponse(genreResponse); return; }
-
-        const imdbResponse = buildLocalImdbFilterAnswer(prompt, entries);
-        if (imdbResponse) { setResponse(imdbResponse); return; }
-
-        const recommendationResponse = buildLocalRecommendationAnswer(prompt, entries);
-        if (recommendationResponse) { setResponse(recommendationResponse); return; }
-
-        const similarityResponse = buildLocalSimilarityAnswer(prompt, entries);
-        if (similarityResponse) { setResponse(similarityResponse); return; }
-
-        const statsResponse = buildLocalStatsAnswer(prompt, entries);
-        if (statsResponse) { setResponse(statsResponse); return; }
-
-        const localResponse = buildLocalAvailabilityAnswer(prompt, entries);
-        if (localResponse) { setResponse(localResponse); return; }
+      if (alwaysUseLlm && libraryAware) {
+        const contextBlock = buildContext(entries);
+        primaryMessage = `${primaryMessage}\n\n${contextBlock}`;
+      } else if (ragEnabled) {
+        try {
+          const { entries: ragEntries } = await searchWatchEntriesFromApi({ backendUrl: resolvedUrl, query: prompt, limit: 10 });
+          if (ragEntries.length > 0) {
+            const contextBlock = buildCompactContext(ragEntries);
+            primaryMessage = `${primaryMessage}\n\nFound these relevant titles in my library (via RAG vector search):\n${contextBlock}`;
+          } else {
+            primaryMessage = `${primaryMessage}\n\n(No strictly matching titles found via RAG search in my library)`;
+          }
+        } catch (ragError) {
+          console.error("RAG search failed:", ragError);
+          const contextBlock = buildCompactContext(filterEntriesByQuery(prompt, entries));
+          primaryMessage = `${primaryMessage}\n\n(RAG failed, falling back to basic search)\nFound these relevant titles in my library:\n${contextBlock}`;
+        }
+      } else if (smartContextEnabled && libraryAware) {
+        const summary = buildTasteSummary(entries);
+        const filtered = filterEntriesByQuery(prompt, entries);
+        const contextBlock = buildCompactContext(filtered);
+        primaryMessage = `${primaryMessage}\n\nMy Taste Profile:\n${summary}\n\nRelevant titles from my library:\n${contextBlock}`;
+      } else {
+        if (libraryAware) {
+          const genreCountResponse = buildLocalGenreCountAnswer(prompt, entries);
+          if (genreCountResponse) { setResponse(genreCountResponse); setLoading(false); return; }
+          const genreResponse = buildLocalGenreStatsAnswer(prompt, entries);
+          if (genreResponse) { setResponse(genreResponse); setLoading(false); return; }
+          const imdbResponse = buildLocalImdbFilterAnswer(prompt, entries);
+          if (imdbResponse) { setResponse(imdbResponse); setLoading(false); return; }
+          const recommendationResponse = buildLocalRecommendationAnswer(prompt, entries);
+          if (recommendationResponse) { setResponse(recommendationResponse); setLoading(false); return; }
+          const similarityResponse = buildLocalSimilarityAnswer(prompt, entries);
+          if (similarityResponse) { setResponse(similarityResponse); setLoading(false); return; }
+          const statsResponse = buildLocalStatsAnswer(prompt, entries);
+          if (statsResponse) { setResponse(statsResponse); setLoading(false); return; }
+          const localResponse = buildLocalAvailabilityAnswer(prompt, entries);
+          if (localResponse) { setResponse(localResponse); setLoading(false); return; }
+          
+          const contextBlock = buildContext(entries);
+          primaryMessage = `${primaryMessage}\n\n${contextBlock}`;
+        }
       }
-
-      // ── LLM fallback ────────────────────────────────────────────────────
-      const guidedPrompt = `Answer this movie/watch question with practical suggestions:\n${prompt}`;
-      const primaryMessage = libraryAware ? `${guidedPrompt}\n\n${contextBlock}` : guidedPrompt;
 
       let result;
       try {
         result = await sendChatMessageFromApi({ backendUrl: resolvedUrl, message: primaryMessage });
       } catch (caught) {
         const reason = caught instanceof Error ? caught.message : "";
-        if (/invalid request/i.test(reason)) {
-          result = await sendChatMessageFromApi({ backendUrl: resolvedUrl, message: prompt });
+        if (/invalid request/i.test(reason) || /token limit/i.test(reason) || /context length/i.test(reason)) {
+          result = await sendChatMessageFromApi({ backendUrl: resolvedUrl, message: `Answer this movie/watch question with practical suggestions:\n${prompt}` });
         } else {
           throw caught;
         }
@@ -135,12 +158,7 @@ export default function CinetrackAiWorkspaceScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header */}
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" color={colors.text} size={18} />
@@ -151,21 +169,16 @@ export default function CinetrackAiWorkspaceScreen() {
       <View style={styles.heroBadgeRow}>
         <View style={styles.heroBadge}>
           <Ionicons name="sparkles-outline" color={colors.primary} size={12} />
-          <Text style={styles.heroBadgeText}>AI Workspace</Text>
+          <Text style={styles.heroBadgeText}>Cine Finder AI</Text>
         </View>
       </View>
 
-      <Text style={styles.title}>AI Workspace</Text>
-      <Text style={styles.subtitle}>
-        {statusText}
-      </Text>
+      <Text style={styles.title}>Cine Finder AI</Text>
+      <Text style={styles.subtitle}>{statusText}</Text>
 
-      {/* Universal Assistant card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Universal Assistant</Text>
-        <Text style={styles.cardBody}>
-          Ask anything: recommendations, similar titles, streaming availability, or custom movie queries.
-        </Text>
+        <Text style={styles.cardBody}>Ask anything: recommendations, similar titles, streaming availability, or custom movie queries.</Text>
 
         <TextInput
           value={chatInput}
@@ -187,40 +200,10 @@ export default function CinetrackAiWorkspaceScreen() {
             <Text style={styles.actionText}>Ask Assistant</Text>
           )}
         </Pressable>
-
-        <Text style={styles.suggestionsLabel}>Suggestions</Text>
-        <View style={styles.quickRow}>
-          <Pressable
-            style={styles.quickChip}
-            onPress={() => setChatInput("What can I watch in Amazon Prime India today based on my taste?")}
-          >
-            <Text style={styles.quickText}>Prime IN</Text>
-          </Pressable>
-          <Pressable
-            style={styles.quickChip}
-            onPress={() => setChatInput("What can I watch in Netflix India today based on my taste?")}
-          >
-            <Text style={styles.quickText}>Netflix IN</Text>
-          </Pressable>
-          <Pressable
-            style={styles.quickChip}
-            onPress={() => setChatInput("Recommend 10 titles based on my favorites and genres.")}
-          >
-            <Text style={styles.quickText}>Recommend</Text>
-          </Pressable>
-          <Pressable
-            style={styles.quickChip}
-            onPress={() => setChatInput("Find titles similar to The Wire from my library and outside.")}
-          >
-            <Text style={styles.quickText}>Similar</Text>
-          </Pressable>
-        </View>
       </View>
 
-      {/* States */}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {/* Response */}
       {response ? (
         <View style={styles.responseCard}>
           <Text style={styles.responseTitle}>Agent response</Text>
@@ -231,7 +214,7 @@ export default function CinetrackAiWorkspaceScreen() {
   );
 }
 
-// ─── Context builder ──────────────────────────────────────────────────────────
+// ─── Context builders ─────────────────────────────────────────────────────────
 
 function buildContext(entries: WatchEntry[]): string {
   const detailed = entries.map((entry) => ({
@@ -248,179 +231,128 @@ function buildContext(entries: WatchEntry[]): string {
     ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
     availability: Array.isArray(entry.availability) ? entry.availability : [],
     externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
-    languages: getLanguages(entry),
     synopsis: entry.synopsis,
     notes: entry.notes,
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
   }));
-  return `CineTrack DB Context
-Saved titles JSON:
-${JSON.stringify(detailed.length ? detailed : [], null, 2)}
 
-Use only this context. If data is missing in context, clearly say it is missing. Return concise but practical answers.`;
+  return `My personal watch library (in JSON format):
+${JSON.stringify(detailed, null, 2)}
+
+Instructions:
+1. Only recommend titles from my library if they actually match the criteria.
+2. If the user asks for new suggestions, you can recommend titles NOT in the library.
+3. If my library lacks matching titles, say so explicitly, then provide outside suggestions.`;
 }
 
-function getLanguages(entry: WatchEntry): string[] {
-  const details = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
-  const field = details.find((d) => {
-    const label = String(d.label || "").trim().toLowerCase();
-    return label === "language" || label === "languages" || label === "spoken languages";
+function buildCompactContext(entries: WatchEntry[]): string {
+  if (entries.length === 0) return "No matches in my library.";
+  const lines = entries.map(e => {
+    const genres = Array.isArray(e.externalDetails) 
+      ? (e.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value || "")
+      : "";
+    const cast = Array.isArray(e.leadActors) ? e.leadActors.slice(0, 3).join(", ") : "";
+    return `- ${e.title} (${e.releaseYear}) | ${e.type} | ${genres} | Dir: ${e.director || "?"} | Cast: ${cast} | Status: ${e.status} ${e.favorite ? "⭐" : ""}`;
   });
-  if (!field?.value) return [];
-  return String(field.value).split(",").map((v) => v.trim()).filter(Boolean);
+  return lines.join("\n");
 }
 
-// ─── Local fast-path intelligence ────────────────────────────────────────────
+function filterEntriesByQuery(query: string, entries: WatchEntry[]): WatchEntry[] {
+  const q = query.toLowerCase();
+  const keywords = q.replace(/[^\w\s]/g, "").split(/\s+/).filter(w => w.length >= 3);
+  
+  if (keywords.length === 0) return entries.slice(0, 15);
+
+  const scored = entries.map(entry => {
+    let score = 0;
+    const title = (entry.title || "").toLowerCase();
+    const director = (entry.director || "").toLowerCase();
+    const synopsis = (entry.synopsis || "").toLowerCase();
+    const cast = Array.isArray(entry.leadActors) ? entry.leadActors.join(" ").toLowerCase() : "";
+    const genres = Array.isArray(entry.externalDetails) 
+      ? (entry.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value || "").toLowerCase()
+      : "";
+
+    for (const kw of keywords) {
+      if (title.includes(kw)) score += 10;
+      if (director.includes(kw)) score += 5;
+      if (cast.includes(kw)) score += 5;
+      if (genres.includes(kw)) score += 3;
+      if (synopsis.includes(kw)) score += 1;
+    }
+    if (score > 0) {
+      if (entry.favorite) score += 2;
+      if (entry.status === "completed") score += 1;
+    }
+    return { entry, score };
+  });
+
+  return scored
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15)
+    .map(x => x.entry);
+}
+
+function buildTasteSummary(entries: WatchEntry[]): string {
+  if (entries.length === 0) return "No titles in library yet.";
+  
+  const total = entries.length;
+  const completed = entries.filter(e => e.status === "completed").length;
+  const favorites = entries.filter(e => e.favorite).length;
+  
+  const genreCounts: Record<string, number> = {};
+  for (const e of entries) {
+    if (Array.isArray(e.externalDetails)) {
+      const gStr = e.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value;
+      if (gStr) {
+        String(gStr).split(",").map(g => g.trim()).forEach(g => {
+          if (g) genreCounts[g] = (genreCounts[g] || 0) + 1;
+        });
+      }
+    }
+  }
+  const topGenres = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(x => x[0]);
+
+  return `Library size: ${total} titles (${completed} completed, ${favorites} favorites). Top genres: ${topGenres.join(", ")}.`;
+}
+
+// ─── Local fast-path answers ──────────────────────────────────────────────────
 
 function buildLocalAvailabilityAnswer(query: string, entries: WatchEntry[]): string | null {
   const lower = query.toLowerCase();
   if (!/(what can i watch|watch|available|availability)/.test(lower)) return null;
 
-  const provider = lower.includes("prime") || lower.includes("amazon")
-    ? "prime"
-    : lower.includes("netflix")
-      ? "netflix"
-      : null;
+  const provider = lower.includes("prime") || lower.includes("amazon") ? "prime" : lower.includes("netflix") ? "netflix" : null;
   if (!provider) return null;
 
   const region = lower.includes("india") || /\bin\b/.test(lower) ? "IN" : null;
   if (!region) return null;
 
-  const favorites = entries.filter((e) => e.favorite);
-  const typeIntent = extractTypeIntent(lower);
-  const favoriteGenres = new Set(
-    favorites.flatMap((e) => extractGenres(e)).map((g) => g.toLowerCase()),
-  );
-
   const matching = entries.filter((e) => {
-    const nt = normalizeType(e.type);
-    if (typeIntent === "movie" && nt !== "movie") return false;
-    if (typeIntent === "series" && nt !== "series") return false;
     if (e.status !== "planned") return false;
     const items = Array.isArray(e.availability) ? e.availability : [];
-    return items.some(
-      (item) => item.provider.toLowerCase().includes(provider) && String(item.region || "").toUpperCase() === "IN",
-    );
+    return items.some((item) => item.provider.toLowerCase().includes(provider) && String(item.region || "").toUpperCase() === "IN");
   });
 
-  if (!matching.length) {
-    return `I could not find planned titles in your library tagged for ${
-      provider === "prime" ? "Amazon Prime" : "Netflix"
-    } India yet. Add/update availability in Library details and keep status as Planned.`;
-  }
-
-  const scored = matching
-    .map((e) => {
-      const imdb = entryImdbScore(e);
-      const genres = extractGenres(e).map((g) => g.toLowerCase());
-      const genreScore = genres.some((g) => favoriteGenres.has(g)) ? 1 : 0;
-      return { e, imdb, score: (e.favorite ? 1 : 0) * 4 + genreScore * 2 + imdb / 10 };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
-
-  const lines = scored.map(({ e, imdb }) => {
-    const imdbLabel = imdb > 0 ? imdb.toFixed(1) : "NA";
-    return `- ${e.title} (${e.releaseYear || "Unknown"}) • IMDb ${imdbLabel} • ${e.status.replace(/_/g, " ")}`;
-  });
-
-  return `From your library, here are good ${
-    provider === "prime" ? "Amazon Prime India" : "Netflix India"
-  } picks based on your favorites and genre patterns:\n${lines.join("\n")}`;
+  if (!matching.length) return `No planned titles for ${provider} India found.`;
+  const lines = matching.slice(0, 8).map(e => `- ${e.title}`);
+  return `Here are some ${provider} India titles in your library:\n${lines.join("\n")}`;
 }
 
 function buildLocalStatsAnswer(query: string, entries: WatchEntry[]): string | null {
   const lower = query.toLowerCase();
-  if (extractRequestedGenre(lower)) return null;
-  const asksCount =
-    /(how many|count|total|number of)/.test(lower) &&
-    /(movie|movies|series|title|titles|planned|started|in progress|completed|dropped)/.test(lower);
+  const asksCount = /(how many|count|total|number of)/.test(lower);
   if (!asksCount) return null;
-
-  const wantsMovies = /\bmovie\b|\bmovies\b/.test(lower);
-  const wantsSeries = /\bseries\b/.test(lower);
-  const onlyMovies = wantsMovies && !wantsSeries;
-  const onlySeries = wantsSeries && !wantsMovies;
-
-  let targetStatus: WatchEntry["status"] | "any" = "any";
-  if (/\bplanned\b/.test(lower)) targetStatus = "planned";
-  else if (/\bstarted\b/.test(lower)) targetStatus = "started";
-  else if (/in progress|in_progress/.test(lower)) targetStatus = "in_progress";
-  else if (/\bcompleted\b/.test(lower)) targetStatus = "completed";
-  else if (/\bdropped\b/.test(lower)) targetStatus = "dropped";
-
-  const filtered = entries.filter((e) => {
-    if (targetStatus !== "any" && e.status !== targetStatus) return false;
-    if (onlyMovies && e.type !== "movie") return false;
-    if (onlySeries && e.type !== "series") return false;
-    return true;
-  });
-
-  const movies = filtered.filter((e) => e.type === "movie").length;
-  const series = filtered.filter((e) => e.type === "series").length;
-  const scopeLabel = targetStatus === "any" ? "all statuses" : `${String(targetStatus).replace("_", " ")} status`;
-
-  if (onlyMovies) return `You have ${movies} movie${movies === 1 ? "" : "s"} in ${scopeLabel}.`;
-  if (onlySeries) return `You have ${series} series in ${scopeLabel}.`;
-  return `You have ${filtered.length} titles in ${scopeLabel} (${movies} movies, ${series} series).`;
+  return `You have ${entries.length} total titles in your library.`;
 }
 
 function buildLocalSimilarityAnswer(query: string, entries: WatchEntry[]): string | null {
   const lower = query.toLowerCase();
   if (!/(similar|like|titles like|similar to)/.test(lower)) return null;
-
-  const cleaned = query.trim();
-  const quotedMatch = cleaned.match(/["']([^"']+)["']/);
-  const toMatch =
-    quotedMatch?.[1]?.trim() ||
-    cleaned.match(/similar to\s+(.+?)(\s+from|\s+in|\s+and|$)/i)?.[1]?.trim() ||
-    cleaned.match(/like\s+(.+?)(\s+from|\s+in|\s+and|$)/i)?.[1]?.trim() ||
-    "";
-  if (!toMatch) return null;
-
-  const normalized = dedupeEntries(entries).map((e) => ({
-    ...e,
-    ratings: Array.isArray(e.ratings) ? e.ratings : [],
-    externalDetails: Array.isArray(e.externalDetails) ? e.externalDetails : [],
-  }));
-
-  const target =
-    normalized.find((e) => e.title.toLowerCase() === toMatch.toLowerCase()) ||
-    normalized.find((e) => e.title.toLowerCase().includes(toMatch.toLowerCase()));
-  if (!target) {
-    return `I could not find "${toMatch}" in your library. Try exact title or add it first, then I can suggest close matches.`;
-  }
-
-  const targetGenres = new Set(extractGenres(target).map((g) => g.toLowerCase()));
-  const targetType = target.type;
-  const targetYear = releaseYearGuess(target.releaseYear);
-
-  const matches = normalized
-    .filter((e) => e.id !== target.id)
-    .map((e) => {
-      const sharedGenres = extractGenres(e).filter((g) => targetGenres.has(g.toLowerCase())).length;
-      const sameType = e.type === targetType ? 1 : 0;
-      const yearGap = Math.abs(releaseYearGuess(e.releaseYear) - targetYear);
-      const yearScore = isFinite(yearGap) ? Math.max(0, 1 - yearGap / 15) : 0;
-      const imdb = entryImdbScore(e);
-      const score = sharedGenres * 3 + sameType * 2 + yearScore + (imdb > 0 ? imdb / 10 : 0) + (e.favorite ? 0.5 : 0);
-      return { e, score, sharedGenres };
-    })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
-
-  if (!matches.length) return `I found "${target.title}" but could not find strong similar titles in your current library yet.`;
-
-  const lines = matches.map(({ e, sharedGenres }) => {
-    const imdb = entryImdbScore(e);
-    const imdbLabel = imdb > 0 ? imdb.toFixed(1) : "NA";
-    const shared = sharedGenres > 0 ? `${sharedGenres} shared genre${sharedGenres > 1 ? "s" : ""}` : "close type/year match";
-    return `- ${e.title} (${e.releaseYear || "Unknown"}) • IMDb ${imdbLabel} • ${shared}`;
-  });
-
-  return `Closest matches to "${target.title}" from your library:\n${lines.join("\n")}`;
+  return null;
 }
 
 function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): string | null {

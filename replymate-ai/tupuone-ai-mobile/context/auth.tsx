@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
 import { getBackendUrl } from "../storage/appStorage";
 
 interface User {
@@ -26,7 +26,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_STORAGE_KEY = "@replymate_jwt";
+const TOKEN_STORAGE_KEY = "replymate_jwt";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadSession() {
       try {
-        const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+        const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
         if (token) {
           const backendUrl = await getBackendUrl();
           if (backendUrl) {
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(data.user);
             } else {
               // Token might be expired
-              await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+              await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
             }
           }
         }
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data.error || "Failed to sign in");
     }
 
-    await AsyncStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+    await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, data.token);
     setUser(data.user);
   };
 
@@ -101,12 +101,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data.error || "Failed to sign up");
     }
 
-    await AsyncStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+    await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, data.token);
     setUser(data.user);
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+    await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
     setUser(null);
   };
 
@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const backendUrl = await getBackendUrl();
     if (!backendUrl) throw new Error("Backend URL not configured");
     
-    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) throw new Error("Not authenticated");
 
     const res = await fetch(`${backendUrl}/api/auth/me/profile-image`, {
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const backendUrl = await getBackendUrl();
     if (!backendUrl) throw new Error("Backend URL not configured");
     
-    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) throw new Error("Not authenticated");
 
     const res = await fetch(`${backendUrl}/api/auth/me/profile`, {
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const backendUrl = await getBackendUrl();
     if (!backendUrl) throw new Error("Backend URL not configured");
     
-    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) throw new Error("Not authenticated");
 
     const res = await fetch(`${backendUrl}/api/auth/me/password`, {
@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const backendUrl = await getBackendUrl();
     if (!backendUrl) throw new Error("Backend URL not configured");
     
-    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) throw new Error("Not authenticated");
 
     const res = await fetch(`${backendUrl}/api/auth/unsubscribe`, {
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const backendUrl = await getBackendUrl();
     if (!backendUrl) throw new Error("Backend URL not configured");
     
-    const token = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) throw new Error("Not authenticated");
 
     const res = await fetch(`${backendUrl}/api/auth/subscribe-coupon`, {

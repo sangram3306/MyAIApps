@@ -379,9 +379,9 @@ export default function WatchTrackerScreen() {
             <Text style={styles.sectionTitle}>Watcher profile</Text>
             <View style={styles.profileHeaderButtons}>
               <Pressable
-                onPress={() => router.push("/cinetrack-ai-workspace")}
-                style={styles.aiWorkspaceIconButton}
-                accessibilityLabel="Open AI Workspace"
+                onPress={() => router.push("/cinetrack-cine-finder")}
+                style={styles.cineFinderIconButton}
+                accessibilityLabel="Open Cine Finder AI"
               >
                 <Ionicons name="search-outline" color={colors.primary} size={14} />
               </Pressable>
@@ -916,7 +916,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     primaryButton: { backgroundColor: colors.primary, borderRadius: 14, minHeight: 46, alignItems: "center", justifyContent: "center" },
     primaryButtonText: { color: colors.onPrimary, fontWeight: "900" },
     profileHeaderButtons: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-    aiWorkspaceIconButton: {
+    cineFinderIconButton: {
       borderColor: colors.primary,
       borderWidth: 1,
       borderRadius: 999,

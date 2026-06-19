@@ -16,6 +16,8 @@ const keys = {
   oneHandedMode: "replymate.oneHandedMode",
   libraryAwareChat: "replymate.libraryAwareChat",
   alwaysUseLlmChat: "replymate.alwaysUseLlmChat",
+  ragEnabled: "replymate.ragEnabled",
+  smartContextEnabled: "replymate.smartContextEnabled",
   appLockMode: "replymate.appLockMode",
   budgetTarget: "replymate.expenses.budgetTarget",
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
@@ -45,6 +47,8 @@ export type ExportPayload = {
     oneHandedMode: boolean;
     libraryAwareChat: boolean;
     alwaysUseLlmChat: boolean;
+    ragEnabled: boolean;
+    smartContextEnabled: boolean;
     appLockMode: AppLockMode;
     budgetTarget: number | null;
     budgetWarningThreshold: number;
@@ -124,6 +128,22 @@ export async function getAlwaysUseLlmChatPreference(): Promise<boolean> {
 
 export async function saveAlwaysUseLlmChatPreference(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(keys.alwaysUseLlmChat, JSON.stringify(enabled));
+}
+
+export async function getRagEnabledPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.ragEnabled, false);
+}
+
+export async function saveRagEnabledPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.ragEnabled, JSON.stringify(value));
+}
+
+export async function getSmartContextEnabledPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.smartContextEnabled, false);
+}
+
+export async function saveSmartContextEnabledPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.smartContextEnabled, JSON.stringify(value));
 }
 
 export async function getAppLockModePreference(): Promise<AppLockMode> {
@@ -209,6 +229,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     oneHandedMode,
     libraryAwareChat,
     alwaysUseLlmChat,
+    ragEnabled,
+    smartContextEnabled,
     appLockMode,
     budgetTarget,
     budgetWarningThreshold,
@@ -225,6 +247,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getOneHandedModePreference(),
       getLibraryAwareChatPreference(),
       getAlwaysUseLlmChatPreference(),
+      getRagEnabledPreference(),
+      getSmartContextEnabledPreference(),
       getAppLockModePreference(),
       getBudgetTargetPreference(),
       getBudgetWarningThresholdPreference(),
@@ -244,6 +268,8 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       oneHandedMode,
       libraryAwareChat,
       alwaysUseLlmChat,
+      ragEnabled,
+      smartContextEnabled,
       appLockMode,
       budgetTarget,
       budgetWarningThreshold,

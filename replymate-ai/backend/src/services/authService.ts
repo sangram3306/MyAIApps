@@ -2,7 +2,10 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required.");
+}
 const JWT_EXPIRES_IN = "30d";
 
 export async function enforcePlanExpiration(user: any) {

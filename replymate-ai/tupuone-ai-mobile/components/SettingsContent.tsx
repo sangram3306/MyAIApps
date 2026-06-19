@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useState, useEffect } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "./PremiumUI";
@@ -16,17 +17,25 @@ import {
   getAlwaysUseLlmChatPreference,
   getAppLockModePreference,
   getDefaultTabPreference,
-  getLlmPreference,
   getLibraryAwareChatPreference,
+  getLlmPreference,
+  getRagEnabledPreference,
   getReplyResponseCountPreference,
   getRewriteResponseCountPreference,
+  getSearchAutocompletePreference,
+  getSmartContextEnabledPreference,
   getThemeModePreference,
   saveAlwaysUseLlmChatPreference,
   saveAppLockModePreference,
   saveDefaultTabPreference,
   saveLibraryAwareChatPreference,
+  saveLlmPreference,
+  saveRagEnabledPreference,
   saveReplyResponseCountPreference,
   saveRewriteResponseCountPreference,
+  saveSearchAutocompletePreference,
+  saveSmartContextEnabledPreference,
+  saveThemeModePreference,
   getBackendUrl,
 } from "../storage/appStorage";
 import { deleteAccountFromApi } from "../services/api";
@@ -60,11 +69,11 @@ const responseCountOptions: { label: string; value: `${ResponseCountPreference}`
   { label: "5", value: "5" },
 ];
 
-type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "privacy" | "lock" | null;
+type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "privacy" | "lock" | "searchBar" | null;
 
 type RowTone = "primary" | "purple" | "danger";
 
-export function SettingsContent({ onClose }: { onClose?: () => void }) {
+export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => void; defaultExpand?: DetailPanelId }) {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
   const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
@@ -74,11 +83,20 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
   const [appLockMode, setAppLockMode] = useState<AppLockMode>("off");
   const [replyResponseCount, setReplyResponseCount] = useState<`${ResponseCountPreference}`>("5");
   const [rewriteResponseCount, setRewriteResponseCount] = useState<`${ResponseCountPreference}`>("5");
-  const [expandedPanel, setExpandedPanel] = useState<DetailPanelId>(null);
+  const [expandedPanel, setExpandedPanel] = useState<DetailPanelId>(defaultExpand || null);
+
+  useEffect(() => {
+    if (defaultExpand) {
+      setExpandedPanel(defaultExpand);
+    }
+  }, [defaultExpand]);
   const [clearingData, setClearingData] = useState(false);
+  const [searchAutocompleteEnabled, setSearchAutocompleteEnabled] = useState(true);
   // CineTrack preferences
   const [libraryAwareChat, setLibraryAwareChat] = useState(true);
   const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const selectedProvider = llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
@@ -90,22 +108,33 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
       getLlmPreference(),
       getDefaultTabPreference(),
       getAppLockModePreference(),
+      getSearchAutocompletePreference(),
       getReplyResponseCountPreference(),
       getRewriteResponseCountPreference(),
       getLibraryAwareChatPreference(),
       getAlwaysUseLlmChatPreference(),
-    ]).then(([, llm, tab, lockMode, replyCount, rewriteCount, libAware, alwaysLlm]) => {
+      getRagEnabledPreference(),
+      getSmartContextEnabledPreference(),
+    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, libAware, alwaysLlm, rag, smartCtx]) => {
       setLlmPreference(llm);
       setDefaultTab(tab);
       setAppLockMode(lockMode);
+      setSearchAutocompleteEnabled(searchAuto);
       setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
       setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
       setLibraryAwareChat(libAware);
       setAlwaysUseLlmChat(alwaysLlm);
+      setRagEnabled(rag);
+      setSmartContextEnabled(smartCtx);
     });
 
     return () => setExpandedPanel(null);
   }, []);
+
+  function handleSearchAutocompleteChange(value: boolean) {
+    setSearchAutocompleteEnabled(value);
+    void saveSearchAutocompletePreference(value);
+  }
 
   async function handleThemeChange(nextMode: "system" | "light" | "dark") {
     await setMode(nextMode);
@@ -117,6 +146,23 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
   }
 
   async function handleAppLockChange(nextMode: AppLockMode) {
+    if (nextMode !== "off") {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Authenticate to enable App Lock",
+          fallbackLabel: "Use Passcode",
+          cancelLabel: "Cancel",
+        });
+        if (!result.success) {
+          // If they cancel or fail, don't change the setting
+          return;
+        }
+      } catch (e) {
+        console.warn("Auth error when enabling lock:", e);
+        Alert.alert("Error", "Could not enable app lock. Please ensure your device supports it.");
+        return;
+      }
+    }
     setAppLockMode(nextMode);
     await saveAppLockModePreference(nextMode);
   }
@@ -142,6 +188,8 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
       setRewriteResponseCount("5");
       setLibraryAwareChat(true);
       setAlwaysUseLlmChat(false);
+      setRagEnabled(false);
+      setSmartContextEnabled(false);
       await setMode("system");
       Alert.alert("Data cleared", "Local SP ONE data has been cleared.");
     } catch (error) {
@@ -188,6 +236,34 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
   function handleAlwaysUseLlmChatChange(value: boolean) {
     setAlwaysUseLlmChat(value);
     void saveAlwaysUseLlmChatPreference(value);
+    if (value) {
+      setRagEnabled(false);
+      void saveRagEnabledPreference(false);
+      setSmartContextEnabled(false);
+      void saveSmartContextEnabledPreference(false);
+    }
+  }
+
+  function handleRagEnabledChange(value: boolean) {
+    setRagEnabled(value);
+    void saveRagEnabledPreference(value);
+    if (value) {
+      setAlwaysUseLlmChat(false);
+      void saveAlwaysUseLlmChatPreference(false);
+      setSmartContextEnabled(false);
+      void saveSmartContextEnabledPreference(false);
+    }
+  }
+
+  function handleSmartContextEnabledChange(value: boolean) {
+    setSmartContextEnabled(value);
+    void saveSmartContextEnabledPreference(value);
+    if (value) {
+      setAlwaysUseLlmChat(false);
+      void saveAlwaysUseLlmChatPreference(false);
+      setRagEnabled(false);
+      void saveRagEnabledPreference(false);
+    }
   }
 
   function togglePanel(panel: Exclude<DetailPanelId, null>) {
@@ -237,6 +313,26 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
             </DetailCard>
           ) : null}
 
+          <SettingRow
+            icon="search-outline"
+            title="Search Bar"
+            subtitle={searchAutocompleteEnabled ? "Suggestions ON" : "Suggestions OFF"}
+            active={expandedPanel === "searchBar"}
+            onPress={() => togglePanel("searchBar")}
+            styles={styles}
+          />
+          {expandedPanel === "searchBar" ? (
+            <DetailCard styles={styles}>
+              <SwitchRow
+                icon="options-outline"
+                title="Autocomplete Suggestions"
+                subtitle="Show tool and setting suggestions while typing"
+                value={searchAutocompleteEnabled}
+                onValueChange={handleSearchAutocompleteChange}
+                styles={styles}
+              />
+            </DetailCard>
+          ) : null}
         </SettingsGroup>
 
         <SettingsGroup title="AI" styles={styles}>
@@ -278,7 +374,7 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
           <SettingRow
             icon="film-outline"
             title="CineTrack"
-            subtitle={`Library-aware ${libraryAwareChat ? "ON" : "OFF"} · LLM ${alwaysUseLlmChat ? "always" : "smart"}`}
+            subtitle={`Library-aware ${libraryAwareChat ? "ON" : "OFF"} · Mode: ${ragEnabled ? "RAG" : smartContextEnabled ? "Smart Context" : alwaysUseLlmChat ? "LLM Always" : "Smart Default"}`}
             active={expandedPanel === "cinetrack"}
             onPress={() => togglePanel("cinetrack")}
             styles={styles}
@@ -296,9 +392,25 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
               <SwitchRow
                 icon="sparkles-outline"
                 title="Always use LLM"
-                subtitle="Bypass local rules, call LLM for every CineTrack query"
+                subtitle="Send full library to LLM for every query"
                 value={alwaysUseLlmChat}
                 onValueChange={handleAlwaysUseLlmChatChange}
+                styles={styles}
+              />
+              <SwitchRow
+                icon="search-outline"
+                title="RAG Search"
+                subtitle="Use vector embeddings to find top 10 relevant titles"
+                value={ragEnabled}
+                onValueChange={handleRagEnabledChange}
+                styles={styles}
+              />
+              <SwitchRow
+                icon="flash-outline"
+                title="Smart Context"
+                subtitle="Send taste summary + fast keyword filtering"
+                value={smartContextEnabled}
+                onValueChange={handleSmartContextEnabledChange}
                 styles={styles}
               />
             </DetailCard>
@@ -317,20 +429,6 @@ export function SettingsContent({ onClose }: { onClose?: () => void }) {
           {expandedPanel === "lock" ? (
             <DetailCard styles={styles}>
               <SegmentedControl options={appLockOptions} value={appLockMode} onChange={handleAppLockChange} styles={styles} />
-            </DetailCard>
-          ) : null}
-
-          <SettingRow
-            icon="shield-checkmark-outline"
-            title="Privacy"
-            subtitle="Manage privacy settings"
-            active={expandedPanel === "privacy"}
-            onPress={() => togglePanel("privacy")}
-            styles={styles}
-          />
-          {expandedPanel === "privacy" ? (
-            <DetailCard styles={styles}>
-              <Text style={styles.detailText}>API keys stay on the backend, and local preferences stay on your device.</Text>
             </DetailCard>
           ) : null}
         </SettingsGroup>

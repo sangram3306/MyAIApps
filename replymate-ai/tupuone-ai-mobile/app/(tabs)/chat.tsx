@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
@@ -45,6 +45,7 @@ export default function ChatScreen() {
   const [error, setError] = useState("");
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const params = useLocalSearchParams<{ query?: string }>();
 
   useFocusEffect(
     useCallback(() => {
@@ -56,10 +57,28 @@ export default function ChatScreen() {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
+  useEffect(() => {
+    if (params.query) {
+      const q = params.query;
+      router.setParams({ query: undefined } as any);
+      handleSend(q);
+    }
+  }, [params.query]);
+
   async function handleSend(value?: string) {
     const nextMessage = (value ?? message).trim();
 
-    if (!backendUrl) {
+    let activeUrl = backendUrl;
+    if (!activeUrl) {
+      try {
+        activeUrl = await getBackendUrl();
+        setBackendUrl(activeUrl);
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    if (!activeUrl) {
       setError("ReplyMate AI could not find the backend URL. Please restart the app.");
       return;
     }
@@ -84,7 +103,7 @@ export default function ChatScreen() {
 
     try {
       const result = await sendChatMessageFromApi({
-        backendUrl,
+        backendUrl: activeUrl,
         message: nextMessage,
         signal: abortControllerRef.current.signal,
       });

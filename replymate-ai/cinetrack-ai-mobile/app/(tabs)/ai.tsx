@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useFocusEffect } from "expo-router";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { listWatchItemsFromApi, sendChatMessageFromApi, WatchEntry } from "../../services/api";
-import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference } from "../../storage/appStorage";
+import { listWatchItemsFromApi, searchWatchEntriesFromApi, sendChatMessageFromApi } from "../../services/api";
+import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference, getRagEnabledPreference, getSmartContextEnabledPreference } from "../../storage/appStorage";
+import type { WatchEntry } from "../../services/api";
 
 export default function AiWorkspaceScreen() {
   const { colors } = useAppTheme();
@@ -13,6 +14,8 @@ export default function AiWorkspaceScreen() {
   const [entries, setEntries] = useState<WatchEntry[]>([]);
   const [libraryAware, setLibraryAware] = useState(true);
   const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState("");
@@ -25,16 +28,20 @@ export default function AiWorkspaceScreen() {
         setError("");
         try {
           const url = await getBackendUrl();
-          const [watchResult, preference] = await Promise.all([
+          const [watchResult, preference, alwaysUseLlm, rag, smartCtx] = await Promise.all([
             listWatchItemsFromApi({ backendUrl: url }),
             getLibraryAwareChatPreference(),
+            getAlwaysUseLlmChatPreference(),
+            getRagEnabledPreference(),
+            getSmartContextEnabledPreference(),
           ]);
-          const alwaysUseLlm = await getAlwaysUseLlmChatPreference();
           if (!active) return;
           setBackendUrl(url);
           setEntries(watchResult.entries);
           setLibraryAware(preference);
           setAlwaysUseLlmChat(alwaysUseLlm);
+          setRagEnabled(rag);
+          setSmartContextEnabled(smartCtx);
         } catch (caught) {
           if (!active) return;
           setError(caught instanceof Error ? caught.message : "Could not load AI workspace data.");
@@ -69,45 +76,52 @@ export default function AiWorkspaceScreen() {
     setLoading(true);
     setError("");
     try {
-      if (libraryAware && !alwaysUseLlmChat) {
-        const genreCountResponse = buildLocalGenreCountAnswer(prompt, entries);
-        if (genreCountResponse) {
-          setResponse(genreCountResponse);
-          return;
+      let primaryMessage = `Answer this movie/watch question with practical suggestions:\n${prompt}`;
+
+      if (alwaysUseLlmChat && libraryAware) {
+        const contextBlock = buildContext(entries);
+        primaryMessage = `${primaryMessage}\n\n${contextBlock}`;
+      } else if (ragEnabled) {
+        try {
+          const { entries: ragEntries } = await searchWatchEntriesFromApi({ backendUrl: resolvedBackendUrl, query: prompt, limit: 10 });
+          if (ragEntries.length > 0) {
+            const contextBlock = buildCompactContext(ragEntries);
+            primaryMessage = `${primaryMessage}\n\nFound these relevant titles in my library (via RAG vector search):\n${contextBlock}`;
+          } else {
+            primaryMessage = `${primaryMessage}\n\n(No strictly matching titles found via RAG search in my library)`;
+          }
+        } catch (ragError) {
+          console.error("RAG search failed:", ragError);
+          const contextBlock = buildCompactContext(filterEntriesByQuery(prompt, entries));
+          primaryMessage = `${primaryMessage}\n\n(RAG failed, falling back to basic search)\nFound these relevant titles in my library:\n${contextBlock}`;
         }
-        const genreResponse = buildLocalGenreStatsAnswer(prompt, entries);
-        if (genreResponse) {
-          setResponse(genreResponse);
-          return;
-        }
-        const imdbResponse = buildLocalImdbFilterAnswer(prompt, entries);
-        if (imdbResponse) {
-          setResponse(imdbResponse);
-          return;
-        }
-        const recommendationResponse = buildLocalRecommendationAnswer(prompt, entries);
-        if (recommendationResponse) {
-          setResponse(recommendationResponse);
-          return;
-        }
-        const similarityResponse = buildLocalSimilarityAnswer(prompt, entries);
-        if (similarityResponse) {
-          setResponse(similarityResponse);
-          return;
-        }
-        const statsResponse = buildLocalStatsAnswer(prompt, entries);
-        if (statsResponse) {
-          setResponse(statsResponse);
-          return;
-        }
-        const localResponse = buildLocalAvailabilityAnswer(prompt, entries);
-        if (localResponse) {
-          setResponse(localResponse);
-          return;
+      } else if (smartContextEnabled && libraryAware) {
+        const summary = buildTasteSummary(entries);
+        const filtered = filterEntriesByQuery(prompt, entries);
+        const contextBlock = buildCompactContext(filtered);
+        primaryMessage = `${primaryMessage}\n\nMy Taste Profile:\n${summary}\n\nRelevant titles from my library:\n${contextBlock}`;
+      } else {
+        if (libraryAware) {
+          const genreCountResponse = buildLocalGenreCountAnswer(prompt, entries);
+          if (genreCountResponse) { setResponse(genreCountResponse); setLoading(false); return; }
+          const genreResponse = buildLocalGenreStatsAnswer(prompt, entries);
+          if (genreResponse) { setResponse(genreResponse); setLoading(false); return; }
+          const imdbResponse = buildLocalImdbFilterAnswer(prompt, entries);
+          if (imdbResponse) { setResponse(imdbResponse); setLoading(false); return; }
+          const recommendationResponse = buildLocalRecommendationAnswer(prompt, entries);
+          if (recommendationResponse) { setResponse(recommendationResponse); setLoading(false); return; }
+          const similarityResponse = buildLocalSimilarityAnswer(prompt, entries);
+          if (similarityResponse) { setResponse(similarityResponse); setLoading(false); return; }
+          const statsResponse = buildLocalStatsAnswer(prompt, entries);
+          if (statsResponse) { setResponse(statsResponse); setLoading(false); return; }
+          const localResponse = buildLocalAvailabilityAnswer(prompt, entries);
+          if (localResponse) { setResponse(localResponse); setLoading(false); return; }
+          
+          const contextBlock = buildContext(entries);
+          primaryMessage = `${primaryMessage}\n\n${contextBlock}`;
         }
       }
-      const guidedPrompt = `Answer this movie/watch question with practical suggestions:\n${prompt}`;
-      const primaryMessage = libraryAware ? `${guidedPrompt}\n\n${contextBlock}` : guidedPrompt;
+
       let result;
       try {
         result = await sendChatMessageFromApi({
@@ -116,10 +130,10 @@ export default function AiWorkspaceScreen() {
         });
       } catch (caught) {
         const reason = caught instanceof Error ? caught.message : "";
-        if (libraryAware && /invalid request/i.test(reason)) {
+        if (libraryAware && (/invalid request/i.test(reason) || /token limit/i.test(reason) || /context length/i.test(reason))) {
           result = await sendChatMessageFromApi({
             backendUrl: resolvedBackendUrl,
-            message: prompt,
+            message: `Answer this movie/watch question with practical suggestions:\n${prompt}`,
           });
         } else {
           throw caught;
@@ -137,7 +151,7 @@ export default function AiWorkspaceScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>AI Workspace</Text>
       <Text style={styles.subtitle}>
-        {entries.length} titles • {favoriteTitles} favorites • {libraryAware ? "Library-aware ON" : "Library-aware OFF"}
+        {entries.length} titles • {favoriteTitles} favorites • Library-aware {libraryAware ? (ragEnabled ? "RAG" : smartContextEnabled ? "Smart Context" : alwaysUseLlmChat ? "LLM Always" : "Smart Default") : "OFF"}
       </Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Universal Assistant</Text>
@@ -200,22 +214,94 @@ function buildContext(entries: WatchEntry[]): string {
     leadActors: Array.isArray(entry.leadActors) ? entry.leadActors : [],
     budget: entry.budget,
     boxOffice: entry.boxOffice,
-    posterUrl: entry.posterUrl,
     ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
     availability: Array.isArray(entry.availability) ? entry.availability : [],
     externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
-    genres: Array.isArray(entry.genres) ? entry.genres : [],
-    languages: getLanguages(entry),
     synopsis: entry.synopsis,
     notes: entry.notes,
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
   }));
-  return `CineTrack DB Context
-Saved titles JSON:
-${JSON.stringify(detailedEntries.length ? detailedEntries : [], null, 2)}
+  return `My personal watch library (in JSON format):
+${JSON.stringify(detailedEntries, null, 2)}
 
-Use only this context. If data is missing in context, clearly say it is missing. Return concise but practical answers.`;
+Instructions:
+1. Only recommend titles from my library if they actually match the criteria.
+2. If the user asks for new suggestions, you can recommend titles NOT in the library.
+3. If my library lacks matching titles, say so explicitly, then provide outside suggestions.`;
+}
+
+function buildCompactContext(entries: WatchEntry[]): string {
+  if (entries.length === 0) return "No matches in my library.";
+  const lines = entries.map(e => {
+    const genres = Array.isArray(e.externalDetails) 
+      ? (e.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value || "")
+      : "";
+    const cast = Array.isArray(e.leadActors) ? e.leadActors.slice(0, 3).join(", ") : "";
+    return `- ${e.title} (${e.releaseYear}) | ${e.type} | ${genres} | Dir: ${e.director || "?"} | Cast: ${cast} | Status: ${e.status} ${e.favorite ? "⭐" : ""}`;
+  });
+  return lines.join("\n");
+}
+
+function filterEntriesByQuery(query: string, entries: WatchEntry[]): WatchEntry[] {
+  const q = query.toLowerCase();
+  const keywords = q.replace(/[^\w\s]/g, "").split(/\s+/).filter(w => w.length >= 3);
+  
+  if (keywords.length === 0) return entries.slice(0, 15);
+
+  const scored = entries.map(entry => {
+    let score = 0;
+    const title = (entry.title || "").toLowerCase();
+    const director = (entry.director || "").toLowerCase();
+    const synopsis = (entry.synopsis || "").toLowerCase();
+    const cast = Array.isArray(entry.leadActors) ? entry.leadActors.join(" ").toLowerCase() : "";
+    const genres = Array.isArray(entry.externalDetails) 
+      ? (entry.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value || "").toLowerCase()
+      : "";
+
+    for (const kw of keywords) {
+      if (title.includes(kw)) score += 10;
+      if (director.includes(kw)) score += 5;
+      if (cast.includes(kw)) score += 5;
+      if (genres.includes(kw)) score += 3;
+      if (synopsis.includes(kw)) score += 1;
+    }
+    if (score > 0) {
+      if (entry.favorite) score += 2;
+      if (entry.status === "completed") score += 1;
+    }
+    return { entry, score };
+  });
+
+  return scored
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15)
+    .map(x => x.entry);
+}
+
+function buildTasteSummary(entries: WatchEntry[]): string {
+  if (entries.length === 0) return "No titles in library yet.";
+  
+  const total = entries.length;
+  const completed = entries.filter(e => e.status === "completed").length;
+  const favorites = entries.filter(e => e.favorite).length;
+  
+  const genreCounts: Record<string, number> = {};
+  for (const e of entries) {
+    if (Array.isArray(e.externalDetails)) {
+      const gStr = e.externalDetails.find(d => String(d.label).toLowerCase() === "genre")?.value;
+      if (gStr) {
+        String(gStr).split(",").map(g => g.trim()).forEach(g => {
+          if (g) genreCounts[g] = (genreCounts[g] || 0) + 1;
+        });
+      }
+    }
+  }
+  const topGenres = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(x => x[0]);
+
+  return `Library size: ${total} titles (${completed} completed, ${favorites} favorites). Top genres: ${topGenres.join(", ")}.`;
 }
 
 function getImdb(ratings: WatchEntry["ratings"] | Array<{ source: string; value: string }>): string {
@@ -267,7 +353,7 @@ function buildLocalAvailabilityAnswer(query: string, entries: WatchEntry[]): str
   const favorites = entries.filter((entry) => entry.favorite);
   const typeIntent = extractTypeIntent(lower);
   const favoriteGenres = new Set(
-    favorites.flatMap((entry) => (Array.isArray(entry.genres) ? entry.genres : [])).map((genre) => genre.toLowerCase()),
+    favorites.flatMap((entry) => (extractGenres(entry))).map((genre) => genre.toLowerCase()),
   );
 
   const matching = entries.filter((entry) => {
@@ -298,7 +384,7 @@ function buildLocalAvailabilityAnswer(query: string, entries: WatchEntry[]): str
   const scored = matching
     .map((entry) => {
       const imdb = entryImdbScore(entry);
-      const genres = (Array.isArray(entry.genres) ? entry.genres : []).map((genre) => genre.toLowerCase());
+      const genres = (extractGenres(entry)).map((genre) => genre.toLowerCase());
       const genreScore = genres.some((genre) => favoriteGenres.has(genre)) ? 1 : 0;
       const favoriteScore = entry.favorite ? 1 : 0;
       return { entry, imdb, score: favoriteScore * 4 + genreScore * 2 + imdb / 10 };
@@ -386,7 +472,7 @@ function buildLocalSimilarityAnswer(query: string, entries: WatchEntry[]): strin
 
   const normalizedEntries = dedupeEntries(entries).map((entry) => ({
     ...entry,
-    genres: Array.isArray(entry.genres) ? entry.genres : [],
+    genres: extractGenres(entry),
     ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
     externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
   }));
@@ -404,7 +490,7 @@ function buildLocalSimilarityAnswer(query: string, entries: WatchEntry[]): strin
   const matches = normalizedEntries
     .filter((entry) => entry.id !== target.id)
     .map((entry) => {
-      const sharedGenres = entry.genres.filter((genre) => targetGenres.has(genre.toLowerCase())).length;
+      const sharedGenres = extractGenres(entry).filter((genre) => targetGenres.has(genre.toLowerCase())).length;
       const sameType = entry.type === targetType ? 1 : 0;
       const yearGap = Math.abs(releaseYearGuess(entry.releaseYear) - targetYear);
       const yearScore = Number.isFinite(yearGap) ? Math.max(0, 1 - yearGap / 15) : 0;
@@ -447,14 +533,13 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
 
   const normalizedEntries = dedupeEntries(entries).map((entry) => ({
     ...entry,
-    genres: Array.isArray(entry.genres) ? entry.genres : [],
     ratings: Array.isArray(entry.ratings) ? entry.ratings : [],
     externalDetails: Array.isArray(entry.externalDetails) ? entry.externalDetails : [],
   }));
 
   const favorites = normalizedEntries.filter((entry) => entry.favorite);
   const favoriteGenreSet = new Set(
-    favorites.flatMap((entry) => entry.genres.map((genre) => genre.toLowerCase())),
+    favorites.flatMap((entry) => extractGenres(entry).map((genre) => genre.toLowerCase())),
   );
   const watchedSet = new Set(
     normalizedEntries
@@ -487,16 +572,16 @@ function buildLocalRecommendationAnswer(query: string, entries: WatchEntry[]): s
       if (ratingConstraint && !ratingConstraint.compare(imdb)) {
         return null;
       }
-      const genres = entry.genres.map((genre) => genre.toLowerCase());
+      const genres = extractGenres(entry).map((genre) => genre.toLowerCase());
       const sharedGenres = genres.filter((genre) => favoriteGenreSet.has(genre)).length;
       const favoriteBoost = entry.favorite ? 2 : 0;
       const unseenBoost = watchedSet.has(entry.title.trim().toLowerCase()) ? 0 : 1;
       const score = sharedGenres * 3 + favoriteBoost + unseenBoost + (imdb > 0 ? imdb / 10 : 0);
       return { entry, imdb, sharedGenres, score };
     })
-    .filter(Boolean)
+    .filter((x): x is Exclude<typeof x, null> => Boolean(x))
     .sort((left, right) => right.score - left.score)
-    .slice(0, targetCount) as Array<{ entry: WatchEntry; imdb: number; sharedGenres: number; score: number }>;
+    .slice(0, targetCount);
 
   if (!ranked.length) {
     if (ratingConstraint) {
@@ -673,18 +758,15 @@ function entryImdbScore(entry: WatchEntry): number {
 }
 
 function extractGenres(entry: WatchEntry): string[] {
-  const direct = Array.isArray(entry.genres) ? entry.genres.map((item) => String(item).trim()).filter(Boolean) : [];
-  if (direct.length) {
-    return direct;
-  }
-  const details = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
-  const genreField = details.find((item) => String(item.label || "").trim().toLowerCase() === "genre");
-  if (!genreField?.value) {
-    return [];
-  }
-  return String(genreField.value)
+  const externalDetails = Array.isArray(entry.externalDetails) ? entry.externalDetails : [];
+  const genreDetail = externalDetails.find((detail) => {
+    const label = String(detail.label || "").trim().toLowerCase();
+    return label === "genre" || label === "genres";
+  });
+  if (!genreDetail?.value) return [];
+  return String(genreDetail.value)
     .split(",")
-    .map((item) => item.trim())
+    .map((v) => v.trim())
     .filter(Boolean);
 }
 

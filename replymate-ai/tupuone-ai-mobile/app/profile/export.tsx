@@ -215,7 +215,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     iconContainer: {
       backgroundColor: "rgba(0,255,198,0.1)",
       padding: spacing.lg,
-      borderRadius: radius.full,
+      borderRadius: radius.pill,
       marginBottom: spacing.sm,
     },
     description: {

@@ -7,12 +7,15 @@ const SIDEBAR_WIDTH = width * 0.85;
 
 export function SettingsSidebar({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [isRendered, setIsRendered] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [slideAnim] = useState(() => new Animated.Value(-SIDEBAR_WIDTH));
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+
+  if (visible && !isRendered) {
+    setIsRendered(true);
+  }
 
   useEffect(() => {
     if (visible) {
-      setIsRendered(true);
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -21,11 +24,11 @@ export function SettingsSidebar({ visible, onClose }: { visible: boolean; onClos
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 250, useNativeDriver: true }),
         Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      ]).start(() => {
-        setIsRendered(false);
+      ]).start(({ finished }) => {
+        if (finished) setIsRendered(false);
       });
     }
-  }, [visible]);
+  }, [visible, isRendered, slideAnim, fadeAnim]);
 
   if (!isRendered) return null;
 
@@ -44,7 +47,7 @@ export function SettingsSidebar({ visible, onClose }: { visible: boolean; onClos
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  backdrop: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.5)" },
   dismissArea: { flex: 1 },
   sidebar: {
     position: "absolute",

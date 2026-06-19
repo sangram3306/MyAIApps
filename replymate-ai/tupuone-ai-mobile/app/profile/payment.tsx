@@ -134,7 +134,7 @@ function createStyles(colors: any, topInset: number, bottomInset: number) {
       flex: 1,
     },
     container: {
-      paddingBottom: spacing.xxxl + 80,
+      paddingBottom: spacing.xxl + 80,
       paddingHorizontal: 20,
       paddingTop: Math.max(spacing.md, topInset + spacing.xs),
     },
@@ -284,7 +284,7 @@ function createStyles(colors: any, topInset: number, bottomInset: number) {
     checkoutButton: {
       backgroundColor: colors.primary,
       height: 56,
-      borderRadius: radius.full,
+      borderRadius: radius.pill,
       alignItems: "center",
       justifyContent: "center",
     },
