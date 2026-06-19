@@ -21,7 +21,6 @@ router.patch("/items/:id/status", handleUpdateWatchStatusRequest);
 router.delete("/items/:id", handleDeleteWatchRequest);
 router.post("/search", handleSearchRequest);
 router.post("/embed-all", handleEmbedAllRequest);
-router.get("/test-models", handleTestModelsRequest);
 
 
 export async function handleLogWatchRequest(
@@ -215,29 +214,6 @@ export async function handleEmbedAllRequest(
   }
 }
 
-export async function handleTestModelsRequest(
-  _req: unknown,
-  res: {
-    status(code: number): { json(payload: unknown): void };
-    json(payload: unknown): void;
-  },
-) {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GEMINI_API_KEY?.trim() || "";
-    if (!apiKey) {
-      return res.status(400).json({ error: "Gemini API key is not configured." });
-    }
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-    );
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Failed to fetch models: ${await response.text()}` });
-    }
-    const data = await response.json();
-    return res.json(data);
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "unknown error" });
-  }
-}
+
 
 export default router;
