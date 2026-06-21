@@ -160,9 +160,11 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
   trace.push("Generated skill tree");
 
   const skillTree = withSkillTreeMetadata(generated);
-  const savedToDb = false;
-  const saveSummary = "Not saved yet. Tap Save to store this skill tree.";
-  trace.push("Auto-save disabled; waiting for manual save");
+  const saveResult = await callLearningTool("saveSkillTree", skillTree);
+  const savedToDb = saveResult.source !== "fallback";
+  const saveSummary = saveResult.summary;
+  toolCalls.push({ name: "saveSkillTree", source: saveResult.source, summary: saveResult.summary });
+  trace.push(savedToDb ? "Auto-saved skill tree" : "Failed to auto-save skill tree");
 
   return {
     assistantReply: `${skillTree.skillName} is mapped into ${skillTree.branches.length} branches with ${skillTree.weeklyQuests.length} weekly quests.`,
@@ -176,7 +178,7 @@ export async function buildSkillTree(input: SkillTreeInput): Promise<SkillTreeRe
       toolsUsed: ["learningAgent", ...toolCalls.map((tool) => tool.name)],
       toolSources: {
         skillMemory: recent.source,
-        skillStorage: "fallback",
+        skillStorage: saveResult.source,
         planGeneration: planSource,
       },
     },
@@ -209,9 +211,11 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
   trace.push("Generated learning roadmap");
 
   const roadmap = withRoadmapMetadata(generated);
-  const savedToDb = false;
-  const saveSummary = "Not saved yet. Tap Save to store this roadmap.";
-  trace.push("Auto-save disabled; waiting for manual save");
+  const saveResult = await callLearningTool("saveLearningRoadmap", roadmap);
+  const savedToDb = saveResult.source !== "fallback";
+  const saveSummary = saveResult.summary;
+  toolCalls.push({ name: "saveLearningRoadmap", source: saveResult.source, summary: saveResult.summary });
+  trace.push(savedToDb ? "Auto-saved roadmap" : "Failed to auto-save roadmap");
 
   return {
     assistantReply: `${roadmap.topic} is planned across ${roadmap.phases.length} phases for ${roadmap.timeline}.`,
@@ -225,7 +229,7 @@ export async function buildLearningRoadmap(input: RoadmapInput): Promise<Roadmap
       toolsUsed: ["learningAgent", ...toolCalls.map((tool) => tool.name)],
       toolSources: {
         roadmapMemory: recent.source,
-        roadmapStorage: "fallback",
+        roadmapStorage: saveResult.source,
         planGeneration: planSource,
       },
     },
