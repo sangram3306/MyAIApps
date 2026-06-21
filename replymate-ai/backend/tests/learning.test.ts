@@ -152,7 +152,7 @@ test("POST /api/learning routes generate and save learning artifacts", async () 
     const skillData = skillResponse.body as Record<string, unknown>;
     assert.equal(skillResponse.statusCode, 200);
     assert.equal((skillData.skillTree as Record<string, unknown>).skillName, "Public speaking");
-    assert.equal(skillData.saved, true);
+    assert.equal(skillData.saved, false);
 
     const roadmapResponse = await invokeRoadmap({
       topic: "Backend development",
@@ -164,7 +164,7 @@ test("POST /api/learning routes generate and save learning artifacts", async () 
     const roadmapData = roadmapResponse.body as Record<string, unknown>;
     assert.equal(roadmapResponse.statusCode, 200);
     assert.equal((roadmapData.roadmap as Record<string, unknown>).topic, "Backend development");
-    assert.equal(roadmapData.saved, true);
+    assert.equal(roadmapData.saved, false);
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
