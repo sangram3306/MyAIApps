@@ -1,21 +1,18 @@
-# ReplyMate AI Backend API Documentation
+# ReplyMate AI API Documentation
 
-## Base URL
-
-`http://localhost:4000`
+This document accurately reflects the current request payloads, headers, and response structures based on the latest routes and Zod schemas.
 
 ## Global Headers
 
-- `X-LLM-Provider`: (Optional) Specifies the LLM provider (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
-- `X-LLM-Model`: (Optional) Specific model to use from the provider.
-- `X-LLM-Reasoning`: (Optional) Boolean string (`true`, `false`) to toggle reasoning.
-
-## Routes and Payloads
+Many endpoints support the following optional headers for LLM provider and model overrides:
+- `X-LLM-Provider`: String
+- `X-LLM-Model`: String
+- `X-LLM-Reasoning`: String
 
 ### POST `/api/chat/message`
+**Chat with generic agent**
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -33,7 +30,33 @@
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### POST `/api/cinetrack/chat`
+**Chat with Cinetrack agent**
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -43,7 +66,6 @@
 ### POST `/api/coach/analyze`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -75,7 +97,69 @@
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### GET `/api/creator/drafts`
+**Get creator drafts**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/creator/drafts/update`
+**Update creator draft**
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "published": {
+      "type": "boolean"
+    },
+    "scheduledFor": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metrics": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "content"
+  ]
+}
+```
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -85,7 +169,6 @@
 ### POST `/api/creator/repurpose`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -150,17 +233,16 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/decision/simulate`
+### POST `/api/decisions/simulate`
+**Simulate a decision**
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -207,17 +289,25 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/expense/create`
+### POST `/api/expenses/clear`
+**Clear expenses**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/create`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -257,45 +347,25 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/expense/message`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
+### GET `/api/expenses/export`
+**Export expenses**
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/expense/intelligence`
+### POST `/api/expenses/intelligence`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -314,7 +384,179 @@
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### POST `/api/expenses/message`
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/roadmap`
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 160
+    },
+    "goal": {
+      "type": "string",
+      "maxLength": 300,
+      "default": "learn the fundamentals"
+    },
+    "currentLevel": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "beginner"
+    },
+    "timeline": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "8 weeks"
+    },
+    "timePerWeek": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "3 hours/week"
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/learning/roadmaps`
+**Get learning roadmaps**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/roadmaps/save`
+**Save learning roadmap**
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "default": "learn the fundamentals"
+    },
+    "currentLevel": {
+      "type": "string",
+      "default": "beginner"
+    },
+    "timeline": {
+      "type": "string",
+      "default": "8 weeks"
+    },
+    "timePerWeek": {
+      "type": "string",
+      "default": "3 hours/week"
+    },
+    "overview": {
+      "type": "string",
+      "default": ""
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "weeklyPlan": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "practiceLoop": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "pitfalls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### DELETE `/api/learning/roadmaps/{id}`
+**Delete learning roadmap**
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -324,7 +566,6 @@
 ### POST `/api/learning/skill-tree`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -367,55 +608,110 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/learning/roadmap`
+### GET `/api/learning/skill-trees`
+**Get skill trees**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/skill-trees/save`
+**Save skill tree**
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
   "properties": {
-    "topic": {
+    "skillName": {
       "type": "string",
-      "minLength": 2,
-      "maxLength": 160
-    },
-    "goal": {
-      "type": "string",
-      "maxLength": 300,
-      "default": "learn the fundamentals"
+      "minLength": 1
     },
     "currentLevel": {
       "type": "string",
-      "maxLength": 120,
       "default": "beginner"
     },
-    "timeline": {
+    "targetLevel": {
       "type": "string",
-      "maxLength": 120,
-      "default": "8 weeks"
+      "default": "confident"
     },
-    "timePerWeek": {
+    "timeBudget": {
       "type": "string",
-      "maxLength": 120,
       "default": "3 hours/week"
+    },
+    "focusAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "overview": {
+      "type": "string",
+      "default": ""
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
     }
   },
   "required": [
-    "topic"
+    "skillName"
   ]
 }
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### DELETE `/api/learning/skill-trees/{id}`
+**Delete skill tree**
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -425,7 +721,6 @@
 ### POST `/api/replies/generate`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -519,111 +814,6 @@
 ```
 
 **Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/rewrite`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    },
-    "note": {
-      "type": "string",
-      "maxLength": 800,
-      "default": ""
-    },
-    "tone": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "clearer",
-        "shorter",
-        "polite",
-        "professional",
-        "friendly",
-        "casual",
-        "funny",
-        "snarky",
-        "confident",
-        "apologetic",
-        "romantic",
-        "sarcastic",
-        "excited",
-        "calm",
-        "formal",
-        "persuasive",
-        "simple_english",
-        "hinglish",
-        "hindi",
-        "more_human",
-        "short",
-        "short_sweet",
-        "detailed"
-      ],
-      "default": "none"
-    },
-    "role": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "friend",
-        "best_friend",
-        "partner",
-        "customer_support",
-        "manager",
-        "professional_writer",
-        "sales_expert",
-        "marketing_expert",
-        "influencer",
-        "startup_founder",
-        "comedian",
-        "savage_friend",
-        "poet",
-        "teacher",
-        "pirate",
-        "five_year_old",
-        "doctor",
-        "ai_engineer",
-        "thief",
-        "cowboy",
-        "astronaut",
-        "shakespeare",
-        "grandma",
-        "lawyer",
-        "gym_coach",
-        "detective"
-      ],
-      "default": "none"
-    },
-    "responseCount": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 5,
-      "default": 5
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
-
-**Response:**
-
 ```json
 {
   "success": "true (or structured response)"
@@ -633,7 +823,6 @@
 ### POST `/api/replies/grammar`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -727,60 +916,168 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
 }
 ```
 
-### POST `/api/watch/log`
+### POST `/api/replies/rewrite`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
   "properties": {
-    "title": {
+    "message": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 2000
     },
-    "type": {
+    "note": {
       "type": "string",
-      "enum": [
-        "movie",
-        "series"
-      ]
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "planned",
-        "started",
-        "in_progress",
-        "completed",
-        "dropped"
-      ],
-      "default": "planned"
-    },
-    "favorite": {
-      "type": "boolean",
-      "default": false
-    },
-    "notes": {
-      "type": "string",
+      "maxLength": 800,
       "default": ""
+    },
+    "tone": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "none",
+        "clearer",
+        "shorter",
+        "polite",
+        "professional",
+        "friendly",
+        "casual",
+        "funny",
+        "snarky",
+        "confident",
+        "apologetic",
+        "romantic",
+        "sarcastic",
+        "excited",
+        "calm",
+        "formal",
+        "persuasive",
+        "simple_english",
+        "hinglish",
+        "hindi",
+        "more_human",
+        "short",
+        "short_sweet",
+        "detailed"
+      ],
+      "default": "none"
+    },
+    "role": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "none",
+        "friend",
+        "best_friend",
+        "partner",
+        "customer_support",
+        "manager",
+        "professional_writer",
+        "sales_expert",
+        "marketing_expert",
+        "influencer",
+        "startup_founder",
+        "comedian",
+        "savage_friend",
+        "poet",
+        "teacher",
+        "pirate",
+        "five_year_old",
+        "doctor",
+        "ai_engineer",
+        "thief",
+        "cowboy",
+        "astronaut",
+        "shakespeare",
+        "grandma",
+        "lawyer",
+        "gym_coach",
+        "detective"
+      ],
+      "default": "none"
+    },
+    "responseCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 5
     }
   },
   "required": [
-    "title"
+    "message"
   ]
 }
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### GET `/api/settings/deepseek-balance`
+**Get deepseek balance**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/settings/deepseek-usage`
+**Get deepseek usage**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/settings/llm-options`
+**Get llm options**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/settings/usage`
+**Get usage**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/watch/embed-all`
+**Embed all watch items**
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/items`
+**Get watch items**
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -790,7 +1087,6 @@
 ### PATCH `/api/watch/items/{id}`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -924,7 +1220,16 @@
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### DELETE `/api/watch/items/{id}`
+**Delete watch item**
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -934,7 +1239,6 @@
 ### PATCH `/api/watch/items/{id}/status`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -957,7 +1261,67 @@
 ```
 
 **Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
 
+### POST `/api/watch/log`
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "in_progress",
+        "completed",
+        "dropped"
+      ],
+      "default": "planned"
+    },
+    "favorite": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "required": [
+    "title"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/profile`
+**Get watcher profile**
+
+**Response:**
 ```json
 {
   "success": "true (or structured response)"
@@ -967,7 +1331,6 @@
 ### POST `/api/watch/search`
 
 **Payload (JSON):**
-
 ```json
 {
   "type": "object",
@@ -986,7 +1349,6 @@
 ```
 
 **Response:**
-
 ```json
 {
   "success": "true (or structured response)"
