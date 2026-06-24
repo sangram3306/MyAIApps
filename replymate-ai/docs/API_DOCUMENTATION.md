@@ -157,7 +157,7 @@
 }
 ```
 
-### POST `/api/decision/simulate`
+### POST `/api/decisions/simulate`
 
 **Payload (JSON):**
 
@@ -214,7 +214,7 @@
 }
 ```
 
-### POST `/api/expense/create`
+### POST `/api/expenses/create`
 
 **Payload (JSON):**
 
@@ -264,7 +264,7 @@
 }
 ```
 
-### POST `/api/expense/message`
+### POST `/api/expenses/message`
 
 **Payload (JSON):**
 
@@ -292,7 +292,7 @@
 }
 ```
 
-### POST `/api/expense/intelligence`
+### POST `/api/expenses/intelligence`
 
 **Payload (JSON):**
 
@@ -990,5 +990,493 @@
 ```json
 {
   "success": "true (or structured response)"
+}
+```
+
+## Additional Endpoints
+
+### POST `/api/auth/register`
+
+**Description:** Registers a new user
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "email",
+    "password"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/auth/login`
+
+**Description:** Logs in an existing user
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "email",
+    "password"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/auth/me`
+
+**Description:** Gets the current user's profile
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### PUT `/api/auth/me/profile-image`
+
+**Description:** Updates user profile image
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "base64": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "base64"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### DELETE `/api/auth/me`
+
+**Description:** Deletes the current user
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### PUT `/api/auth/me/profile`
+
+**Description:** Updates user profile
+
+**Payload (JSON):**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### PUT `/api/auth/me/password`
+
+**Description:** Updates user password
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "newPassword": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "newPassword"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/auth/unsubscribe`
+
+**Description:** Unsubscribes a user
+
+**Payload (JSON):**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/auth/subscribe-coupon`
+
+**Description:** Subscribes a user with a coupon
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "coupon": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "coupon"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/cinetrack/chat`
+
+**Description:** Chats with CineTrack AI
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/creator/drafts`
+
+**Description:** Gets repurposed content drafts
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/creator/drafts/update`
+
+**Description:** Updates a content draft
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/expenses/export`
+
+**Description:** Exports expenses
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/expenses/clear`
+
+**Description:** Clears expenses
+
+**Payload (JSON):**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/learning/skill-trees`
+
+**Description:** Lists saved skill trees
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/learning/skill-trees/save`
+
+**Description:** Saves a skill tree
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### DELETE `/api/learning/skill-trees/{id}`
+
+**Description:** Deletes a skill tree
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/learning/roadmaps`
+
+**Description:** Lists saved roadmaps
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/learning/roadmaps/save`
+
+**Description:** Saves a roadmap
+
+**Payload (JSON):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### DELETE `/api/learning/roadmaps/{id}`
+
+**Description:** Deletes a roadmap
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/settings/llm-options`
+
+**Description:** Gets available LLM options
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/settings/deepseek-balance`
+
+**Description:** Gets DeepSeek balance
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/settings/deepseek-usage`
+
+**Description:** Gets DeepSeek usage
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/settings/usage`
+
+**Description:** Gets overall usage
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/watch/items`
+
+**Description:** Lists watch items
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/watch/profile`
+
+**Description:** Gets the watcher profile
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### DELETE `/api/watch/items/{id}`
+
+**Description:** Deletes a watch item
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/watch/embed-all`
+
+**Description:** Embeds all watch items
+
+**Payload (JSON):**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "success": true
 }
 ```
