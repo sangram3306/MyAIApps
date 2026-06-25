@@ -64,10 +64,12 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -132,10 +134,12 @@
                 "required": [
                   "message",
                   "relationshipContext"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -233,10 +237,12 @@
                 },
                 "required": [
                   "sourceText"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -316,10 +322,12 @@
                 },
                 "required": [
                   "question"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -364,8 +372,7 @@
                 "properties": {
                   "amount": {
                     "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
+                    "exclusiveMinimum": 0
                   },
                   "currency": {
                     "type": "string",
@@ -392,10 +399,12 @@
                 "required": [
                   "amount",
                   "category"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -446,10 +455,12 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -501,10 +512,12 @@
                     ],
                     "default": "month"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -580,10 +593,12 @@
                 },
                 "required": [
                   "skillName"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -654,10 +669,12 @@
                 },
                 "required": [
                   "topic"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -712,7 +729,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -743,7 +759,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -784,10 +799,12 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -842,7 +859,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -873,7 +889,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -914,10 +929,12 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -972,7 +989,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -1003,7 +1019,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -1044,10 +1059,12 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1123,10 +1140,12 @@
                 },
                 "required": [
                   "title"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1238,7 +1257,8 @@
                       },
                       "required": [
                         "source"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "availability": {
@@ -1272,7 +1292,8 @@
                       "required": [
                         "provider",
                         "region"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "externalDetails": {
@@ -1292,7 +1313,8 @@
                       "required": [
                         "label",
                         "value"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "synopsis": {
@@ -1301,10 +1323,12 @@
                   "notes": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1368,10 +1392,12 @@
                 },
                 "required": [
                   "status"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1426,12 +1452,61 @@
                 ]
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
             "description": "Successful response"
           }
+        }
+      }
+    },
+    "/api/watch/embed-all": {
+      "post": {
+        "summary": "POST /api/watch/embed-all",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expense/clear": {
+      "post": {
+        "summary": "POST /api/expense/clear",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/creator/drafts/update": {
+      "post": {
+        "summary": "POST /api/creator/drafts/update",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "draftId": {
+                    "type": "string"
+                  },
+                  "updates": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
         }
       }
     }
