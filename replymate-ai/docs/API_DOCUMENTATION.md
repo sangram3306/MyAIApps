@@ -28,7 +28,9 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -70,7 +72,9 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -145,7 +149,9 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -157,7 +163,63 @@
 }
 ```
 
-### POST `/api/decision/simulate`
+### GET `/api/creator/drafts`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/creator/drafts/update`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "hook": {
+      "type": "string"
+    },
+    "platformOutputs": {
+      "type": "object",
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/decisions/simulate`
 
 **Payload (JSON):**
 
@@ -202,7 +264,9 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -214,7 +278,7 @@
 }
 ```
 
-### POST `/api/expense/create`
+### POST `/api/expenses/create`
 
 **Payload (JSON):**
 
@@ -224,8 +288,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,7 +315,9 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -264,7 +329,7 @@
 }
 ```
 
-### POST `/api/expense/message`
+### POST `/api/expenses/message`
 
 **Payload (JSON):**
 
@@ -280,7 +345,9 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -292,7 +359,21 @@
 }
 ```
 
-### POST `/api/expense/intelligence`
+### GET `/api/expenses/export`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/intelligence`
 
 **Payload (JSON):**
 
@@ -309,9 +390,25 @@
       ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/clear`
+
+**Payload:**
+
+None.
 
 **Response:**
 
@@ -362,7 +459,9 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -410,9 +509,204 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/learning/skill-trees`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/skill-trees/save`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "currentLevel": {
+      "type": "string",
+      "default": "beginner"
+    },
+    "targetLevel": {
+      "type": "string",
+      "default": "confident"
+    },
+    "timeBudget": {
+      "type": "string",
+      "default": "3 hours/week"
+    },
+    "focusAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "overview": {
+      "type": "string",
+      "default": ""
+    },
+    "branches": {
+      "type": "array",
+      "default": []
+    },
+    "weeklyQuests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "recommendedRoutine": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "skillName"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### DELETE `/api/learning/skill-trees/{id}`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/learning/roadmaps`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/roadmaps/save`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "default": "learn the fundamentals"
+    },
+    "currentLevel": {
+      "type": "string",
+      "default": "beginner"
+    },
+    "timeline": {
+      "type": "string",
+      "default": "8 weeks"
+    },
+    "timePerWeek": {
+      "type": "string",
+      "default": "3 hours/week"
+    },
+    "overview": {
+      "type": "string",
+      "default": ""
+    },
+    "phases": {
+      "type": "array",
+      "default": []
+    },
+    "weeklyPlan": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "topic"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### DELETE `/api/learning/roadmaps/{id}`
+
+**Payload:**
+
+None.
 
 **Response:**
 
@@ -442,7 +736,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +766,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +806,9 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -546,7 +840,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +870,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,7 +910,9 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -650,7 +944,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +974,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,7 +1014,9 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -775,9 +1069,39 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/items`
+
+**Payload:**
+
+None.
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/profile`
+
+**Payload:**
+
+None.
 
 **Response:**
 
@@ -856,7 +1180,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +1215,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +1236,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +1246,9 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
 
@@ -952,9 +1281,25 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### DELETE `/api/watch/items/{id}`
+
+**Payload:**
+
+None.
 
 **Response:**
 
@@ -973,17 +1318,35 @@
   "type": "object",
   "properties": {
     "query": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "limit": {
-      "type": "number"
+      "type": "number",
+      "default": 10
     }
   },
   "required": [
     "query"
-  ]
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/watch/embed-all`
+
+**Payload:**
+
+None.
 
 **Response:**
 
