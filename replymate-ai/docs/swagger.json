@@ -24,33 +24,43 @@
   "paths": {
     "/api/chat/message": {
       "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "POST /api/chat/message",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -64,47 +74,53 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/coach/analyze": {
       "post": {
+        "tags": [
+          "Coach"
+        ],
+        "summary": "POST /api/coach/analyze",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -132,47 +148,53 @@
                 "required": [
                   "message",
                   "relationshipContext"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/creator/repurpose": {
       "post": {
+        "tags": [
+          "Creator"
+        ],
+        "summary": "POST /api/creator/repurpose",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -233,11 +255,46 @@
                 },
                 "required": [
                   "sourceText"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/creator/drafts": {
+      "get": {
+        "tags": [
+          "Creator"
+        ],
+        "summary": "GET /api/creator/drafts",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -245,35 +302,117 @@
         }
       }
     },
-    "/api/decision/simulate": {
+    "/api/creator/drafts/update": {
       "post": {
+        "tags": [
+          "Creator"
+        ],
+        "summary": "POST /api/creator/drafts/update",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "hook": {
+                    "type": "string"
+                  },
+                  "platformOutputs": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/decisions/simulate": {
+      "post": {
+        "tags": [
+          "Decisions"
+        ],
+        "summary": "POST /api/decisions/simulate",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -316,47 +455,53 @@
                 },
                 "required": [
                   "question"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
-    "/api/expense/create": {
+    "/api/expenses/create": {
       "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "POST /api/expenses/create",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -364,8 +509,8 @@
                 "properties": {
                   "amount": {
                     "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
+                    "exclusiveMinimum": true,
+                    "minimum": 0
                   },
                   "currency": {
                     "type": "string",
@@ -392,47 +537,53 @@
                 "required": [
                   "amount",
                   "category"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
-    "/api/expense/message": {
+    "/api/expenses/message": {
       "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "POST /api/expenses/message",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -446,11 +597,46 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/expenses/export": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "GET /api/expenses/export",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -458,35 +644,45 @@
         }
       }
     },
-    "/api/expense/intelligence": {
+    "/api/expenses/intelligence": {
       "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "POST /api/expenses/intelligence",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -501,11 +697,46 @@
                     ],
                     "default": "month"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/expenses/clear": {
+      "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "POST /api/expenses/clear",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -515,33 +746,43 @@
     },
     "/api/learning/skill-tree": {
       "post": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "POST /api/learning/skill-tree",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -580,47 +821,53 @@
                 },
                 "required": [
                   "skillName"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/learning/roadmap": {
       "post": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "POST /api/learning/roadmap",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -654,11 +901,376 @@
                 },
                 "required": [
                   "topic"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
+        }
+      }
+    },
+    "/api/learning/skill-trees": {
+      "get": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "GET /api/learning/skill-trees",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/learning/skill-trees/save": {
+      "post": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "POST /api/learning/skill-trees/save",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skillName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "currentLevel": {
+                    "type": "string",
+                    "default": "beginner"
+                  },
+                  "targetLevel": {
+                    "type": "string",
+                    "default": "confident"
+                  },
+                  "timeBudget": {
+                    "type": "string",
+                    "default": "3 hours/week"
+                  },
+                  "focusAreas": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "overview": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "branches": {
+                    "type": "array",
+                    "default": []
+                  },
+                  "weeklyQuests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "milestones": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "recommendedRoutine": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  }
+                },
+                "required": [
+                  "skillName"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/skill-trees/{id}": {
+      "delete": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "DELETE /api/learning/skill-trees/{id}",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/learning/roadmaps": {
+      "get": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "GET /api/learning/roadmaps",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/learning/roadmaps/save": {
+      "post": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "POST /api/learning/roadmaps/save",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "goal": {
+                    "type": "string",
+                    "default": "learn the fundamentals"
+                  },
+                  "currentLevel": {
+                    "type": "string",
+                    "default": "beginner"
+                  },
+                  "timeline": {
+                    "type": "string",
+                    "default": "8 weeks"
+                  },
+                  "timePerWeek": {
+                    "type": "string",
+                    "default": "3 hours/week"
+                  },
+                  "overview": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "phases": {
+                    "type": "array",
+                    "default": []
+                  },
+                  "weeklyPlan": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  }
+                },
+                "required": [
+                  "topic"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/roadmaps/{id}": {
+      "delete": {
+        "tags": [
+          "Learning"
+        ],
+        "summary": "DELETE /api/learning/roadmaps/{id}",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -668,33 +1280,43 @@
     },
     "/api/replies/generate": {
       "post": {
+        "tags": [
+          "Replies"
+        ],
+        "summary": "POST /api/replies/generate",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -712,7 +1334,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -743,7 +1364,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -784,47 +1404,53 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/replies/rewrite": {
       "post": {
+        "tags": [
+          "Replies"
+        ],
+        "summary": "POST /api/replies/rewrite",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -842,7 +1468,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -873,7 +1498,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -914,47 +1538,53 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/replies/grammar": {
       "post": {
+        "tags": [
+          "Replies"
+        ],
+        "summary": "POST /api/replies/grammar",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -972,7 +1602,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -1003,7 +1632,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -1044,47 +1672,53 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/watch/log": {
       "post": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "POST /api/watch/log",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1123,11 +1757,85 @@
                 },
                 "required": [
                   "title"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/watch/items": {
+      "get": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "GET /api/watch/items",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/watch/profile": {
+      "get": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "GET /api/watch/profile",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -1137,41 +1845,51 @@
     },
     "/api/watch/items/{id}": {
       "patch": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "PATCH /api/watch/items/{id}",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1238,7 +1956,8 @@
                       },
                       "required": [
                         "source"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "availability": {
@@ -1272,7 +1991,8 @@
                       "required": [
                         "provider",
                         "region"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "externalDetails": {
@@ -1292,7 +2012,8 @@
                       "required": [
                         "label",
                         "value"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "synopsis": {
@@ -1301,11 +2022,52 @@
                   "notes": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      },
+      "delete": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "DELETE /api/watch/items/{id}",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
@@ -1315,41 +2077,51 @@
     },
     "/api/watch/items/{id}/status": {
       "patch": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "PATCH /api/watch/items/{id}/status",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1368,66 +2140,109 @@
                 },
                 "required": [
                   "status"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
     },
     "/api/watch/search": {
       "post": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "POST /api/watch/search",
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
                   "query": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                   },
                   "limit": {
-                    "type": "number"
+                    "type": "number",
+                    "default": 10
                   }
                 },
                 "required": [
                   "query"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/watch/embed-all": {
+      "post": {
+        "tags": [
+          "Watch"
+        ],
+        "summary": "POST /api/watch/embed-all",
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
