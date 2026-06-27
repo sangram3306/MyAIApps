@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { listWatchItemsFromApi, logWatchItemFromApi, WatchStatus } from "../../services/api";
@@ -11,6 +12,7 @@ const statusOptions: WatchStatus[] = ["planned", "started", "in_progress", "comp
 
 export default function AddTitleScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<WatchStatus>("planned");
@@ -58,7 +60,8 @@ export default function AddTitleScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Add title</Text>
       <View style={styles.card}>
         <Text style={styles.label}>Movie or series</Text>
@@ -102,7 +105,8 @@ export default function AddTitleScreen() {
           {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryText}>Add & enrich</Text>}
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
