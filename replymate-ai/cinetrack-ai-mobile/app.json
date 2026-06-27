@@ -6,15 +6,23 @@
     "orientation": "portrait",
     "scheme": "cinetrackai",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/brand/cinetrack-ai-app-icon.png",
     "android": {
-      "package": "com.cinetrack.ai"
+      "package": "com.cinetrack.ai",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/cinetrack-ai-app-icon.png",
+        "backgroundColor": "#050506"
+      }
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#050506"
+          "backgroundColor": "#050506",
+          "image": "./assets/brand/cinetrack-ai-app-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       "expo-asset",
@@ -23,6 +31,15 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5f792713-7c10-484b-83b1-a4625e139304"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.cinetrack.ai"
     }
   }
 }
