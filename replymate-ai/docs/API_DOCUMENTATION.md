@@ -28,7 +28,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +71,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +147,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -202,7 +205,8 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -224,8 +228,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,35 +255,8 @@
   "required": [
     "amount",
     "category"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/message`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    }
-  },
-  "required": [
-    "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -309,7 +285,86 @@
       ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expense/message`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/learning/roadmap`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 160
+    },
+    "goal": {
+      "type": "string",
+      "maxLength": 300,
+      "default": "learn the fundamentals"
+    },
+    "currentLevel": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "beginner"
+    },
+    "timeline": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "8 weeks"
+    },
+    "timePerWeek": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "3 hours/week"
+    }
+  },
+  "required": [
+    "topic"
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -362,55 +417,8 @@
   },
   "required": [
     "skillName"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/learning/roadmap`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "topic": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 160
-    },
-    "goal": {
-      "type": "string",
-      "maxLength": 300,
-      "default": "learn the fundamentals"
-    },
-    "currentLevel": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "beginner"
-    },
-    "timeline": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "8 weeks"
-    },
-    "timePerWeek": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "3 hours/week"
-    }
-  },
-  "required": [
-    "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +450,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +480,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,111 +520,8 @@
   },
   "required": [
     "message"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/rewrite`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    },
-    "note": {
-      "type": "string",
-      "maxLength": 800,
-      "default": ""
-    },
-    "tone": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "clearer",
-        "shorter",
-        "polite",
-        "professional",
-        "friendly",
-        "casual",
-        "funny",
-        "snarky",
-        "confident",
-        "apologetic",
-        "romantic",
-        "sarcastic",
-        "excited",
-        "calm",
-        "formal",
-        "persuasive",
-        "simple_english",
-        "hinglish",
-        "hindi",
-        "more_human",
-        "short",
-        "short_sweet",
-        "detailed"
-      ],
-      "default": "none"
-    },
-    "role": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "friend",
-        "best_friend",
-        "partner",
-        "customer_support",
-        "manager",
-        "professional_writer",
-        "sales_expert",
-        "marketing_expert",
-        "influencer",
-        "startup_founder",
-        "comedian",
-        "savage_friend",
-        "poet",
-        "teacher",
-        "pirate",
-        "five_year_old",
-        "doctor",
-        "ai_engineer",
-        "thief",
-        "cowboy",
-        "astronaut",
-        "shakespeare",
-        "grandma",
-        "lawyer",
-        "gym_coach",
-        "detective"
-      ],
-      "default": "none"
-    },
-    "responseCount": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 5,
-      "default": 5
-    }
-  },
-  "required": [
-    "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -650,7 +553,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +583,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,7 +623,111 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/replies/rewrite`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 800,
+      "default": ""
+    },
+    "tone": {
+      "type": "string",
+      "enum": [
+        "none",
+        "clearer",
+        "shorter",
+        "polite",
+        "professional",
+        "friendly",
+        "casual",
+        "funny",
+        "snarky",
+        "confident",
+        "apologetic",
+        "romantic",
+        "sarcastic",
+        "excited",
+        "calm",
+        "formal",
+        "persuasive",
+        "simple_english",
+        "hinglish",
+        "hindi",
+        "more_human",
+        "short",
+        "short_sweet",
+        "detailed"
+      ],
+      "default": "none"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "none",
+        "friend",
+        "best_friend",
+        "partner",
+        "customer_support",
+        "manager",
+        "professional_writer",
+        "sales_expert",
+        "marketing_expert",
+        "influencer",
+        "startup_founder",
+        "comedian",
+        "savage_friend",
+        "poet",
+        "teacher",
+        "pirate",
+        "five_year_old",
+        "doctor",
+        "ai_engineer",
+        "thief",
+        "cowboy",
+        "astronaut",
+        "shakespeare",
+        "grandma",
+        "lawyer",
+        "gym_coach",
+        "detective"
+      ],
+      "default": "none"
+    },
+    "responseCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 5
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -775,7 +780,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -856,7 +862,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +897,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +918,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +928,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -952,7 +962,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -981,7 +992,8 @@
   },
   "required": [
     "query"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
