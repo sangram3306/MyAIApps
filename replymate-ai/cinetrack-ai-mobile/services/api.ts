@@ -1313,7 +1313,7 @@ export async function getWatcherProfileFromApi(params: {
 }): Promise<WatcherProfileResponse> {
   const response = await fetch(`${params.backendUrl}/api/watch/profile`, {
     method: "GET",
-    headers: getJsonHeaders(),
+    headers: await getApiHeaders(),
   });
   const data = (await response.json().catch(() => null)) as Partial<WatcherProfileResponse & { error?: string }> | null;
   if (!response.ok) {

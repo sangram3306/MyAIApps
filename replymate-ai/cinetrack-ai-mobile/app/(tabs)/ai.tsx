@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Markdown from "react-native-markdown-display";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { listWatchItemsFromApi, searchWatchEntriesFromApi, sendChatMessageFromApi } from "../../services/api";
+import { listWatchItemsFromApi, searchWatchEntriesFromApi, sendChatMessageFromApi, getWatcherProfileFromApi } from "../../services/api";
 import { getAlwaysUseLlmChatPreference, getBackendUrl, getLibraryAwareChatPreference, getRagEnabledPreference, getSmartContextEnabledPreference } from "../../storage/appStorage";
-import type { WatchEntry } from "../../services/api";
+import type { WatchEntry, WatcherProfileResponse } from "../../services/api";
 
 export default function AiWorkspaceScreen() {
   const { colors } = useAppTheme();
@@ -19,9 +21,11 @@ export default function AiWorkspaceScreen() {
   const [ragEnabled, setRagEnabled] = useState(false);
   const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState("");
   const [chatInput, setChatInput] = useState("");
+  const [watcherProfile, setWatcherProfile] = useState<WatcherProfileResponse | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -149,6 +153,23 @@ export default function AiWorkspaceScreen() {
     }
   }
 
+  async function handleBuildWatcherProfile() {
+    if (!backendUrl) {
+      setError("AI Workspace needs the backend to be online.");
+      return;
+    }
+    setProfileLoading(true);
+    setError("");
+    try {
+      const result = await getWatcherProfileFromApi({ backendUrl });
+      setWatcherProfile(result);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not build watcher profile.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -198,9 +219,47 @@ export default function AiWorkspaceScreen() {
       {response ? (
         <View style={styles.responseCard}>
           <Text style={styles.responseTitle}>Agent response</Text>
-          <Text style={styles.responseBody}>{response}</Text>
+          <Markdown
+            style={{
+              body: styles.responseBody,
+              paragraph: { marginTop: 0, marginBottom: 8 },
+            }}
+          >
+            {response}
+          </Markdown>
         </View>
       ) : null}
+
+      {/* ─── Watcher Profile Card ─── */}
+      <View style={styles.card}>
+        <View style={styles.profileHeader}>
+          <Text style={styles.cardTitle}>Watcher Profile</Text>
+          <View style={styles.profileHeaderButtons}>
+            <Pressable onPress={handleBuildWatcherProfile} disabled={profileLoading} style={styles.profileButton}>
+              {profileLoading ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles-outline" color={colors.primary} size={14} />
+                  <Text style={styles.profileButtonText}>Analyze</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+        {watcherProfile ? (
+          <View style={styles.profileCard}>
+            <Text style={styles.profileSource}>{formatWatchSource(watcherProfile.source)} | {watcherProfile.count} titles</Text>
+            <Text style={styles.profileTitle}>{watcherProfile.profile.archetype}</Text>
+            <Text style={styles.synopsis}>{watcherProfile.profile.summary}</Text>
+            <ProfileList title="Traits" items={watcherProfile.profile.traits} styles={styles} />
+            <ProfileList title="Patterns" items={watcherProfile.profile.patterns} styles={styles} />
+            <ProfileList title="Suggestions" items={watcherProfile.profile.suggestions} styles={styles} />
+          </View>
+        ) : (
+          <Text style={styles.metaText}>Generate a taste profile from your saved movies and series.</Text>
+        )}
+      </View>
       </ScrollView>
     </View>
   );
@@ -899,6 +958,38 @@ function dedupeEntries(entries: WatchEntry[]): WatchEntry[] {
   return result;
 }
 
+function ProfileList({
+  title,
+  items,
+  styles,
+}: {
+  title: string;
+  items: string[];
+  styles: ReturnType<typeof createStyles>;
+}) {
+  if (!items.length) {
+    return null;
+  }
+  return (
+    <View style={styles.profileList}>
+      <Text style={styles.modalSectionTitle}>{title}</Text>
+      {items.map((item) => (
+        <Text key={`${title}-${item}`} style={styles.metaText}>- {item}</Text>
+      ))}
+    </View>
+  );
+}
+
+function formatWatchSource(source: "static" | "llm" | "fallback"): string {
+  if (source === "static") {
+    return "OMDb/Wikipedia MCP";
+  }
+  if (source === "llm") {
+    return "LLM";
+  }
+  return "Fallback";
+}
+
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
     container: { flexGrow: 1, backgroundColor: colors.background, padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
@@ -926,5 +1017,36 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
     responseTitle: { color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     responseBody: { color: colors.text, fontSize: 13, lineHeight: 20 },
     error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderWidth: 1, borderRadius: 12, padding: spacing.sm },
+    // Watcher Profile Styles
+    profileHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    profileHeaderButtons: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+    profileButton: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.primary,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: 6,
+      justifyContent: "center",
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    profileButtonText: { color: colors.primary, fontSize: 12, fontWeight: "900" },
+    profileCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.md,
+      marginTop: spacing.xs,
+    },
+    profileSource: { color: colors.primary, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+    profileTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+    profileList: { gap: 3, marginTop: spacing.xs },
+    synopsis: { color: colors.text, fontSize: 13, lineHeight: 19 },
+    metaText: { color: colors.muted, fontSize: 12, lineHeight: 18 },
+    modalSectionTitle: { color: colors.text, fontSize: 13, fontWeight: "800", textTransform: "uppercase" },
   });
 }

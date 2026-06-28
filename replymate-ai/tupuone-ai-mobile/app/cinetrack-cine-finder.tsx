@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -207,7 +208,14 @@ export default function CinetrackCineFinderScreen() {
       {response ? (
         <View style={styles.responseCard}>
           <Text style={styles.responseTitle}>Agent response</Text>
-          <Text style={styles.responseBody}>{response}</Text>
+          <Markdown
+            style={{
+              body: styles.responseBody,
+              paragraph: { marginTop: 0, marginBottom: 8 },
+            }}
+          >
+            {response}
+          </Markdown>
         </View>
       ) : null}
     </ScrollView>
