@@ -1269,6 +1269,7 @@ export async function getDeepSeekBalanceFromApi(params: {
 export async function logWatchItemFromApi(params: {
   backendUrl: string;
   title: string;
+  imdbId?: string;
   type?: WatchType;
   status: WatchStatus;
   favorite?: boolean;
@@ -1324,6 +1325,77 @@ export async function getWatcherProfileFromApi(params: {
     throw new Error("Backend returned an unexpected watcher profile response.");
   }
   return data as WatcherProfileResponse;
+}
+
+export type TitleCandidate = {
+  imdbId: string;
+  title: string;
+  year: string;
+  type: "movie" | "series";
+  poster?: string;
+};
+
+export type ResolveTitleResponse = {
+  imdbId: string | null;
+  canonicalTitle: string;
+  year: string;
+  source: "static" | "llm" | "fallback";
+  candidate: TitleCandidate | null;
+};
+
+export async function searchTitleCandidatesFromApi(params: {
+  backendUrl: string;
+  query: string;
+  type?: WatchType;
+}): Promise<{ candidates: TitleCandidate[]; source: "static" | "llm" | "fallback" }> {
+  const url = new URL(`${params.backendUrl}/api/watch/search-titles`);
+  url.searchParams.set("q", params.query);
+  if (params.type) {
+    url.searchParams.set("type", params.type);
+  }
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+  const data = (await response.json().catch(() => null)) as {
+    candidates?: TitleCandidate[];
+    source?: "static" | "llm" | "fallback";
+    error?: string;
+  } | null;
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not search for titles.");
+  }
+  return {
+    candidates: Array.isArray(data?.candidates) ? data.candidates : [],
+    source: data?.source || "fallback",
+  };
+}
+
+export async function resolveTitleFromApi(params: {
+  backendUrl: string;
+  title: string;
+  year?: string;
+  type?: WatchType;
+  director?: string;
+  hint?: string;
+}): Promise<ResolveTitleResponse> {
+  const { backendUrl, ...body } = params;
+  const response = await fetch(`${backendUrl}/api/watch/resolve-title`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => null)) as Partial<ResolveTitleResponse & { error?: string }> | null;
+  if (!response.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Could not resolve this title.");
+  }
+  return {
+    imdbId: data?.imdbId ?? null,
+    canonicalTitle: data?.canonicalTitle || params.title,
+    year: data?.year || "Unknown",
+    source: data?.source || "fallback",
+    candidate: data?.candidate || null,
+  };
 }
 
 export async function updateWatchStatusFromApi(params: {

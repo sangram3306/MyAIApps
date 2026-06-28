@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { listWatchItemsFromApi, searchWatchEntriesFromApi, sendChatMessageFromApi } from "../../services/api";
@@ -9,6 +10,7 @@ import type { WatchEntry } from "../../services/api";
 
 export default function AiWorkspaceScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [backendUrl, setBackendUrl] = useState("");
   const [entries, setEntries] = useState<WatchEntry[]>([]);
@@ -148,7 +150,8 @@ export default function AiWorkspaceScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>AI Workspace</Text>
       <Text style={styles.subtitle}>
         {entries.length} titles • {favoriteTitles} favorites • Library-aware {libraryAware ? (ragEnabled ? "RAG" : smartContextEnabled ? "Smart Context" : alwaysUseLlmChat ? "LLM Always" : "Smart Default") : "OFF"}
@@ -198,7 +201,8 @@ export default function AiWorkspaceScreen() {
           <Text style={styles.responseBody}>{response}</Text>
         </View>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

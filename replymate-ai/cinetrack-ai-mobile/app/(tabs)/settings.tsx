@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import {
@@ -37,6 +38,7 @@ const launchOptions: Array<{ label: string; value: DefaultTabId }> = [
 
 export default function SettingsScreen() {
   const { colors, mode, resolvedTheme, setMode } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [providerLabel, setProviderLabel] = useState("Loading...");
   const [modelLabel, setModelLabel] = useState("");
@@ -115,7 +117,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.card}>
         <Text style={styles.title}>Settings</Text>
 

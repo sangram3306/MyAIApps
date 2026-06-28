@@ -31,6 +31,7 @@ import {
   fetchWatchMetadataTool,
   listWatchEntriesTool,
   saveWatchEntryTool,
+  searchOmdbTitlesTool,
   updateWatchEntryTool,
   updateWatchEntryStatusTool,
 } from "./tools/watch.js";
@@ -189,6 +190,10 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "fetchWatchMetadata") {
       return res.json(await fetchWatchMetadataTool(payload));
+    }
+
+    if (toolName === "searchOmdbTitles") {
+      return res.json(await searchOmdbTitlesTool(payload));
     }
 
     return res.status(404).json({ error: "Unknown tool." });

@@ -2,6 +2,7 @@ import { type ComponentProps, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
 import { listWatchItemsFromApi, WatchEntry } from "../services/api";
@@ -16,6 +17,7 @@ type WatchInfoRow = {
 
 export default function WatchFavoritesScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [favorites, setFavorites] = useState<WatchEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,7 +63,7 @@ export default function WatchFavoritesScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
