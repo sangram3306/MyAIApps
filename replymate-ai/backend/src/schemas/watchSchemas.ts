@@ -5,6 +5,7 @@ export const watchStatusSchema = z.enum(["planned", "started", "in_progress", "c
 
 export const logWatchSchema = z.object({
   title: z.string().min(1, "Title is required."),
+  imdbId: z.string().optional(),
   type: watchTypeSchema.optional(),
   status: watchStatusSchema.default("planned"),
   favorite: z.boolean().optional().default(false),
@@ -48,4 +49,17 @@ export const updateWatchDetailsSchema = z.object({
   externalDetails: z.array(watchExternalDetailSchema).optional(),
   synopsis: z.string().optional(),
   notes: z.string().optional(),
+});
+
+export const resolveTitleSchema = z.object({
+  title: z.string().min(1, "Title is required."),
+  year: z.string().optional(),
+  type: watchTypeSchema.optional(),
+  director: z.string().optional(),
+  hint: z.string().optional(),
+});
+
+export const searchTitlesSchema = z.object({
+  q: z.string().min(1, "Query is required."),
+  type: watchTypeSchema.optional(),
 });

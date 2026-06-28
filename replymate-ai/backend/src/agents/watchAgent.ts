@@ -11,7 +11,8 @@ type WatchToolName =
   | "updateWatchEntryStatus"
   | "updateWatchEntry"
   | "deleteWatchEntry"
-  | "fetchWatchMetadata";
+  | "fetchWatchMetadata"
+  | "searchOmdbTitles";
 
 export type WatchEntry = {
   id: string;
@@ -44,6 +45,20 @@ type WatchToolResult = {
   deletedCount?: number;
   id?: string;
   metadata?: Omit<WatchEntry, "id" | "createdAt" | "updatedAt" | "status" | "notes" | "favorite">;
+};
+
+export type OmdbTitleCandidate = {
+  imdbId: string;
+  title: string;
+  year: string;
+  type: "movie" | "series";
+  poster?: string;
+};
+
+type OmdbSearchResult = {
+  source: Source;
+  summary: string;
+  candidates: OmdbTitleCandidate[];
 };
 
 type ToolCallSummary = {
@@ -86,6 +101,7 @@ export type WatcherProfileResponse = {
 
 export async function logWatchItem(input: {
   title: string;
+  imdbId?: string;
   type?: WatchType;
   status: WatchStatus;
   favorite?: boolean;
@@ -96,6 +112,7 @@ export async function logWatchItem(input: {
 
   const live = await callWatchTool("fetchWatchMetadata", {
     title: input.title,
+    imdbId: input.imdbId,
     type: input.type,
   }).catch(() => null);
   const liveEnrichment = live?.metadata
@@ -358,6 +375,76 @@ export async function removeWatchItem(id: string): Promise<{ deleted: boolean; e
     entries: result.entries || [],
     source: result.source,
   };
+}
+
+export async function searchOmdbTitles(params: {
+  title: string;
+  type?: WatchType;
+}): Promise<{ candidates: OmdbTitleCandidate[]; source: Source }> {
+  try {
+    const result = await callMcpTool<OmdbSearchResult>("searchOmdbTitles", {
+      title: params.title,
+      type: params.type,
+    }, { timeoutMs: 8000, retries: 1 });
+    return {
+      candidates: Array.isArray(result.candidates) ? result.candidates : [],
+      source: result.source || "fallback",
+    };
+  } catch {
+    return { candidates: [], source: "fallback" };
+  }
+}
+
+export async function resolveImdbId(params: {
+  title: string;
+  year?: string;
+  type?: WatchType;
+  director?: string;
+  hint?: string;
+}): Promise<{ imdbId: string | null; canonicalTitle: string; year: string; source: Source }> {
+  if (!hasConfiguredLlmApiKey()) {
+    return { imdbId: null, canonicalTitle: params.title, year: params.year || "Unknown", source: "fallback" };
+  }
+
+  try {
+    const completion = await callChatCompletion({
+      temperature: 0.1,
+      maxTokens: 200,
+      responseFormat: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a movie/series database expert. Given user hints, identify the single most likely match and return its IMDb ID. Return ONLY JSON with fields: imdbId (string, e.g. tt1234567), canonicalTitle (string), year (string 4-digit). If unsure, set imdbId to null.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            title: params.title,
+            year: params.year || null,
+            type: params.type || null,
+            director: params.director || null,
+            extraHint: params.hint || null,
+          }),
+        },
+      ],
+    });
+
+    const parsed = safeParseJson<Record<string, unknown>>(completion.content);
+    if (!parsed) {
+      return { imdbId: null, canonicalTitle: params.title, year: params.year || "Unknown", source: "fallback" };
+    }
+
+    const imdbId = typeof parsed.imdbId === "string" && parsed.imdbId.trim() ? parsed.imdbId.trim() : null;
+    const canonicalTitle = typeof parsed.canonicalTitle === "string" && parsed.canonicalTitle.trim()
+      ? parsed.canonicalTitle.trim()
+      : params.title;
+    const year = typeof parsed.year === "string" && parsed.year.trim() ? parsed.year.trim() : params.year || "Unknown";
+
+    return { imdbId, canonicalTitle, year, source: "llm" };
+  } catch {
+    return { imdbId: null, canonicalTitle: params.title, year: params.year || "Unknown", source: "fallback" };
+  }
 }
 
 async function enrichWithLlm(input: {

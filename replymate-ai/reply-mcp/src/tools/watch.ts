@@ -65,8 +65,22 @@ const deleteWatchInputSchema = z.object({
 
 const fetchWatchMetadataInputSchema = z.object({
   title: z.string().min(1),
+  imdbId: z.string().optional(),
   type: z.enum(["movie", "series"]).optional(),
 }).passthrough();
+
+const searchOmdbTitlesInputSchema = z.object({
+  title: z.string().min(1),
+  type: z.enum(["movie", "series"]).optional(),
+}).passthrough();
+
+export type OmdbTitleCandidate = {
+  imdbId: string;
+  title: string;
+  year: string;
+  type: "movie" | "series";
+  poster?: string;
+};
 
 type WatchToolOutput = {
   source: z.infer<typeof sourceSchema>;
@@ -92,6 +106,12 @@ type WatchToolOutput = {
     synopsis: string;
     favorite?: boolean;
   };
+};
+
+export type OmdbSearchOutput = {
+  source: z.infer<typeof sourceSchema>;
+  summary: string;
+  candidates: OmdbTitleCandidate[];
 };
 
 export async function saveWatchEntryTool(input: unknown): Promise<WatchToolOutput> {
@@ -217,7 +237,26 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
 
   const title = parsed.data.title.trim();
   const requestedType = parsed.data.type;
+  const imdbId = parsed.data.imdbId?.trim();
+
   try {
+    // If an imdbId is supplied, fetch exactly by ID — guaranteed correct match.
+    if (imdbId) {
+      const omdb = await fetchFromOmdbById(imdbId);
+      if (omdb) {
+        const resolvedType = omdb.type || requestedType || "movie";
+        const availability = await fetchAvailabilityFromTmdb(omdb.title, resolvedType);
+        return {
+          source: "static",
+          confidence: 0.99,
+          summary: `Fetched exact metadata for ${omdb.title} (IMDb ID: ${imdbId}).`,
+          entries: [],
+          metadata: { ...omdb, availability },
+        };
+      }
+    }
+
+    // Fallback: title-based lookup (original behaviour).
     const omdb = await fetchFromOmdb(title, requestedType);
     const resolvedType = omdb?.type || requestedType || "movie";
     const availability = await fetchAvailabilityFromTmdb(title, resolvedType);
@@ -242,6 +281,30 @@ export async function fetchWatchMetadataTool(input: unknown): Promise<WatchToolO
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     return fallback(`Live metadata fetch failed: ${message}`);
+  }
+}
+
+export async function searchOmdbTitlesTool(input: unknown): Promise<OmdbSearchOutput> {
+  const parsed = searchOmdbTitlesInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { source: "fallback", summary: "Could not read search request.", candidates: [] };
+  }
+
+  const title = parsed.data.title.trim();
+  const type = parsed.data.type;
+
+  try {
+    const candidates = await searchOmdbByTitle(title, type);
+    return {
+      source: candidates.length > 0 ? "static" : "fallback",
+      summary: candidates.length > 0
+        ? `Found ${candidates.length} result${candidates.length === 1 ? "" : "s"} for "${title}".`
+        : `No results found for "${title}".`,
+      candidates,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return { source: "fallback", summary: `OMDB search failed: ${message}`, candidates: [] };
   }
 }
 
@@ -272,6 +335,78 @@ async function fetchFromOmdb(
     return null;
   }
 
+  return parseOmdbRecord(data, title, type);
+}
+
+async function fetchFromOmdbById(
+  imdbId: string,
+): Promise<WatchToolOutput["metadata"] | null> {
+  const omdbKey = process.env.OMDB_API_KEY?.trim();
+  if (!omdbKey) {
+    return null;
+  }
+
+  const url = new URL("https://www.omdbapi.com/");
+  url.searchParams.set("apikey", omdbKey);
+  url.searchParams.set("i", imdbId);
+  url.searchParams.set("plot", "short");
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  if (data.Response !== "True") {
+    return null;
+  }
+
+  return parseOmdbRecord(data, stringOr(data.Title, ""), undefined);
+}
+
+async function searchOmdbByTitle(
+  title: string,
+  type?: "movie" | "series",
+): Promise<OmdbTitleCandidate[]> {
+  const omdbKey = process.env.OMDB_API_KEY?.trim();
+  if (!omdbKey) {
+    return [];
+  }
+
+  const url = new URL("https://www.omdbapi.com/");
+  url.searchParams.set("apikey", omdbKey);
+  url.searchParams.set("s", title);
+  if (type) {
+    url.searchParams.set("type", type);
+  }
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  if (data.Response !== "True" || !Array.isArray(data.Search)) {
+    return [];
+  }
+
+  return (data.Search as Array<Record<string, unknown>>)
+    .filter((item) => typeof item.imdbID === "string" && item.imdbID)
+    .map((item) => ({
+      imdbId: String(item.imdbID),
+      title: stringOr(item.Title, "Unknown"),
+      year: stringOr(item.Year, "Unknown"),
+      type: item.Type === "series" ? "series" : "movie",
+      poster: posterUrlOrUndefined(item.Poster),
+    }))
+    .slice(0, 10);
+}
+
+function parseOmdbRecord(
+  data: Record<string, unknown>,
+  fallbackTitle: string,
+  typeHint?: "movie" | "series",
+): WatchToolOutput["metadata"] {
   const ratings = Array.isArray(data.Ratings)
     ? data.Ratings
         .filter((item): item is { Source: string; Value: string } =>
@@ -282,8 +417,8 @@ async function fetchFromOmdb(
 
   const inferredType = data.Type === "series" ? "series" : "movie";
   return {
-    title: stringOr(data.Title, title),
-    type: type || inferredType,
+    title: stringOr(data.Title, fallbackTitle),
+    type: typeHint || inferredType,
     releaseYear: stringOr(data.Year, "Unknown"),
     director: stringOr(data.Director, "Unknown"),
     leadActors: splitList(stringOr(data.Actors, "")),

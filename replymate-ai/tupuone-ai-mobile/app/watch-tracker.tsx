@@ -22,6 +22,9 @@ import {
   getWatcherProfileFromApi,
   listWatchItemsFromApi,
   logWatchItemFromApi,
+  resolveTitleFromApi,
+  searchTitleCandidatesFromApi,
+  TitleCandidate,
   updateWatchDetailsFromApi,
   updateWatchStatusFromApi,
   WatchEntry,
@@ -61,7 +64,6 @@ export default function WatchTrackerScreen() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const [backendUrl, setBackendUrl] = useState("");
-  const [title, setTitle] = useState("");
   const [status, setStatus] = useState<WatchStatus>("planned");
   const [favorite, setFavorite] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -83,6 +85,20 @@ export default function WatchTrackerScreen() {
   const [activeTypeFilter, setActiveTypeFilter] = useState<"all" | WatchType>("all");
   const [activeFilter, setActiveFilter] = useState<"all" | WatchStatus>("all");
   const [activeAvailabilityRegion, setActiveAvailabilityRegion] = useState<"all" | string>("all");
+
+  // Disambiguation state
+  const [titleQuery, setTitleQuery] = useState("");
+  const [candidates, setCandidates] = useState<TitleCandidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<TitleCandidate | null>(null);
+  const [picklistVisible, setPicklistVisible] = useState(false);
+  const [aiAssistVisible, setAiAssistVisible] = useState(false);
+  const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [aiType, setAiType] = useState<WatchType>("movie");
+  const [aiYear, setAiYear] = useState("");
+  const [aiDirector, setAiDirector] = useState("");
+  const [aiHint, setAiHint] = useState("");
 
   const typeScopedEntries = entries.filter(
     (entry) => activeTypeFilter === "all" || entry.type === activeTypeFilter,
@@ -126,13 +142,68 @@ export default function WatchTrackerScreen() {
     }, [loadEntries]),
   );
 
+  async function handleSearch() {
+    const q = titleQuery.trim();
+    if (!q) {
+      setError("Enter a movie or series name first.");
+      return;
+    }
+    setSearching(true);
+    setError("");
+    try {
+      const result = await searchTitleCandidatesFromApi({ backendUrl, query: q });
+      if (result.candidates.length === 0) {
+        setError("No OMDB results found. Try AI Assist.");
+        return;
+      }
+      setCandidates(result.candidates);
+      setPicklistVisible(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Search failed.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleAiResolve() {
+    const q = titleQuery.trim();
+    if (!q) {
+      setError("Enter a title first.");
+      return;
+    }
+    setResolving(true);
+    setError("");
+    try {
+      const result = await resolveTitleFromApi({
+        backendUrl,
+        title: q,
+        year: aiYear.trim() || undefined,
+        type: aiType,
+        director: aiDirector.trim() || undefined,
+        hint: aiHint.trim() || undefined,
+      });
+      if (!result.imdbId || !result.candidate) {
+        setError("AI couldn't resolve a unique match. Add more hints or use the picklist.");
+        return;
+      }
+      setSelectedCandidate(result.candidate);
+      setAiAssistVisible(false);
+      setAiConfirmVisible(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "AI Assist failed.");
+    } finally {
+      setResolving(false);
+    }
+  }
+
   async function handleAdd() {
     if (!backendUrl) {
       setError("Watch Tracker needs the backend to be online.");
       return;
     }
-    if (!title.trim()) {
-      setError("Enter a movie or series name first.");
+    const titleToAdd = selectedCandidate?.title || titleQuery.trim();
+    if (!titleToAdd) {
+      setError("Search and select a title first.");
       return;
     }
     setSaving(true);
@@ -140,14 +211,18 @@ export default function WatchTrackerScreen() {
     try {
       const result = await logWatchItemFromApi({
         backendUrl,
-        title: title.trim(),
+        title: titleToAdd,
+        imdbId: selectedCandidate?.imdbId,
+        type: selectedCandidate?.type,
         status,
         favorite,
         notes: notes.trim(),
       });
       setEntries(normalizeWatchEntries(result.entries));
       setEnrichmentSource(result.metadata.toolSources.enrichment);
-      setTitle("");
+      setTitleQuery("");
+      setSelectedCandidate(null);
+      setCandidates([]);
       setNotes("");
       setFavorite(false);
     } catch (caught) {
@@ -317,14 +392,70 @@ export default function WatchTrackerScreen() {
 
         <View style={styles.card}>
           <Text style={styles.inputSectionTitle}>Add title</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Movie or series name"
-            placeholderTextColor={colors.muted}
-            value={title}
-            onChangeText={setTitle}
-          />
-          <Text style={styles.helperText}>Movie or series is detected automatically from OMDb when available.</Text>
+
+          {/* Search row */}
+          <View style={styles.disambigSearchRow}>
+            <TextInput
+              style={styles.disambigInput}
+              placeholder="Movie or series name"
+              placeholderTextColor={colors.muted}
+              value={titleQuery}
+              onChangeText={(v) => { setTitleQuery(v); setSelectedCandidate(null); setError(""); }}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            <Pressable
+              style={[styles.disambigSearchBtn, searching && styles.disabled]}
+              onPress={handleSearch}
+              disabled={searching}
+              accessibilityLabel="Search OMDB titles"
+            >
+              {searching
+                ? <ActivityIndicator color={colors.onPrimary} size="small" />
+                : <Ionicons name="search" color={colors.onPrimary} size={17} />}
+            </Pressable>
+            <Pressable
+              style={styles.disambigAiBtn}
+              onPress={() => {
+                if (!titleQuery.trim()) { setError("Enter a title first."); return; }
+                setError("");
+                setAiAssistVisible(true);
+              }}
+              accessibilityLabel="AI Assist for title disambiguation"
+            >
+              <Ionicons name="sparkles" color={colors.primary} size={17} />
+            </Pressable>
+          </View>
+
+          {/* Selected candidate preview */}
+          {selectedCandidate ? (
+            <View style={styles.candidatePreviewBox}>
+              {selectedCandidate.poster ? (
+                <Image source={{ uri: selectedCandidate.poster }} style={styles.candidatePosterSmall} resizeMode="cover" />
+              ) : (
+                <View style={[styles.candidatePosterSmall, styles.posterPlaceholder]}>
+                  <Ionicons name="film-outline" color={colors.muted} size={18} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.candidateTitle} numberOfLines={1}>{selectedCandidate.title}</Text>
+                <View style={styles.candidateMeta}>
+                  <View style={styles.typeBadge}>
+                    <Text style={styles.typeBadgeText}>{selectedCandidate.type}</Text>
+                  </View>
+                  <Text style={styles.candidateYear}>{selectedCandidate.year}</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setSelectedCandidate(null)} style={styles.clearCandidateBtn}>
+                <Ionicons name="close-circle" color={colors.muted} size={18} />
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.helperText}>
+              Search to see results or use ✦ AI Assist to resolve by year/director.
+            </Text>
+          )}
+
           <View style={styles.dropdownBlock}>
             <Text style={styles.dropdownLabel}>Progress</Text>
             <Pressable
@@ -370,7 +501,7 @@ export default function WatchTrackerScreen() {
           </Pressable>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Pressable onPress={handleAdd} disabled={saving} style={[styles.primaryButton, saving && styles.disabled]}>
-            {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Add & enrich</Text>}
+            {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Add &amp; enrich</Text>}
           </Pressable>
         </View>
 
@@ -523,6 +654,195 @@ export default function WatchTrackerScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* ─── PICKLIST MODAL ─── */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={picklistVisible}
+        onRequestClose={() => setPicklistVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismiss} onPress={() => setPicklistVisible(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select the right title</Text>
+            <Text style={styles.disambigSubtitle}>Results for "{titleQuery}"</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {candidates.map((candidate) => (
+                <Pressable
+                  key={candidate.imdbId}
+                  style={styles.candidateRow}
+                  onPress={() => {
+                    setSelectedCandidate(candidate);
+                    setPicklistVisible(false);
+                  }}
+                >
+                  {candidate.poster ? (
+                    <Image source={{ uri: candidate.poster }} style={styles.candidatePosterSmall} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.candidatePosterSmall, styles.posterPlaceholder]}>
+                      <Ionicons name="film-outline" color={colors.muted} size={18} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.candidateTitle} numberOfLines={2}>{candidate.title}</Text>
+                    <View style={styles.candidateMeta}>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeBadgeText}>{candidate.type}</Text>
+                      </View>
+                      <Text style={styles.candidateYear}>{candidate.year}</Text>
+                      <Text style={styles.candidateImdbId}>{candidate.imdbId}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" color={colors.muted} size={16} />
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              style={styles.disambigAiHintRow}
+              onPress={() => { setPicklistVisible(false); setAiAssistVisible(true); }}
+            >
+              <Ionicons name="sparkles" color={colors.primary} size={13} />
+              <Text style={styles.disambigAiHintText}>Not in the list? Try AI Assist</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── AI ASSIST MODAL ─── */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={aiAssistVisible}
+        onRequestClose={() => setAiAssistVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismiss} onPress={() => setAiAssistVisible(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>AI Assist</Text>
+            <Text style={styles.disambigSubtitle}>Help the AI find the exact match for "{titleQuery}"</Text>
+
+            <Text style={styles.disambigFieldLabel}>Type</Text>
+            <View style={styles.disambigTypeRow}>
+              {(["movie", "series"] as WatchType[]).map((t) => (
+                <Pressable
+                  key={t}
+                  style={[styles.disambigTypePill, aiType === t && styles.disambigTypePillActive]}
+                  onPress={() => setAiType(t)}
+                >
+                  <Text style={[styles.disambigTypePillText, aiType === t && styles.disambigTypePillTextActive]}>
+                    {t === "movie" ? "Movie" : "Series"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.disambigFieldLabel}>Year (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 1986"
+              placeholderTextColor={colors.muted}
+              value={aiYear}
+              onChangeText={setAiYear}
+              keyboardType="numeric"
+              maxLength={4}
+            />
+
+            <Text style={styles.disambigFieldLabel}>Director (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. David Cronenberg"
+              placeholderTextColor={colors.muted}
+              value={aiDirector}
+              onChangeText={setAiDirector}
+            />
+
+            <Text style={styles.disambigFieldLabel}>Extra hint (optional)</Text>
+            <TextInput
+              style={[styles.input, styles.notesInput]}
+              placeholder="e.g. remake, sequel, the one with Jeff Goldblum…"
+              placeholderTextColor={colors.muted}
+              value={aiHint}
+              onChangeText={setAiHint}
+              multiline
+            />
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <Pressable
+              style={[styles.primaryButton, resolving && styles.disabled]}
+              onPress={handleAiResolve}
+              disabled={resolving}
+            >
+              {resolving
+                ? <ActivityIndicator color={colors.onPrimary} />
+                : (
+                  <View style={styles.disambigAiBtnInner}>
+                    <Ionicons name="sparkles" color={colors.onPrimary} size={15} />
+                    <Text style={styles.primaryButtonText}>Resolve with AI</Text>
+                  </View>
+                )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── AI CONFIRM MODAL ─── */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={aiConfirmVisible}
+        onRequestClose={() => setAiConfirmVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismiss} onPress={() => setAiConfirmVisible(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.disambigConfirmHeader}>
+              <Ionicons name="sparkles" color={colors.primary} size={16} />
+              <Text style={styles.modalTitle}>AI resolved this title</Text>
+            </View>
+            {selectedCandidate ? (
+              <View style={styles.candidatePreviewBox}>
+                {selectedCandidate.poster ? (
+                  <Image source={{ uri: selectedCandidate.poster }} style={styles.candidatePosterSmall} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.candidatePosterSmall, styles.posterPlaceholder]}>
+                    <Ionicons name="film-outline" color={colors.muted} size={18} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.candidateTitle}>{selectedCandidate.title}</Text>
+                  <View style={styles.candidateMeta}>
+                    <View style={styles.typeBadge}>
+                      <Text style={styles.typeBadgeText}>{selectedCandidate.type}</Text>
+                    </View>
+                    <Text style={styles.candidateYear}>{selectedCandidate.year}</Text>
+                    <Text style={styles.candidateImdbId}>{selectedCandidate.imdbId}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            <View style={styles.disambigConfirmButtons}>
+              <Pressable
+                style={styles.disambigOutlineBtn}
+                onPress={() => { setAiConfirmVisible(false); setAiAssistVisible(true); }}
+              >
+                <Text style={styles.disambigOutlineBtnText}>Try again</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.primaryButton, { flex: 1 }]}
+                onPress={() => { setAiConfirmVisible(false); }}
+              >
+                <Text style={styles.primaryButtonText}>Use this title</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         animationType="slide"
         transparent
@@ -1201,6 +1521,111 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     },
     modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
     modalTitle: { color: colors.text, fontSize: 20, fontWeight: "900", flex: 1 },
+    // ── Disambiguation styles ──────────────────────────────────────────────
+    disambigSearchRow: { flexDirection: "row", gap: 6, alignItems: "center" },
+    disambigInput: {
+      flex: 1,
+      minHeight: 44,
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 12,
+      color: colors.text,
+      paddingHorizontal: spacing.md,
+      fontSize: 14,
+    },
+    disambigSearchBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    disambigAiBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      borderColor: colors.border,
+      borderWidth: 1,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    candidatePreviewBox: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 12,
+      borderColor: colors.border,
+      borderWidth: 1,
+      padding: spacing.sm,
+    },
+    candidatePosterSmall: {
+      width: 44,
+      height: 62,
+      borderRadius: 6,
+      backgroundColor: colors.border,
+    },
+    posterPlaceholder: { alignItems: "center", justifyContent: "center" },
+    clearCandidateBtn: { padding: 4 },
+    candidateTitle: { color: colors.text, fontSize: 14, fontWeight: "800", flexWrap: "wrap" },
+    candidateMeta: { flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" },
+    typeBadge: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 4,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+    },
+    typeBadgeText: { color: colors.primary, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+    candidateYear: { color: colors.muted, fontSize: 12 },
+    candidateImdbId: { color: colors.muted, fontSize: 10 },
+    candidateRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "center",
+      paddingVertical: spacing.sm,
+      borderBottomColor: colors.border,
+      borderBottomWidth: 1,
+    },
+    disambigSubtitle: { color: colors.muted, fontSize: 13 },
+    disambigAiHintRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: spacing.xs },
+    disambigAiHintText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+    disambigFieldLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginTop: 4,
+    },
+    disambigTypeRow: { flexDirection: "row", gap: spacing.xs },
+    disambigTypePill: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      backgroundColor: colors.surfaceElevated,
+    },
+    disambigTypePillActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    disambigTypePillText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
+    disambigTypePillTextActive: { color: colors.primary },
+    disambigAiBtnInner: { flexDirection: "row", alignItems: "center", gap: 6 },
+    disambigConfirmHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+    disambigConfirmButtons: { flexDirection: "row", gap: spacing.sm },
+    disambigOutlineBtn: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 12,
+      borderColor: colors.border,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    disambigOutlineBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
+
     modalSection: { gap: spacing.xs, marginTop: spacing.xs },
     modalSectionTitle: { color: colors.text, fontSize: 13, fontWeight: "800", textTransform: "uppercase" },
     editForm: { gap: spacing.sm },
