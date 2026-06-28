@@ -251,14 +251,30 @@ GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_APP_TITLE=
 GROQ_API_KEY=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=openai/gpt-oss-120b
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_API_KEY=
+ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
 MCP_SERVER_URL=
 MCP_SHARED_SECRET=
 MONGO_URI=mongodb://localhost:27017/replymate
 JWT_SECRET=super_secret_jwt_key_here
+CORS_ORIGIN=*
 ```
+
+Additional backend configuration:
+
+- `CORS_ORIGIN`: Configures allowed origins for backend requests (defaults to `*`).
+- `OPENAI_*`: Fallback or alternative configurations for OpenAI models.
+- `ANTHROPIC_*`: Fallback or alternative configurations for Anthropic/Claude models.
+- `OPENROUTER_HTTP_REFERER` & `OPENROUTER_APP_TITLE`: Optional headers used by OpenRouter.
 
 ### 2. reply-mcp
 
@@ -282,7 +298,25 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+EXPENSE_STORE_PATH=
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=AE,IN,US,GB
 ```
+
+Additional reply-mcp configuration:
+
+- `MONGODB_DECISIONS_COLLECTION`: Collection name for saving decision simulations.
+- `MONGODB_SKILL_TREES_COLLECTION`: Collection name for saving learning skill trees.
+- `MONGODB_LEARNING_ROADMAPS_COLLECTION`: Collection name for saving learning roadmaps.
+- `EXPENSE_STORE_PATH`: Optional path for local JSON-based expense storage (used if MongoDB is unavailable).
+- `OMDB_API_KEY`: API key for OMDb watch metadata fetching.
+- `TMDB_API_KEY` & `TMDB_READ_ACCESS_TOKEN`: Credentials for TMDb watch metadata fetching.
+- `TMDB_REGIONS`: Default region codes for querying watch availability (e.g., `AE,IN,US,GB`).
 
 ### 3. SP One mobile app
 
