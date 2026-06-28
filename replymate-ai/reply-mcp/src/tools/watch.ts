@@ -396,7 +396,7 @@ async function searchOmdbByTitle(
       imdbId: String(item.imdbID),
       title: stringOr(item.Title, "Unknown"),
       year: stringOr(item.Year, "Unknown"),
-      type: item.Type === "series" ? "series" : "movie",
+      type: item.Type === "series" ? ("series" as const) : ("movie" as const),
       poster: posterUrlOrUndefined(item.Poster),
     }))
     .slice(0, 10);
