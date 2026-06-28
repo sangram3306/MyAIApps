@@ -27,6 +27,8 @@ Main capabilities:
 - Decision simulator.
 - Learning roadmap and skill-tree tools.
 - Watch tracker screens shared with earlier TupuOne features.
+- User authentication, profile management, and account settings.
+- Cine Finder for semantic search of watch libraries using embeddings.
 - LLM provider/model selector with optional reasoning toggle where supported.
 
 ### CineTrack AI (`cinetrack-ai-mobile/`)
@@ -98,6 +100,18 @@ Health:
 
 - `GET /health`
 
+Auth:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `PUT /api/auth/me/profile-image`
+- `DELETE /api/auth/me`
+- `PUT /api/auth/me/profile`
+- `PUT /api/auth/me/password`
+- `POST /api/auth/unsubscribe`
+- `POST /api/auth/subscribe-coupon`
+
 Reply flows:
 
 - `POST /api/replies/generate`
@@ -153,6 +167,8 @@ Watch tracker:
 - `PATCH /api/watch/items/:id`
 - `PATCH /api/watch/items/:id/status`
 - `DELETE /api/watch/items/:id`
+- `POST /api/watch/search`
+- `POST /api/watch/embed-all`
 
 Settings:
 
@@ -240,6 +256,8 @@ GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=openai/gpt-oss-120b
 MCP_SERVER_URL=
 MCP_SHARED_SECRET=
+MONGO_URI=mongodb://localhost:27017/replymate
+JWT_SECRET=super_secret_jwt_key_here
 ```
 
 ### 2. reply-mcp
