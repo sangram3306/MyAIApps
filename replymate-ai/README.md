@@ -41,6 +41,7 @@ Main capabilities:
 - AI tab backed by a dedicated CineTrack backend route.
 - Settings for LLM provider/model, theme, default screen, one-handed mode, library-aware mode, and always-LLM mode.
 - Watch details, edit, where-to-watch/availability metadata, posters, favorites, filters, sorting, and AI library questions.
+- Library search and toggleable filters.
 
 ## Architecture
 
@@ -282,7 +283,15 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=
 ```
+
+- `OMDB_API_KEY`: Used by the `reply-mcp` service to fetch basic watch metadata (plot, ratings, etc.) from OMDb API.
+- `TMDB_API_KEY` / `TMDB_READ_ACCESS_TOKEN`: Used to fetch streaming availability for titles.
+- `TMDB_REGIONS`: Comma-separated region codes (e.g., `AE,IN,US,GB`) for filtering streaming provider availability.
 
 ### 3. SP One mobile app
 
