@@ -28,16 +28,16 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { success, reply, ... }
+{}
 ```
 
 ### POST `/api/coach/analyze`
@@ -70,16 +70,16 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { success, analysis, ... }
+{}
 ```
 
 ### POST `/api/creator/repurpose`
@@ -145,6 +145,53 @@
   },
   "required": [
     "sourceText"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+// Returns { repurpose, savedDraft, ... }
+{}
+```
+
+### GET `/api/creator/drafts`
+
+**Response:**
+
+```json
+// Returns { drafts, count }
+{}
+```
+
+### POST `/api/creator/drafts/update`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "hook": {
+      "type": "string"
+    },
+    "platformOutputs": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "id"
   ]
 }
 ```
@@ -152,12 +199,11 @@
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { updated, draft, summary }
+{}
 ```
 
-### POST `/api/decision/simulate`
+### POST `/api/decisions/simulate`
 
 **Payload (JSON):**
 
@@ -202,6 +248,47 @@
   },
   "required": [
     "question"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+// Returns { evaluation, savedDecision, ... }
+{}
+```
+
+### GET `/api/decisions/history`
+
+**Response:**
+
+```json
+// Returns { decisions, count }
+{}
+```
+
+### POST `/api/decisions/history/update`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
   ]
 }
 ```
@@ -209,12 +296,68 @@
 **Response:**
 
 ```json
+// Returns { updated, decision }
+{}
+```
+
+### POST `/api/expenses/intelligence`
+
+**Payload (JSON):**
+
+```json
 {
-  "success": "true (or structured response)"
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "string",
+      "enum": [
+        "all",
+        "month",
+        "year"
+      ],
+      "default": "month"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
-### POST `/api/expense/create`
+**Response:**
+
+```json
+// Returns { insights, rawResponse }
+{}
+```
+
+### POST `/api/expenses/message`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+// Returns { assistantReply, savedExpense }
+{}
+```
+
+### POST `/api/expenses/create`
 
 **Payload (JSON):**
 
@@ -224,8 +367,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,126 +394,25 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { savedExpense }
+{}
 ```
 
-### POST `/api/expense/message`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
+### GET `/api/expenses/items`
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/intelligence`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "period": {
-      "type": "string",
-      "enum": [
-        "all",
-        "month",
-        "year"
-      ],
-      "default": "month"
-    }
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/learning/skill-tree`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "skillName": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 160
-    },
-    "currentLevel": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "beginner"
-    },
-    "targetLevel": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "confident"
-    },
-    "timeBudget": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "3 hours/week"
-    },
-    "focusAreas": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 120
-      },
-      "maxItems": 8,
-      "default": []
-    }
-  },
-  "required": [
-    "skillName"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { entries, count }
+{}
 ```
 
 ### POST `/api/learning/roadmap`
@@ -410,16 +451,34 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { roadmap, savedPlan, ... }
+{}
+```
+
+### POST `/api/learning/progress`
+
+**Response:**
+
+```json
+// Returns { updated, plan, ... }
+{}
+```
+
+### GET `/api/learning/active`
+
+**Response:**
+
+```json
+// Returns { plans, count }
+{}
 ```
 
 ### POST `/api/replies/generate`
@@ -442,7 +501,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +531,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,16 +571,16 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { replies }
+{}
 ```
 
 ### POST `/api/replies/rewrite`
@@ -546,7 +603,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +633,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,16 +673,16 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { replies }
+{}
 ```
 
 ### POST `/api/replies/grammar`
@@ -650,7 +705,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +735,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,16 +775,25 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { replies }
+{}
+```
+
+### POST `/api/watch/analyze`
+
+**Response:**
+
+```json
+// Returns { analysis, ... }
+{}
 ```
 
 ### POST `/api/watch/log`
@@ -745,6 +807,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,16 +840,86 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
+// Returns { entry, ... }
+{}
+```
+
+### GET `/api/watch/items`
+
+**Response:**
+
+```json
+// Returns { entries, count }
+{}
+```
+
+### GET `/api/watch/profile`
+
+**Response:**
+
+```json
+// Returns { stats, topGenres, ... }
+{}
+```
+
+### GET `/api/watch/search-titles`
+
+**Response:**
+
+```json
+// Returns { candidates }
+{}
+```
+
+### POST `/api/watch/resolve-title`
+
+**Payload (JSON):**
+
+```json
 {
-  "success": "true (or structured response)"
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
 }
+```
+
+**Response:**
+
+```json
+// Returns { imdbId, canonicalTitle, ... }
+{}
 ```
 
 ### PATCH `/api/watch/items/{id}`
@@ -856,7 +991,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +1026,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +1047,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,16 +1057,25 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { entry, ... }
+{}
+```
+
+### DELETE `/api/watch/items/{id}`
+
+**Response:**
+
+```json
+// Returns { success }
+{}
 ```
 
 ### PATCH `/api/watch/items/{id}/status`
@@ -952,16 +1099,16 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": "true (or structured response)"
-}
+// Returns { entry, ... }
+{}
 ```
 
 ### POST `/api/watch/search`
@@ -988,7 +1135,79 @@
 **Response:**
 
 ```json
+// Returns { entries }
+{}
+```
+
+### POST `/api/watch/embed-all`
+
+**Response:**
+
+```json
+// Returns { success, embeddedCount }
+{}
+```
+
+### POST `/api/cinetrack/chat`
+
+**Payload (JSON):**
+
+```json
 {
-  "success": "true (or structured response)"
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
 }
+```
+
+**Response:**
+
+```json
+// Returns { reply, ... }
+{}
+```
+
+### GET `/api/settings/llm-options`
+
+**Response:**
+
+```json
+// Returns { active, providers }
+{}
+```
+
+### GET `/api/settings/usage`
+
+**Response:**
+
+```json
+// Returns usage stats
+{}
+```
+
+### GET `/api/settings/deepseek-balance`
+
+**Response:**
+
+```json
+// Returns { isAvailable, balances }
+{}
+```
+
+### GET `/api/settings/deepseek-usage`
+
+**Response:**
+
+```json
+// Returns { isAvailable, balances }
+{}
 ```
