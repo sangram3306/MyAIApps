@@ -28,7 +28,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +71,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +147,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -362,7 +365,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +414,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +447,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +477,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +517,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -746,6 +750,9 @@
       "type": "string",
       "minLength": 1
     },
+    "imdbId": {
+      "type": "string"
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -775,7 +782,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -931,6 +939,154 @@
 }
 ```
 
+### PUT `/api/watch/items/{id}`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "in_progress",
+        "completed",
+        "dropped"
+      ]
+    },
+    "favorite": {
+      "type": "boolean"
+    },
+    "releaseYear": {
+      "type": "string"
+    },
+    "director": {
+      "type": "string"
+    },
+    "leadActors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "budget": {
+      "type": "string"
+    },
+    "boxOffice": {
+      "type": "string"
+    },
+    "posterUrl": {
+      "type": "string"
+    },
+    "ratings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string",
+            "default": "Unknown"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "availability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string",
+            "minLength": 2
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "stream",
+              "rent",
+              "buy",
+              "free",
+              "ads"
+            ],
+            "default": "stream"
+          },
+          "link": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "region"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "externalDetails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "synopsis": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
 ### PATCH `/api/watch/items/{id}/status`
 
 **Payload (JSON):**
@@ -964,6 +1120,40 @@
 }
 ```
 
+### PUT `/api/watch/items/{id}/status`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "in_progress",
+        "completed",
+        "dropped"
+      ]
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
 ### POST `/api/watch/search`
 
 **Payload (JSON):**
@@ -982,6 +1172,233 @@
   "required": [
     "query"
   ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/search`
+
+**Query Parameters:**
+
+- `q` (string): Required
+- `type` (string): Optional
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/decisions/simulate`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 2000,
+      "default": ""
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "maxItems": 6,
+      "default": []
+    },
+    "horizon": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "near-term"
+    },
+    "stakes": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    }
+  },
+  "required": [
+    "question"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": true,
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/intelligence`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "string",
+      "enum": [
+        "all",
+        "month",
+        "year"
+      ],
+      "default": "month"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/message`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/watch/resolve`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
 }
 ```
 
