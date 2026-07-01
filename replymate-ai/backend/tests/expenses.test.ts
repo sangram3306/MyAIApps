@@ -327,3 +327,67 @@ function restoreEnv(key: string, value: string | undefined): void {
 
   process.env[key] = value;
 }
+
+
+test("handleExportExpensesRequest exports expenses", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return new Response(JSON.stringify({ expenses: [{ id: "e1", amount: 10 }] }), {
+        status: 200, headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    let attachmentName = "";
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+      setHeader(name: string, value: string) { },
+      attachment(name: string) { attachmentName = name; return this; },
+      send(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleExportExpensesRequest } = await import("../src/routes/expenseRoutes");
+    await handleExportExpensesRequest({}, res);
+
+    assert.equal(statusCode, 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.MCP_SERVER_URL = originalMcpServerUrl;
+  }
+});
+
+test("handleClearExpensesRequest clears expenses", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return new Response(JSON.stringify({ deletedCount: 1 }), {
+        status: 200, headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleClearExpensesRequest } = await import("../src/routes/expenseRoutes");
+    await handleClearExpensesRequest({}, res);
+
+    assert.equal(statusCode, 200);
+    assert.ok(true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.MCP_SERVER_URL = originalMcpServerUrl;
+  }
+});

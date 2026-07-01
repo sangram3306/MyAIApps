@@ -233,3 +233,189 @@ function restoreEnv(key: string, value: string | undefined): void {
 
   process.env[key] = value;
 }
+
+
+test("handleSkillTreesRequest returns a list of skill trees", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      skillTrees: [{ id: "tree-1", skillName: "Test" }],
+      count: 1,
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    // Using handleSkillTreesRequest which needs to be imported
+    const { handleSkillTreesRequest } = await import("../src/routes/learningRoutes");
+    await handleSkillTreesRequest({}, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).count, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("handleRoadmapsRequest returns a list of roadmaps", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      roadmaps: [{ id: "roadmap-1", topic: "Test" }],
+      count: 1,
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleRoadmapsRequest } = await import("../src/routes/learningRoutes");
+    await handleRoadmapsRequest({}, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).count, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("handleSaveSkillTreeRequest saves a skill tree", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      skillTree: { id: "tree-1", skillName: "Test" }
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleSaveSkillTreeRequest } = await import("../src/routes/learningRoutes");
+    await handleSaveSkillTreeRequest({ body: { skillName: "Test" } }, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).skillTree.id, "tree-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("handleDeleteSkillTreeRequest deletes a skill tree", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      summary: "Deleted",
+      id: "tree-1"
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleDeleteSkillTreeRequest } = await import("../src/routes/learningRoutes");
+    await handleDeleteSkillTreeRequest({ params: { id: "tree-1" } }, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).id, "tree-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("handleSaveRoadmapRequest saves a roadmap", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      roadmap: { id: "map-1", topic: "Test" }
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleSaveRoadmapRequest } = await import("../src/routes/learningRoutes");
+    await handleSaveRoadmapRequest({ body: { topic: "Test" } }, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).roadmap.id, "map-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
+
+test("handleDeleteRoadmapRequest deletes a roadmap", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMcpServerUrl = process.env.MCP_SERVER_URL;
+  process.env.MCP_SERVER_URL = "http://mock-mcp";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    return jsonResponse({
+      summary: "Deleted",
+      id: "map-1"
+    });
+  };
+
+  try {
+    let statusCode = 200;
+    let responseBody: unknown = null;
+    const res = {
+      status(code: number) { statusCode = code; return this; },
+      json(payload: unknown) { responseBody = payload; },
+    };
+
+    const { handleDeleteRoadmapRequest } = await import("../src/routes/learningRoutes");
+    await handleDeleteRoadmapRequest({ params: { id: "map-1" } }, res);
+
+    assert.equal(statusCode, 200);
+    assert.equal((responseBody as any).id, "map-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("MCP_SERVER_URL", originalMcpServerUrl);
+  }
+});
