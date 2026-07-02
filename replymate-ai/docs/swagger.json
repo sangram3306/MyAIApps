@@ -26,31 +26,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -64,14 +83,10 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -80,31 +95,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -132,14 +166,10 @@
                 "required": [
                   "message",
                   "relationshipContext"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -148,31 +178,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -233,14 +282,10 @@
                 },
                 "required": [
                   "sourceText"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -249,31 +294,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -316,14 +380,10 @@
                 },
                 "required": [
                   "question"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -332,31 +392,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -364,8 +443,7 @@
                 "properties": {
                   "amount": {
                     "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
+                    "exclusiveMinimum": 0
                   },
                   "currency": {
                     "type": "string",
@@ -392,14 +470,10 @@
                 "required": [
                   "amount",
                   "category"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -408,31 +482,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -446,14 +539,10 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -462,31 +551,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -501,14 +609,10 @@
                     ],
                     "default": "month"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -517,31 +621,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -580,14 +703,10 @@
                 },
                 "required": [
                   "skillName"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -596,31 +715,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -654,14 +792,10 @@
                 },
                 "required": [
                   "topic"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -670,31 +804,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -712,7 +865,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -743,7 +895,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -784,14 +935,10 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -800,31 +947,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -842,7 +1008,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -873,7 +1038,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -914,14 +1078,10 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -930,31 +1090,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -972,7 +1151,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -1003,7 +1181,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -1044,14 +1221,10 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -1060,31 +1233,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1093,6 +1285,9 @@
                   "title": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "imdbId": {
+                    "type": "string"
                   },
                   "type": {
                     "type": "string",
@@ -1123,14 +1318,10 @@
                 },
                 "required": [
                   "title"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -1139,39 +1330,58 @@
       "patch": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1238,7 +1448,8 @@
                       },
                       "required": [
                         "source"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "availability": {
@@ -1272,7 +1483,8 @@
                       "required": [
                         "provider",
                         "region"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "externalDetails": {
@@ -1292,7 +1504,8 @@
                       "required": [
                         "label",
                         "value"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "synopsis": {
@@ -1301,14 +1514,10 @@
                   "notes": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
@@ -1317,39 +1526,58 @@
       "patch": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1368,14 +1596,163 @@
                 },
                 "required": [
                   "status"
-                ]
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/watch/resolve-title": {
+      "post": {
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
               }
             }
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "year": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "movie",
+                      "series"
+                    ]
+                  },
+                  "director": {
+                    "type": "string"
+                  },
+                  "hint": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/watch/search-titles": {
+      "get": {
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "series"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1384,31 +1761,50 @@
       "post": {
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
             "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
+            "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            },
-            "required": false,
+            }
+          },
+          {
             "name": "X-LLM-Reasoning",
-            "in": "header"
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "string",
+                      "description": "true (or structured response)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1426,11 +1822,6 @@
                 ]
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
           }
         }
       }
