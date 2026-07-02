@@ -164,6 +164,8 @@ Watch tracker:
 - `POST /api/watch/log`
 - `GET /api/watch/items`
 - `GET /api/watch/profile`
+- `GET /api/watch/search-titles`
+- `POST /api/watch/resolve-title`
 - `PATCH /api/watch/items/:id`
 - `PATCH /api/watch/items/:id/status`
 - `DELETE /api/watch/items/:id`
@@ -219,7 +221,7 @@ Current tool names include:
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
-- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`, `searchOmdbTitles`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
@@ -254,6 +256,18 @@ OPENROUTER_MODEL=openai/gpt-oss-120b:free
 GROQ_API_KEY=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=openai/gpt-oss-120b
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_API_KEY=
+ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+GOOGLE_GEMINI_API_KEY=
+GOOGLE_GEMINI_BASE_URL=
+LLM_PROVIDER=
+CORS_ORIGIN=*
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_APP_TITLE=
 MCP_SERVER_URL=
 MCP_SHARED_SECRET=
 MONGO_URI=mongodb://localhost:27017/replymate
@@ -282,6 +296,13 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=AE,IN,US,GB
 ```
 
 ### 3. SP One mobile app
