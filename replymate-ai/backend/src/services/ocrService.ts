@@ -10,13 +10,17 @@ type GeminiOcrResponse = {
   }>;
 };
 
+export type OcrItem = {
+  description: string;
+  amount: number;
+  category: string;
+};
+
 export type OcrExpenseResult = {
-  amount?: number;
   currency?: string;
-  category?: string;
-  description?: string;
   merchant?: string;
   date?: string;
+  items: OcrItem[];
   rawText?: string;
 };
 
@@ -29,11 +33,11 @@ function getGeminiApiKey(): string {
 }
 
 /**
- * Extract structured expense data from a receipt image using Gemini Vision.
+ * Extract structured itemized expense data from a receipt image using Gemini Vision.
  *
  * @param imageBase64 - Base64-encoded image data (no data URI prefix)
  * @param mimeType - MIME type of the image (e.g. "image/jpeg", "image/png")
- * @returns Structured expense fields extracted from the receipt
+ * @returns Structured itemized fields extracted from the receipt
  */
 export async function extractExpenseFromImage(
   imageBase64: string,
@@ -51,23 +55,27 @@ export async function extractExpenseFromImage(
 
   const url = `${baseUrl}/models/${GEMINI_OCR_MODEL}:generateContent?key=${apiKey}`;
 
-  const prompt = `You are an expense receipt parser. Analyze this receipt image and extract the following information as a JSON object:
+  const prompt = `You are an expense receipt parser. Analyze this receipt image and extract the itemized list of purchases along with general receipt information as a JSON object:
 
 {
-  "amount": <total amount as a number, e.g. 42.50>,
   "currency": <currency code like "AED", "INR", "USD", "EUR" — infer from symbols or country context>,
-  "category": <one of: "food", "groceries", "transport", "shopping", "bills", "rent", "health", "entertainment", "travel", "education", "other">,
-  "description": <brief description of the purchase, e.g. "Coffee at Starbucks">,
   "merchant": <merchant/store name if visible>,
   "date": <date on the receipt in YYYY-MM-DD format if visible, otherwise null>,
+  "items": [
+    {
+      "description": <name of the item purchased>,
+      "amount": <price of the item as a number>,
+      "category": <one of: "food", "groceries", "transport", "shopping", "bills", "rent", "health", "entertainment", "travel", "education", "other">
+    }
+  ],
   "rawText": <key text extracted from the receipt, keep it concise>
 }
 
 Rules:
 - Return ONLY the JSON object, no markdown fences, no extra text.
-- Use the total/grand total amount, not subtotals.
+- Do NOT include subtotal, tax, or total as items unless they are the only things you can extract. Focus on the actual purchased items.
 - If a field cannot be determined, set it to null.
-- For category, choose the most appropriate option from the list provided.`;
+- For category, choose the most appropriate option from the list provided for each individual item.`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -115,18 +123,28 @@ Rules:
 
   try {
     const parsed = JSON.parse(cleaned) as OcrExpenseResult;
+    
+    // Ensure items array exists and sanitize
+    const sanitizedItems: OcrItem[] = Array.isArray(parsed.items)
+      ? parsed.items
+          .filter((item) => typeof item.amount === "number" && item.description)
+          .map((item) => ({
+            description: String(item.description),
+            amount: Number(item.amount),
+            category: typeof item.category === "string" ? item.category.toLowerCase() : "other",
+          }))
+      : [];
+
     return {
-      amount: typeof parsed.amount === "number" ? parsed.amount : undefined,
       currency: typeof parsed.currency === "string" ? parsed.currency : undefined,
-      category: typeof parsed.category === "string" ? parsed.category.toLowerCase() : undefined,
-      description: typeof parsed.description === "string" ? parsed.description : undefined,
       merchant: typeof parsed.merchant === "string" ? parsed.merchant : undefined,
       date: typeof parsed.date === "string" ? parsed.date : undefined,
+      items: sanitizedItems,
       rawText: typeof parsed.rawText === "string" ? parsed.rawText : undefined,
     };
   } catch {
     console.error("[ocr] Failed to parse Gemini response as JSON:", cleaned);
     // Fallback: return raw text so the user still gets something useful
-    return { rawText: cleaned, description: cleaned.slice(0, 200) };
+    return { items: [], rawText: cleaned };
   }
 }

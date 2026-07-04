@@ -725,13 +725,17 @@ export async function createExpenseFromApi(params: {
   return data as ExpenseMessageResponse;
 }
 
+export type OcrItem = {
+  description: string;
+  amount: number;
+  category: string;
+};
+
 export type OcrReceiptResult = {
-  amount?: number;
   currency?: string;
-  category?: string;
-  description?: string;
   merchant?: string;
   date?: string;
+  items: OcrItem[];
   rawText?: string;
 };
 
@@ -757,7 +761,34 @@ export async function ocrReceiptFromApi(params: {
     throw new Error(data?.error || "Could not process receipt image.");
   }
 
-  return data || {};
+  return data || { items: [] };
+}
+
+export async function createBatchExpensesFromApi(params: {
+  backendUrl: string;
+  expenses: {
+    amount: number;
+    currency?: string;
+    category: string;
+    description: string;
+    date?: string;
+  }[];
+}): Promise<{ count: number }> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/batch`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      expenses: params.expenses,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not create batch expenses.");
+  }
+
+  return data;
 }
 
 export async function getExpenseExportFromApi(params: {

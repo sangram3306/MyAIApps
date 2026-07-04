@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  Modal,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
@@ -33,6 +34,8 @@ import {
   getExpenseExportFromApi,
   ocrReceiptFromApi,
   sendExpenseMessageFromApi,
+  OcrItem,
+  createBatchExpensesFromApi,
 } from "../../services/api";
 
 const baseCategories: {
@@ -109,6 +112,8 @@ export default function ExpensesScreen() {
   const [monthCurrency, setMonthCurrency] = useState<"AED" | "INR">("AED");
   const [receiptOcrEnabled, setReceiptOcrEnabled] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scannedItems, setScannedItems] = useState<OcrItem[] | null>(null);
+  const [savingBatch, setSavingBatch] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -272,33 +277,56 @@ export default function ExpensesScreen() {
         mimeType,
       });
 
-      // Auto-fill the form from OCR results
-      if (typeof ocrResult.amount === "number" && ocrResult.amount > 0) {
-        setAmount(String(ocrResult.amount));
-      }
-
-      if (ocrResult.currency === "AED" || ocrResult.currency === "INR") {
-        setCurrency(ocrResult.currency);
-      }
-
-      if (ocrResult.category) {
-        const matchedCategory = baseCategories.find(
-          (c) => c.label.toLowerCase() === ocrResult.category?.toLowerCase(),
-        );
-        if (matchedCategory) {
-          setCategory(matchedCategory.label);
+      if (ocrResult.items && ocrResult.items.length > 0) {
+        setScannedItems(ocrResult.items);
+        if (ocrResult.currency === "AED" || ocrResult.currency === "INR") {
+          setCurrency(ocrResult.currency);
         }
-      }
-
-      const description = ocrResult.description || ocrResult.merchant || "";
-      if (description) {
-        setNote(description);
+      } else {
+        setError("No items could be extracted from the receipt.");
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not scan receipt.");
     } finally {
       setScanning(false);
     }
+  }
+
+  async function handleSaveBatch() {
+    if (!backendUrl || !scannedItems) return;
+    setSavingBatch(true);
+    setError("");
+
+    try {
+      const expensesToSave = scannedItems.map((item) => {
+        const matchedCategory = baseCategories.find(
+          (c) => c.label.toLowerCase() === item.category.toLowerCase()
+        );
+        return {
+          amount: item.amount,
+          currency: currency,
+          category: matchedCategory ? matchedCategory.label.toLowerCase() : "other",
+          description: item.description,
+        };
+      });
+
+      await createBatchExpensesFromApi({
+        backendUrl,
+        expenses: expensesToSave,
+      });
+
+      setScannedItems(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save batch expenses.");
+    } finally {
+      setSavingBatch(false);
+    }
+  }
+
+  function handleRemoveScannedItem(indexToRemove: number) {
+    if (!scannedItems) return;
+    const filtered = scannedItems.filter((_, idx) => idx !== indexToRemove);
+    setScannedItems(filtered.length > 0 ? filtered : null);
   }
 
   async function handleSaveExpense() {
@@ -625,8 +653,8 @@ export default function ExpensesScreen() {
               <Text style={styles.answer}>{insightResult.assistantReply}</Text>
               {insightResult.toolCalls.length ? (
                 <View style={styles.pillWrap}>
-                  {insightResult.toolCalls.map((tool) => (
-                    <View key={`${tool.name}-${tool.source}`} style={styles.toolPill}>
+                  {insightResult.toolCalls.map((tool, index) => (
+                    <View key={`${tool.name}-${tool.source}-${index}`} style={styles.toolPill}>
                       <Text style={styles.pillName}>{tool.name}</Text>
                       <Text style={styles.pillSource}>{tool.source}</Text>
                     </View>
@@ -669,6 +697,56 @@ export default function ExpensesScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      {/* Itemized Preview Modal */}
+      <Modal visible={scannedItems !== null} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Receipt Items</Text>
+              <Pressable onPress={() => setScannedItems(null)} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              {scannedItems?.map((item, index) => {
+                const cat = baseCategories.find(c => c.label.toLowerCase() === item.category.toLowerCase()) || baseCategories.find(c => c.label === "Other");
+                return (
+                  <View key={index} style={styles.scannedItemRow}>
+                    <View style={[styles.scannedItemIcon, { backgroundColor: cat?.accent + "33" }]}>
+                      <Ionicons name={cat?.icon as any} size={18} color={cat?.accent} />
+                    </View>
+                    <View style={styles.scannedItemMain}>
+                      <Text style={styles.scannedItemDesc} numberOfLines={1}>{item.description}</Text>
+                      <Text style={styles.scannedItemCat}>{cat?.label}</Text>
+                    </View>
+                    <Text style={styles.scannedItemAmount}>{item.amount} {currency}</Text>
+                    <Pressable onPress={() => handleRemoveScannedItem(index)} style={styles.removeScannedItem}>
+                      <Ionicons name="trash-outline" size={18} color={colors.red} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <Pressable
+                disabled={savingBatch}
+                onPress={handleSaveBatch}
+                style={[styles.primaryButton, savingBatch && styles.disabledButton]}
+              >
+                {savingBatch ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" color={colors.text} size={17} />
+                    <Text style={styles.primaryButtonText}>Save {scannedItems?.length} Items</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1193,9 +1271,83 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
   },
   pillSource: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    maxHeight: "80%",
+    minHeight: "50%",
+    paddingBottom: spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 18,
     fontWeight: "900",
-    textTransform: "uppercase",
+  },
+  modalCloseButton: {
+    padding: spacing.xs,
+  },
+  modalBody: {
+    padding: spacing.md,
+  },
+  scannedItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+  },
+  scannedItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  scannedItemMain: {
+    flex: 1,
+  },
+  scannedItemDesc: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  scannedItemCat: {
+    color: colors.muted,
+    fontSize: 12,
+  },
+  scannedItemAmount: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+    marginHorizontal: spacing.sm,
+  },
+  removeScannedItem: {
+    padding: spacing.xs,
+  },
+  modalFooter: {
+    padding: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   dbBadge: {
     backgroundColor: colors.primarySoft,

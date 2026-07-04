@@ -31,6 +31,7 @@ type ExpenseToolResult = {
 };
 
 router.post("/create", handleCreateExpenseRequest);
+router.post("/batch", handleBatchCreateExpenseRequest);
 router.post("/message", handleExpenseMessageRequest);
 router.get("/export", handleExportExpensesRequest);
 router.post("/intelligence", handleExpenseIntelligenceRequest);
@@ -447,6 +448,63 @@ async function handleOcrReceiptRequest(
     console.error("[expenses/ocr] OCR error:", error);
     res.status(500).json({
       error: error instanceof Error ? error.message : "Could not process receipt image.",
+    });
+  }
+}
+
+export async function handleBatchCreateExpenseRequest(
+  req: { body: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const input = req.body as any;
+    if (!Array.isArray(input.expenses)) {
+      return res.status(400).json({ error: "expenses must be an array" });
+    }
+
+    const created: ExpenseItem[] = [];
+
+    for (const exp of input.expenses) {
+      try {
+        const validated = expenseCreateSchema.parse(exp);
+        const description = validated.description?.trim() || validated.category;
+        
+        const result = await callMcpTool<ExpenseToolResult>(
+          "createExpense",
+          {
+            amount: validated.amount,
+            currency: validated.currency,
+            category: validated.category,
+            description,
+            ...(validated.date ? { date: validated.date } : {}),
+          },
+          {
+            timeoutMs: 5000,
+            retries: 1,
+          },
+        );
+
+        if (result.expenses && result.expenses.length > 0) {
+          // createExpense returns the updated list of expenses. The newest is the first one or we can just pull it from result
+          created.push(result.expenses[0]);
+        }
+      } catch (err) {
+        console.error("Failed to create expense in batch:", err);
+        // Continue with the rest even if one fails
+      }
+    }
+
+    res.json({
+      success: true,
+      count: created.length,
+      created,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Could not process batch expense creation.",
     });
   }
 }
