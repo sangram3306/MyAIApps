@@ -75,7 +75,7 @@ export async function listExpenses(filter: {
   category?: string;
   limit?: number;
 } = {}): Promise<ExpenseItem[]> {
-  const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+  const limit = Math.min(Math.max(filter.limit || 20, 1), 500);
   const category = filter.category?.trim().toLowerCase();
 
   if (!shouldUseFileStore()) {
