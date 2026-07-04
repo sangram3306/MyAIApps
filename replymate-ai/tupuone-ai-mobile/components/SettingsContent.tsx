@@ -20,6 +20,7 @@ import {
   getLibraryAwareChatPreference,
   getLlmPreference,
   getRagEnabledPreference,
+  getReceiptOcrEnabledPreference,
   getReplyResponseCountPreference,
   getRewriteResponseCountPreference,
   getSearchAutocompletePreference,
@@ -31,6 +32,7 @@ import {
   saveLibraryAwareChatPreference,
   saveLlmPreference,
   saveRagEnabledPreference,
+  saveReceiptOcrEnabledPreference,
   saveReplyResponseCountPreference,
   saveRewriteResponseCountPreference,
   saveSearchAutocompletePreference,
@@ -69,7 +71,7 @@ const responseCountOptions: { label: string; value: `${ResponseCountPreference}`
   { label: "5", value: "5" },
 ];
 
-type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "privacy" | "lock" | "searchBar" | null;
+type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "expenses" | "privacy" | "lock" | "searchBar" | null;
 
 type RowTone = "primary" | "purple" | "danger";
 
@@ -98,6 +100,7 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
   const [ragEnabled, setRagEnabled] = useState(false);
   const [smartContextEnabled, setSmartContextEnabled] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [receiptOcrEnabled, setReceiptOcrEnabled] = useState(false);
 
   const selectedProvider = llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
   const selectedModel = selectedProvider.models.find((model) => model.value === llmPreference.model);
@@ -115,7 +118,8 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
       getAlwaysUseLlmChatPreference(),
       getRagEnabledPreference(),
       getSmartContextEnabledPreference(),
-    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, libAware, alwaysLlm, rag, smartCtx]) => {
+      getReceiptOcrEnabledPreference(),
+    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, libAware, alwaysLlm, rag, smartCtx, ocrEnabled]) => {
       setLlmPreference(llm);
       setDefaultTab(tab);
       setAppLockMode(lockMode);
@@ -126,6 +130,7 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
       setAlwaysUseLlmChat(alwaysLlm);
       setRagEnabled(rag);
       setSmartContextEnabled(smartCtx);
+      setReceiptOcrEnabled(ocrEnabled);
     });
 
     return () => setExpandedPanel(null);
@@ -264,6 +269,11 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
       setRagEnabled(false);
       void saveRagEnabledPreference(false);
     }
+  }
+
+  function handleReceiptOcrChange(value: boolean) {
+    setReceiptOcrEnabled(value);
+    void saveReceiptOcrEnabledPreference(value);
   }
 
   function togglePanel(panel: Exclude<DetailPanelId, null>) {
@@ -411,6 +421,27 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
                 subtitle="Send taste summary + fast keyword filtering"
                 value={smartContextEnabled}
                 onValueChange={handleSmartContextEnabledChange}
+                styles={styles}
+              />
+            </DetailCard>
+          ) : null}
+
+          <SettingRow
+            icon="wallet-outline"
+            title="Expenses"
+            subtitle={`Receipt OCR ${receiptOcrEnabled ? "ON" : "OFF"}`}
+            active={expandedPanel === "expenses"}
+            onPress={() => togglePanel("expenses")}
+            styles={styles}
+          />
+          {expandedPanel === "expenses" ? (
+            <DetailCard styles={styles}>
+              <SwitchRow
+                icon="scan-outline"
+                title="Receipt OCR"
+                subtitle="Scan receipts to auto-fill expenses using AI"
+                value={receiptOcrEnabled}
+                onValueChange={handleReceiptOcrChange}
                 styles={styles}
               />
             </DetailCard>

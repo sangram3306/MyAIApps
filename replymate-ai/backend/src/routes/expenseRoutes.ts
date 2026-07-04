@@ -4,6 +4,7 @@ import { handleExpenseMessage } from "../agents/expenseAgent";
 import { callMcpTool } from "../mcp/mcpClient";
 import { expenseCreateSchema, expenseIntelligenceSchema, expenseMessageSchema } from "../schemas/expenseSchemas";
 import { generateExpenseIntelligence } from "../services/nvidiaService";
+import { extractExpenseFromImage } from "../services/ocrService";
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.post("/message", handleExpenseMessageRequest);
 router.get("/export", handleExportExpensesRequest);
 router.post("/intelligence", handleExpenseIntelligenceRequest);
 router.post("/clear", handleClearExpensesRequest);
+router.post("/ocr", handleOcrReceiptRequest);
 
 export async function handleCreateExpenseRequest(
   req: { body: unknown },
@@ -409,6 +411,44 @@ function capitalize(value: string): string {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+async function handleOcrReceiptRequest(
+  req: { body: unknown },
+  res: {
+    status(code: number): { json(payload: unknown): void };
+    json(payload: unknown): void;
+  },
+) {
+  try {
+    const body = req.body as { imageBase64?: string; mimeType?: string } | null;
+
+    if (!body?.imageBase64 || typeof body.imageBase64 !== "string") {
+      return res.status(400).json({ error: "imageBase64 is required." });
+    }
+
+    if (!body.mimeType || typeof body.mimeType !== "string") {
+      return res.status(400).json({ error: "mimeType is required." });
+    }
+
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+    if (!allowedMimeTypes.includes(body.mimeType.toLowerCase())) {
+      return res.status(400).json({ error: `Unsupported image type: ${body.mimeType}` });
+    }
+
+    // ~4MB base64 limit (roughly 3MB raw image)
+    if (body.imageBase64.length > 5_500_000) {
+      return res.status(400).json({ error: "Image is too large. Please use a smaller image." });
+    }
+
+    const result = await extractExpenseFromImage(body.imageBase64, body.mimeType);
+    res.json(result);
+  } catch (error) {
+    console.error("[expenses/ocr] OCR error:", error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Could not process receipt image.",
+    });
+  }
 }
 
 export default router;

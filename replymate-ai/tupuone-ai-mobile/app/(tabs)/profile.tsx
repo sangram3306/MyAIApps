@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, Image, Alert } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, Image, Alert, Linking } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
@@ -28,7 +28,14 @@ export default function ProfileScreen() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (permissionResult.granted === false) {
-      Alert.alert('Permission required', 'Permission to access camera roll is required!');
+      Alert.alert(
+        'Photos Permission Needed',
+        'Please allow photo access in Settings to update your profile picture.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
       return;
     }
 
