@@ -164,6 +164,8 @@ Watch tracker:
 - `POST /api/watch/log`
 - `GET /api/watch/items`
 - `GET /api/watch/profile`
+- `GET /api/watch/search-titles`
+- `POST /api/watch/resolve-title`
 - `PATCH /api/watch/items/:id`
 - `PATCH /api/watch/items/:id/status`
 - `DELETE /api/watch/items/:id`
@@ -219,7 +221,7 @@ Current tool names include:
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
-- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`, `searchOmdbTitles`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
@@ -282,6 +284,14 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+EXPENSE_STORE_PATH=
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=
 ```
 
 ### 3. SP One mobile app

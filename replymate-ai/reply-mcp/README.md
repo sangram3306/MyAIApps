@@ -19,6 +19,21 @@ It exposes:
 - `POST /tools/listExpenses`
 - `POST /tools/expenseSummary`
 - `POST /tools/deleteExpense`
+- `POST /tools/saveDecisionSimulation`
+- `POST /tools/listDecisionSimulations`
+- `POST /tools/saveSkillTree`
+- `POST /tools/listSkillTrees`
+- `POST /tools/deleteSkillTree`
+- `POST /tools/saveLearningRoadmap`
+- `POST /tools/listLearningRoadmaps`
+- `POST /tools/deleteLearningRoadmap`
+- `POST /tools/saveWatchEntry`
+- `POST /tools/listWatchEntries`
+- `POST /tools/updateWatchEntryStatus`
+- `POST /tools/updateWatchEntry`
+- `POST /tools/deleteWatchEntry`
+- `POST /tools/fetchWatchMetadata`
+- `POST /tools/searchOmdbTitles`
 
 The tools are hybrid:
 
@@ -54,6 +69,14 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+EXPENSE_STORE_PATH=
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=
 ```
 
 ## Render Deployment
@@ -73,6 +96,14 @@ MONGODB_WATCH_COLLECTION=watch_tracker
    - `MONGODB_TODOS_COLLECTION`
    - `MONGODB_EXPENSES_COLLECTION`
    - `MONGODB_WATCH_COLLECTION`
+   - `MONGODB_DECISIONS_COLLECTION`
+   - `MONGODB_SKILL_TREES_COLLECTION`
+   - `MONGODB_LEARNING_ROADMAPS_COLLECTION`
+   - `EXPENSE_STORE_PATH`
+   - `OMDB_API_KEY`
+   - `TMDB_API_KEY`
+   - `TMDB_READ_ACCESS_TOKEN`
+   - `TMDB_REGIONS`
 6. Deploy the service.
 7. Copy the deployed URL.
 8. Set that URL in the backend `MCP_SERVER_URL`.
