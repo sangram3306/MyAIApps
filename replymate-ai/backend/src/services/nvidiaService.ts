@@ -166,7 +166,7 @@ export async function generateCoachOutput(input: CoachDraftInput): Promise<{
 }
 
 export type ExpenseIntelligenceInput = {
-  period: "all" | "month" | "year";
+  period: string;
   total: number;
   count: number;
   average: number;
