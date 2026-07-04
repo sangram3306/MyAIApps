@@ -13,10 +13,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl, getBudgetTargetPreference, getBudgetWarningThresholdPreference } from "../../storage/appStorage";
-import { ExpenseExportResponse, ExpenseItem, getExpenseExportFromApi } from "../../services/api";
+import { ExpenseExportResponse, ExpenseItem, getExpenseExportFromApi, getExpenseIntelligenceFromApi, ExpenseIntelligenceResponse } from "../../services/api";
 
-const summaryPeriods = ["monthly", "yearly"] as const;
+const summaryPeriods = ["month", "year"] as const;
 type SummaryPeriod = (typeof summaryPeriods)[number];
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June", 
+  "July", "August", "September", "October", "November", "December"
+];
 
 type SummaryPoint = {
   key: string;
@@ -25,117 +30,113 @@ type SummaryPoint = {
   count: number;
 };
 
-type SummaryData = {
-  points: SummaryPoint[];
-  total: number;
-  currentPeriodTotal: number;
-  currentPeriodCount: number;
-  average: number;
-  count: number;
-  currency?: "AED" | "INR";
-};
-
-export default function SpendingSummaryScreen() {
+export default function AnalyticsScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+  
   const [backendUrl, setBackendUrl] = useState("");
-  const [expenseExport, setExpenseExport] = useState<ExpenseExportResponse | null>(null);
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
   const [budgetWarningThreshold, setBudgetWarningThreshold] = useState(80);
-  const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>("monthly");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  
+  const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>("month");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  const [yearData, setYearData] = useState<ExpenseExportResponse | null>(null);
+  const [yearLoading, setYearLoading] = useState(false);
+  const [yearError, setYearError] = useState("");
 
-  const summaryData = useMemo(() => {
-    const expenses = expenseExport?.expenses || [];
-    return buildSummaryData(expenses, summaryPeriod);
-  }, [expenseExport, summaryPeriod]);
+  const [monthData, setMonthData] = useState<ExpenseIntelligenceResponse | null>(null);
+  const [monthLoading, setMonthLoading] = useState(false);
+  const [monthError, setMonthError] = useState("");
 
-  const categoryBreakdown = expenseExport?.byCategory || [];
-  const topCategory = categoryBreakdown[0] || null;
-  const recentExpenses = useMemo(() => {
-    const expenses = expenseExport?.expenses || [];
-    return [...expenses]
-      .sort(
-        (a, b) =>
-          (parseExpenseDate(b.date)?.getTime() || 0) -
-          (parseExpenseDate(a.date)?.getTime() || 0),
-      )
-      .slice(0, 5);
-  }, [expenseExport]);
-  const budgetProgress =
-    budgetTarget && budgetTarget > 0 ? Math.min(100, (summaryData.total / budgetTarget) * 100) : null;
-  const budgetStatus =
-    budgetProgress === null
-      ? "Set a budget target to track progress here."
-      : budgetProgress >= budgetWarningThreshold
-        ? `You are at ${budgetProgress.toFixed(0)}% of your target.`
-        : `You have used ${budgetProgress.toFixed(0)}% of your budget target.`;
+  const monthYearString = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  }, [currentDate]);
 
-  const refreshSummary = useCallback(
-    async (url = backendUrl, isActive = true) => {
-      if (!url) {
-        if (isActive) {
-          setExpenseExport(null);
-          setError("Expense summary is unavailable until the backend connects.");
-        }
-        return;
-      }
+  const displayMonthString = useMemo(() => {
+    return `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+  }, [currentDate]);
 
-      setLoading(true);
-      setError("");
+  const fetchYearData = useCallback(async (url: string) => {
+    setYearLoading(true);
+    setYearError("");
+    try {
+      const res = await getExpenseExportFromApi({ backendUrl: url });
+      setYearData(res);
+    } catch (e) {
+      setYearError(e instanceof Error ? e.message : "Error loading year data");
+    } finally {
+      setYearLoading(false);
+    }
+  }, []);
 
-      try {
-        const exportData = await getExpenseExportFromApi({ backendUrl: url });
-        if (!isActive) {
-          return;
-        }
-
-        setExpenseExport(exportData);
-      } catch (caught) {
-        if (!isActive) {
-          return;
-        }
-
-        setExpenseExport(null);
-        setError(caught instanceof Error ? caught.message : "Could not load the summary.");
-      } finally {
-        if (isActive) {
-          setLoading(false);
-        }
-      }
-    },
-    [backendUrl],
-  );
+  const fetchMonthData = useCallback(async (url: string, periodStr: string) => {
+    setMonthLoading(true);
+    setMonthError("");
+    try {
+      const res = await getExpenseIntelligenceFromApi({ backendUrl: url, period: periodStr });
+      setMonthData(res);
+    } catch (e) {
+      setMonthError(e instanceof Error ? e.message : "Error loading month data");
+    } finally {
+      setMonthLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-
       async function load() {
         const [url, target, threshold] = await Promise.all([
           getBackendUrl(),
           getBudgetTargetPreference(),
           getBudgetWarningThresholdPreference(),
         ]);
-        if (!active) {
-          return;
-        }
-
+        if (!active) return;
         setBackendUrl(url);
         setBudgetTarget(target);
         setBudgetWarningThreshold(threshold);
-        await refreshSummary(url, true);
+        
+        if (summaryPeriod === "year" && !yearData) {
+          fetchYearData(url);
+        } else if (summaryPeriod === "month") {
+          fetchMonthData(url, monthYearString);
+        }
       }
-
-      void load();
-
-      return () => {
-        active = false;
-      };
-    }, [refreshSummary]),
+      load();
+      return () => { active = false; };
+    }, [summaryPeriod, monthYearString, fetchMonthData, fetchYearData, yearData])
   );
+
+  function prevMonth() {
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    });
+  }
+
+  function nextMonth() {
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    });
+  }
+
+  // Derived Year Data
+  const yearSummaryData = useMemo(() => {
+    const expenses = yearData?.expenses || [];
+    const currency = commonCurrency(expenses);
+    const points = buildMonthlyPoints(expenses);
+    const total = points.reduce((sum, item) => sum + item.total, 0);
+    const count = points.reduce((sum, item) => sum + item.count, 0);
+    const average = points.length ? total / points.length : 0;
+    return { points, total, average, count, currency };
+  }, [yearData]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
@@ -147,12 +148,11 @@ export default function SpendingSummaryScreen() {
       <View style={styles.hero}>
         <View style={styles.heroBadge}>
           <Ionicons name="stats-chart-outline" color={colors.primary} size={16} />
-          <Text style={styles.heroBadgeText}>Spending dashboard</Text>
+          <Text style={styles.heroBadgeText}>Analytics & Insights</Text>
         </View>
-        <Text style={styles.title}>Spending Summary</Text>
+        <Text style={styles.title}>Spending Analytics</Text>
         <Text style={styles.subtitle}>
-          Review your monthly and yearly spending patterns, budget usage, category trends, and
-          recent activity without crowding the expense entry flow.
+          Review your spending patterns, AI insights, budget usage, and category trends.
         </Text>
       </View>
 
@@ -161,7 +161,7 @@ export default function SpendingSummaryScreen() {
           <View>
             <Text style={styles.sectionTitle}>Overview</Text>
             <Text style={styles.sectionHint}>
-              {summaryPeriod === "monthly" ? "This year by month" : "Last 5 years"}
+              {summaryPeriod === "month" ? "Specific Month" : "Current Year"}
             </Text>
           </View>
           <View style={styles.summaryPills}>
@@ -174,7 +174,7 @@ export default function SpendingSummaryScreen() {
                   style={[styles.summaryPill, selected && styles.summaryPillSelected]}
                 >
                   <Text style={[styles.summaryPillText, selected && styles.summaryPillTextSelected]}>
-                    {item === "monthly" ? "Monthly" : "Yearly"}
+                    {item === "month" ? "Month" : "Year"}
                   </Text>
                 </Pressable>
               );
@@ -182,186 +182,185 @@ export default function SpendingSummaryScreen() {
           </View>
         </View>
 
-        {loading ? (
-          <View style={styles.stateRow}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.stateText}>Loading summary...</Text>
+        {summaryPeriod === "month" && (
+          <View style={styles.monthSelector}>
+            <Pressable onPress={prevMonth} style={styles.monthArrow}>
+              <Ionicons name="chevron-back" color={colors.primary} size={20} />
+            </Pressable>
+            <Text style={styles.monthSelectorText}>{displayMonthString}</Text>
+            <Pressable onPress={nextMonth} style={styles.monthArrow}>
+              <Ionicons name="chevron-forward" color={colors.primary} size={20} />
+            </Pressable>
           </View>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : summaryData.points.length ? (
-          <>
-            <View style={styles.summaryMetricsRow}>
-              <SummaryMetricCard
-                styles={styles}
-                label={summaryPeriod === "monthly" ? "This month" : "This year"}
-                value={formatAmount(summaryData.currentPeriodTotal, summaryData.currency)}
-              />
-              <SummaryMetricCard
-                styles={styles}
-                label={summaryPeriod === "monthly" ? "Avg / month" : "Avg / year"}
-                value={formatAmount(summaryData.average, summaryData.currency)}
-              />
-              <SummaryMetricCard styles={styles} label="Entries" value={`${summaryData.currentPeriodCount}`} />
+        )}
+
+        {summaryPeriod === "year" ? (
+          // YEAR VIEW
+          yearLoading ? (
+            <View style={styles.stateRow}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.stateText}>Loading year data...</Text>
             </View>
-
-            <View style={styles.insightGrid}>
-              <InsightCard
-                styles={styles}
-                icon="pricetag-outline"
-                title="Top category"
-                copy={
-                  topCategory
-                    ? `${topCategory.category} · ${formatAmount(topCategory.total, summaryData.currency)}`
-                    : "No category data yet"
-                }
-              />
-              <InsightCard
-                styles={styles}
-                icon="speedometer-outline"
-                title="Budget status"
-                copy={budgetStatus}
-              />
-              <InsightCard
-                styles={styles}
-                icon="trending-up-outline"
-                title="Peak period"
-                copy={getPeakPeriodLabel(summaryData.points, summaryPeriod, summaryData.currency)}
-              />
-              <InsightCard
-                styles={styles}
-                icon="calculator-outline"
-                title="Average per entry"
-                copy={formatAmount(summaryData.count ? summaryData.total / summaryData.count : 0, summaryData.currency)}
-              />
-            </View>
-
-            <SummaryBarChart
-              currency={summaryData.currency}
-              period={summaryPeriod}
-              points={summaryData.points}
-              styles={styles}
-            />
-
-            {budgetTarget && budgetTarget > 0 ? (
-              <View style={styles.budgetPanel}>
-                <View style={styles.budgetPanelHeader}>
-                  <Text style={styles.panelTitle}>Budget progress</Text>
-                  <Text style={styles.panelValue}>
-                    {formatAmount(summaryData.total, summaryData.currency)} /{" "}
-                    {formatAmount(budgetTarget, summaryData.currency)}
-                  </Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${Math.min(100, budgetProgress || 0)}%` },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.panelCopy}>
-                  Warning threshold: {budgetWarningThreshold}%
-                </Text>
+          ) : yearError ? (
+            <Text style={styles.errorText}>{yearError}</Text>
+          ) : yearSummaryData.points.length ? (
+            <>
+              <View style={styles.summaryMetricsRow}>
+                <SummaryMetricCard styles={styles} label="This year" value={formatAmount(yearSummaryData.total, yearSummaryData.currency)} />
+                <SummaryMetricCard styles={styles} label="Avg / month" value={formatAmount(yearSummaryData.average, yearSummaryData.currency)} />
+                <SummaryMetricCard styles={styles} label="Entries" value={`${yearSummaryData.count}`} />
               </View>
-            ) : null}
 
-            {categoryBreakdown.length ? (
-              <View style={styles.detailCard}>
-                <Text style={styles.panelTitle}>Top categories</Text>
-                <Text style={styles.panelCopy}>
-                  Where most of your spending is going in the selected period.
-                </Text>
-                <View style={styles.breakdownList}>
-                  {categoryBreakdown.slice(0, 5).map((item) => (
-                    <View key={item.category} style={styles.breakdownRow}>
-                      <View style={styles.breakdownLabelWrap}>
-                        <Text style={styles.breakdownLabel}>{item.category}</Text>
-                        <Text style={styles.breakdownMeta}>
-                          {item.count} {item.count === 1 ? "entry" : "entries"}
-                        </Text>
+              <SummaryBarChart currency={yearSummaryData.currency} points={yearSummaryData.points} styles={styles} />
+              
+              {budgetTarget && budgetTarget > 0 ? (
+                <View style={styles.budgetPanel}>
+                  <View style={styles.budgetPanelHeader}>
+                    <Text style={styles.panelTitle}>Budget progress (Yearly)</Text>
+                    <Text style={styles.panelValue}>
+                      {formatAmount(yearSummaryData.total, yearSummaryData.currency)} /{" "}
+                      {formatAmount(budgetTarget * 12, yearSummaryData.currency)}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${Math.min(100, (yearSummaryData.total / (budgetTarget * 12)) * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              {yearData?.byCategory?.length ? (
+                <View style={styles.detailCard}>
+                  <Text style={styles.panelTitle}>Top categories (Year)</Text>
+                  <View style={styles.breakdownList}>
+                    {yearData.byCategory.slice(0, 5).map((item) => (
+                      <View key={item.category} style={styles.breakdownRow}>
+                        <View style={styles.breakdownLabelWrap}>
+                          <Text style={styles.breakdownLabel}>{item.category}</Text>
+                          <Text style={styles.breakdownMeta}>{item.count} entries</Text>
+                        </View>
+                        <Text style={styles.breakdownValue}>{formatAmount(item.total, yearSummaryData.currency)}</Text>
                       </View>
-                      <Text style={styles.breakdownValue}>
-                        {formatAmount(item.total, summaryData.currency)}
-                      </Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ) : null}
-
-            {recentExpenses.length ? (
-              <View style={styles.detailCard}>
-                <Text style={styles.panelTitle}>Recent activity</Text>
-                <Text style={styles.panelCopy}>Latest entries from your expense history.</Text>
-                <View style={styles.recentList}>
-                  {recentExpenses.map((expense) => (
-                    <View key={expense.id} style={styles.recentRow}>
-                      <View style={styles.recentCopy}>
-                        <Text style={styles.recentTitle}>{expense.description}</Text>
-                        <Text style={styles.recentMeta}>
-                          {expense.category} · {expense.date}
-                        </Text>
-                      </View>
-                      <Text style={styles.recentAmount}>
-                        {formatAmount(expense.amount, expense.currency)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.emptyText}>Add expenses to see yearly trends.</Text>
+          )
         ) : (
-          <Text style={styles.emptyText}>Add a few expenses to see monthly and yearly trends.</Text>
+          // MONTH VIEW
+          monthLoading ? (
+            <View style={styles.stateRow}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.stateText}>Analyzing month...</Text>
+            </View>
+          ) : monthError ? (
+            <Text style={styles.errorText}>{monthError}</Text>
+          ) : monthData ? (
+            <>
+              <View style={styles.summaryMetricsRow}>
+                <SummaryMetricCard styles={styles} label="Spent" value={formatAmount(monthData.total, monthData.currency)} />
+                <SummaryMetricCard styles={styles} label="Avg / entry" value={formatAmount(monthData.average, monthData.currency)} />
+                <SummaryMetricCard styles={styles} label="Entries" value={`${monthData.count}`} />
+              </View>
+
+              {budgetTarget && budgetTarget > 0 ? (
+                <View style={styles.budgetPanel}>
+                  <View style={styles.budgetPanelHeader}>
+                    <Text style={styles.panelTitle}>Budget progress</Text>
+                    <Text style={styles.panelValue}>
+                      {formatAmount(monthData.total, monthData.currency)} /{" "}
+                      {formatAmount(budgetTarget, monthData.currency)}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${Math.min(100, (monthData.total / budgetTarget) * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              {monthData.intelligence && (
+                <View style={styles.insightPanel}>
+                  <View style={styles.insightHeaderRow}>
+                    <Ionicons name="sparkles" color={colors.primary} size={18} />
+                    <Text style={styles.insightHeaderTitle}>AI Coach</Text>
+                  </View>
+                  <Text style={styles.insightHeadline}>{monthData.intelligence.headline}</Text>
+                  <Text style={styles.insightSummary}>{monthData.intelligence.summary}</Text>
+                  
+                  {monthData.intelligence.anomalies?.length > 0 && (
+                    <View style={styles.insightSubSection}>
+                      <Text style={styles.insightSubKicker}>Anomalies</Text>
+                      {monthData.intelligence.anomalies.map((ano, i) => (
+                        <Text key={i} style={styles.insightBullet}>• {ano}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {monthData.intelligence.opportunities?.length > 0 && (
+                    <View style={styles.insightSubSection}>
+                      <Text style={styles.insightSubKicker}>Opportunities</Text>
+                      {monthData.intelligence.opportunities.map((opp, i) => (
+                        <Text key={i} style={styles.insightBullet}>• {opp}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {monthData.byCategory?.length ? (
+                <View style={styles.detailCard}>
+                  <Text style={styles.panelTitle}>Top categories</Text>
+                  <View style={styles.breakdownList}>
+                    {monthData.byCategory.slice(0, 5).map((item) => (
+                      <View key={item.category} style={styles.breakdownRow}>
+                        <View style={styles.breakdownLabelWrap}>
+                          <Text style={styles.breakdownLabel}>{item.category}</Text>
+                          <Text style={styles.breakdownMeta}>{item.count} entries</Text>
+                        </View>
+                        <Text style={styles.breakdownValue}>{formatAmount(item.total, monthData.currency)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {monthData.expenses?.length ? (
+                <View style={styles.detailCard}>
+                  <Text style={styles.panelTitle}>Transactions</Text>
+                  <View style={styles.recentList}>
+                    {monthData.expenses.map((expense) => (
+                      <View key={expense.id} style={styles.recentRow}>
+                        <View style={styles.recentCopy}>
+                          <Text style={styles.recentTitle}>{expense.description}</Text>
+                          <Text style={styles.recentMeta}>{expense.category} · {expense.date}</Text>
+                        </View>
+                        <Text style={styles.recentAmount}>{formatAmount(expense.amount, expense.currency)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>No transactions for this month.</Text>
+              )}
+            </>
+          ) : (
+            <Text style={styles.emptyText}>No data available for this month.</Text>
+          )
         )}
       </View>
     </ScrollView>
   );
-}
-
-function buildSummaryData(expenses: ExpenseItem[], period: SummaryPeriod): SummaryData {
-  const currency = commonCurrency(expenses);
-  const points = period === "monthly" ? buildMonthlyPoints(expenses) : buildYearlyPoints(expenses);
-  const total = points.reduce((sum, item) => sum + item.total, 0);
-  const count = points.reduce((sum, item) => sum + item.count, 0);
-  const average = points.length ? total / points.length : 0;
-
-  // Compute current-period-only totals (current month or current year)
-  let currentPeriodTotal = 0;
-  let currentPeriodCount = 0;
-  if (period === "monthly") {
-    const currentMonthIndex = new Date().getMonth();
-    const currentBucket = points[currentMonthIndex];
-    if (currentBucket) {
-      currentPeriodTotal = currentBucket.total;
-      currentPeriodCount = currentBucket.count;
-    }
-  } else {
-    const currentYearKey = String(new Date().getFullYear());
-    const currentBucket = points.find((p) => p.key === currentYearKey);
-    if (currentBucket) {
-      currentPeriodTotal = currentBucket.total;
-      currentPeriodCount = currentBucket.count;
-    }
-  }
-
-  return { points, total, currentPeriodTotal, currentPeriodCount, average, count, currency };
-}
-
-function getPeakPeriodLabel(
-  points: SummaryPoint[],
-  period: SummaryPeriod,
-  currency?: "AED" | "INR",
-): string {
-  const peak = [...points].sort((a, b) => b.total - a.total)[0];
-  if (!peak || peak.total <= 0) {
-    return "No spending yet";
-  }
-
-  return period === "monthly"
-    ? `${peak.label} · ${formatAmount(peak.total, currency)}`
-    : `${peak.label} · ${formatAmount(peak.total, currency)}`;
 }
 
 function buildMonthlyPoints(expenses: ExpenseItem[]): SummaryPoint[] {
@@ -374,55 +373,15 @@ function buildMonthlyPoints(expenses: ExpenseItem[]): SummaryPoint[] {
   }));
 
   for (const expense of expenses) {
-    const parsed = parseExpenseDate(expense.date);
-    if (!parsed || parsed.getFullYear() !== currentYear) {
+    const parsed = new Date(expense.date);
+    if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== currentYear) {
       continue;
     }
-
     const bucket = buckets[parsed.getMonth()];
     bucket.total += expense.amount || 0;
     bucket.count += 1;
   }
-
   return buckets;
-}
-
-function buildYearlyPoints(expenses: ExpenseItem[]): SummaryPoint[] {
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, index) => currentYear - (4 - index));
-  const buckets = years.map((year) => ({
-    key: String(year),
-    label: String(year),
-    total: 0,
-    count: 0,
-  }));
-  const bucketMap = new Map(years.map((year, index) => [year, buckets[index]]));
-
-  for (const expense of expenses) {
-    const parsed = parseExpenseDate(expense.date);
-    if (!parsed) {
-      continue;
-    }
-
-    const bucket = bucketMap.get(parsed.getFullYear());
-    if (!bucket) {
-      continue;
-    }
-
-    bucket.total += expense.amount || 0;
-    bucket.count += 1;
-  }
-
-  return buckets;
-}
-
-function parseExpenseDate(value: string): Date | null {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed;
 }
 
 function SummaryMetricCard({
@@ -442,38 +401,13 @@ function SummaryMetricCard({
   );
 }
 
-function InsightCard({
-  styles,
-  icon,
-  title,
-  copy,
-}: {
-  styles: ReturnType<typeof createStyles>;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  copy: string;
-}) {
-  const { colors } = useAppTheme();
-  return (
-    <View style={styles.insightCard}>
-      <View style={styles.insightIcon}>
-        <Ionicons name={icon} color={colors.primary} size={18} />
-      </View>
-      <Text style={styles.insightTitle}>{title}</Text>
-      <Text style={styles.insightCopy}>{copy}</Text>
-    </View>
-  );
-}
-
 function SummaryBarChart({
   styles,
   points,
-  period,
   currency,
 }: {
   styles: ReturnType<typeof createStyles>;
   points: SummaryPoint[];
-  period: SummaryPeriod;
   currency?: "AED" | "INR";
 }) {
   const maxValue = Math.max(...points.map((item) => item.total), 1);
@@ -496,14 +430,14 @@ function SummaryBarChart({
               <View
                 style={[
                   styles.chartBar,
-                  period === "monthly" ? styles.chartBarMonthly : styles.chartBarYearly,
+                  styles.chartBarMonthly,
                   { height: barHeight, opacity: hasValue ? 1 : 0.35 },
                 ]}
               />
             </View>
             <Text style={styles.chartLabel}>{point.label}</Text>
             <Text style={styles.chartCount}>
-              {point.count} {point.count === 1 ? "entry" : "entries"}
+              {point.count}
             </Text>
           </View>
         );
@@ -517,11 +451,10 @@ function commonCurrency(expenses: ExpenseItem[]): "AED" | "INR" | undefined {
   return currencies.size === 1 ? [...currencies][0] : undefined;
 }
 
-function formatAmount(value: number | undefined, currency?: "AED" | "INR"): string {
+function formatAmount(value: number | undefined, currency?: "AED" | "INR" | string): string {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return currency ? `${currency} 0.00` : "0.00";
   }
-
   const formatted = value.toLocaleString(undefined, {
     maximumFractionDigits: 2,
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
@@ -640,44 +573,48 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     summaryPillTextSelected: {
       color: colors.onPrimary,
     },
+    monthSelector: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.xs,
+    },
+    monthArrow: {
+      padding: spacing.sm,
+    },
+    monthSelectorText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: "700",
+    },
     summaryMetricsRow: {
       flexDirection: "row",
       gap: spacing.sm,
     },
-    insightGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.sm,
-    },
-    insightCard: {
+    metricCard: {
       backgroundColor: colors.surfaceElevated,
-      borderColor: colors.border,
+      borderColor: colors.borderStrong,
       borderRadius: 18,
       borderWidth: 1,
-      flexGrow: 1,
-      flexBasis: "48%",
-      gap: 8,
+      flex: 1,
       padding: spacing.md,
     },
-    insightIcon: {
-      alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.borderStrong,
-      borderRadius: 12,
-      borderWidth: 1,
-      height: 34,
-      justifyContent: "center",
-      width: 34,
-    },
-    insightTitle: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "900",
-    },
-    insightCopy: {
+    metricLabel: {
       color: colors.muted,
-      fontSize: 12,
-      lineHeight: 18,
+      fontSize: 11,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
+    },
+    metricValue: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "900",
+      marginTop: 4,
     },
     budgetPanel: {
       backgroundColor: colors.surfaceElevated,
@@ -723,11 +660,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontSize: 13,
       fontWeight: "800",
       textAlign: "right",
-    },
-    panelCopy: {
-      color: colors.muted,
-      fontSize: 12,
-      lineHeight: 18,
     },
     breakdownList: {
       gap: spacing.sm,
@@ -787,98 +719,110 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontSize: 13,
       fontWeight: "900",
     },
-    metricCard: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.borderStrong,
-      borderRadius: 18,
-      borderWidth: 1,
-      flex: 1,
-      padding: spacing.md,
-    },
-    metricLabel: {
-      color: colors.muted,
-      fontSize: 11,
-      fontWeight: "900",
-      letterSpacing: 0.6,
-      textTransform: "uppercase",
-    },
-    metricValue: {
-      color: colors.text,
-      fontSize: 22,
-      fontWeight: "900",
-      marginTop: spacing.xs,
-    },
     chartRail: {
       alignItems: "flex-end",
       gap: spacing.sm,
-      paddingBottom: spacing.xs,
-      paddingTop: spacing.xs,
+      paddingBottom: spacing.sm,
     },
     chartColumn: {
       alignItems: "center",
       gap: 6,
-      width: 64,
+      width: 44,
     },
     chartValue: {
-      color: colors.primary,
-      fontSize: 10,
-      fontWeight: "900",
-      textAlign: "center",
+      color: colors.muted,
+      fontSize: 9,
+      fontWeight: "700",
     },
     chartTrack: {
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      height: 150,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 8,
+      height: 132,
       justifyContent: "flex-end",
-      overflow: "hidden",
-      padding: 4,
-      width: 22,
+      width: 16,
     },
     chartBar: {
-      borderRadius: 999,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
       width: "100%",
     },
     chartBarMonthly: {
-      backgroundColor: colors.primary,
-    },
-    chartBarYearly: {
-      backgroundColor: colors.secondary,
+      backgroundColor: colors.cyan,
     },
     chartLabel: {
       color: colors.text,
       fontSize: 11,
       fontWeight: "800",
-      textAlign: "center",
     },
     chartCount: {
       color: colors.muted,
-      fontSize: 10,
-      textAlign: "center",
+      fontSize: 9,
     },
     stateRow: {
       alignItems: "center",
       flexDirection: "row",
       gap: spacing.sm,
-      justifyContent: "center",
-      minHeight: 92,
+      padding: spacing.md,
     },
     stateText: {
       color: colors.muted,
-      fontSize: 13,
-      fontWeight: "700",
+      fontSize: 14,
     },
     emptyText: {
       color: colors.muted,
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: 14,
+      padding: spacing.md,
+      textAlign: "center",
     },
     errorText: {
-      color: colors.danger,
-      fontSize: 13,
+      color: colors.red,
+      fontSize: 14,
+      padding: spacing.md,
+    },
+    insightPanel: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 16,
+      padding: spacing.md,
+      gap: spacing.sm,
+      borderColor: colors.primary,
+      borderWidth: 1,
+    },
+    insightHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    insightHeaderTitle: {
+      color: colors.primary,
+      fontWeight: "800",
+      fontSize: 14,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    insightHeadline: {
+      color: colors.text,
+      fontWeight: "900",
+      fontSize: 18,
+    },
+    insightSummary: {
+      color: colors.text,
+      fontSize: 14,
       lineHeight: 20,
+    },
+    insightSubSection: {
+      marginTop: spacing.xs,
+      gap: 4,
+    },
+    insightSubKicker: {
+      color: colors.primary,
+      fontWeight: "700",
+      fontSize: 12,
+      textTransform: "uppercase",
+    },
+    insightBullet: {
+      color: colors.text,
+      fontSize: 13,
+      lineHeight: 18,
     },
   });
 }

@@ -414,12 +414,6 @@ export default function ExpensesScreen() {
               Track, analyze and optimize your spending.
             </Text>
           </View>
-          <Pressable 
-            style={styles.heroAction}
-            onPress={() => router.push("/expense-monthly-report")}
-          >
-            <Ionicons name="pie-chart-outline" color={colors.text} size={24} />
-          </Pressable>
         </View>
 
         <View style={styles.monthCard}>
