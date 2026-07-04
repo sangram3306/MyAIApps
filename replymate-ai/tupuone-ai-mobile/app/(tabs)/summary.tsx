@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,13 +6,16 @@ import {
   StyleSheet,
   Text,
   View,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { getBackendUrl, getBudgetTargetPreference, getBudgetWarningThresholdPreference } from "../../storage/appStorage";
+import { getBackendUrl, getBudgetTargetPreference, saveBudgetTargetPreference, getYearlyBudgetTargetPreference, saveYearlyBudgetTargetPreference, getBudgetWarningThresholdPreference } from "../../storage/appStorage";
 import { ExpenseExportResponse, ExpenseItem, getExpenseExportFromApi, getExpenseIntelligenceFromApi, ExpenseIntelligenceResponse } from "../../services/api";
 
 const summaryPeriods = ["month", "year"] as const;
@@ -21,6 +24,24 @@ type SummaryPeriod = (typeof summaryPeriods)[number];
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", 
   "July", "August", "September", "October", "November", "December"
+];
+
+const CATEGORY_CONFIG: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accent: string;
+}[] = [
+  { label: "Food", icon: "restaurant-outline", accent: "#FFD166" },
+  { label: "Groceries", icon: "basket-outline", accent: "#45F5C6" },
+  { label: "Transport", icon: "car-outline", accent: "#7DD3FC" },
+  { label: "Shopping", icon: "bag-outline", accent: "#F0ABFC" },
+  { label: "Bills", icon: "receipt-outline", accent: "#FCA5A5" },
+  { label: "Rent", icon: "home-outline", accent: "#C4B5FD" },
+  { label: "Health", icon: "medkit-outline", accent: "#86EFAC" },
+  { label: "Entertainment", icon: "game-controller-outline", accent: "#FDBA74" },
+  { label: "Travel", icon: "airplane-outline", accent: "#93C5FD" },
+  { label: "Education", icon: "school-outline", accent: "#A7F3D0" },
+  { label: "Other", icon: "apps-outline", accent: "#CBD5E1" },
 ];
 
 type SummaryPoint = {
@@ -37,18 +58,26 @@ export default function AnalyticsScreen() {
   
   const [backendUrl, setBackendUrl] = useState("");
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
+  const [yearlyBudgetTarget, setYearlyBudgetTarget] = useState<number | null>(null);
   const [budgetWarningThreshold, setBudgetWarningThreshold] = useState(80);
   
   const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  const [isEditingMonthlyBudget, setIsEditingMonthlyBudget] = useState(false);
+  const [monthlyBudgetInput, setMonthlyBudgetInput] = useState("");
+  
+  const [isEditingYearlyBudget, setIsEditingYearlyBudget] = useState(false);
+  const [yearlyBudgetInput, setYearlyBudgetInput] = useState("");
+  
+  // We use yearData (the full export) to derive local stats instantly.
   const [yearData, setYearData] = useState<ExpenseExportResponse | null>(null);
   const [yearLoading, setYearLoading] = useState(false);
   const [yearError, setYearError] = useState("");
 
-  const [monthData, setMonthData] = useState<ExpenseIntelligenceResponse | null>(null);
-  const [monthLoading, setMonthLoading] = useState(false);
-  const [monthError, setMonthError] = useState("");
+  const [aiCoachData, setAiCoachData] = useState<ExpenseIntelligenceResponse | null>(null);
+  const [aiCoachLoading, setAiCoachLoading] = useState(false);
+  const [aiCoachError, setAiCoachError] = useState("");
 
   const monthYearString = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -73,43 +102,49 @@ export default function AnalyticsScreen() {
     }
   }, []);
 
-  const fetchMonthData = useCallback(async (url: string, periodStr: string) => {
-    setMonthLoading(true);
-    setMonthError("");
+  const fetchAiCoach = useCallback(async () => {
+    setAiCoachLoading(true);
+    setAiCoachError("");
     try {
-      const res = await getExpenseIntelligenceFromApi({ backendUrl: url, period: periodStr });
-      setMonthData(res);
+      const res = await getExpenseIntelligenceFromApi({ backendUrl, period: monthYearString });
+      setAiCoachData(res);
     } catch (e) {
-      setMonthError(e instanceof Error ? e.message : "Error loading month data");
+      setAiCoachError(e instanceof Error ? e.message : "Error loading AI Coach insights");
     } finally {
-      setMonthLoading(false);
+      setAiCoachLoading(false);
     }
-  }, []);
+  }, [backendUrl, monthYearString]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       async function load() {
-        const [url, target, threshold] = await Promise.all([
+        const [url, target, yearlyTarget, threshold] = await Promise.all([
           getBackendUrl(),
           getBudgetTargetPreference(),
+          getYearlyBudgetTargetPreference(),
           getBudgetWarningThresholdPreference(),
         ]);
         if (!active) return;
         setBackendUrl(url);
         setBudgetTarget(target);
+        setYearlyBudgetTarget(yearlyTarget);
         setBudgetWarningThreshold(threshold);
         
-        if (summaryPeriod === "year" && !yearData) {
+        if (!yearData) {
           fetchYearData(url);
-        } else if (summaryPeriod === "month") {
-          fetchMonthData(url, monthYearString);
         }
       }
       load();
       return () => { active = false; };
-    }, [summaryPeriod, monthYearString, fetchMonthData, fetchYearData, yearData])
+    }, [fetchYearData, yearData])
   );
+
+  // Reset AI coach data when month changes
+  useEffect(() => {
+    setAiCoachData(null);
+    setAiCoachError("");
+  }, [monthYearString]);
 
   function prevMonth() {
     setCurrentDate(prev => {
@@ -127,19 +162,109 @@ export default function AnalyticsScreen() {
     });
   }
 
-  // Derived Year Data
+  function prevYear() {
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setFullYear(d.getFullYear() - 1);
+      return d;
+    });
+  }
+
+  function nextYear() {
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setFullYear(d.getFullYear() + 1);
+      return d;
+    });
+  }
+
+  async function handleSaveYearlyBudget() {
+    const numericAmount = Number(yearlyBudgetInput.replace(/,/g, "."));
+    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+      setIsEditingYearlyBudget(false);
+      return;
+    }
+    const targetToSave = numericAmount === 0 ? null : numericAmount;
+    await saveYearlyBudgetTargetPreference(targetToSave);
+    setYearlyBudgetTarget(targetToSave);
+    setIsEditingYearlyBudget(false);
+  }
+
+  async function handleSaveMonthlyBudget() {
+    const numericAmount = Number(monthlyBudgetInput.replace(/,/g, "."));
+    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+      setIsEditingMonthlyBudget(false);
+      return;
+    }
+    const targetToSave = numericAmount === 0 ? null : numericAmount;
+    await saveBudgetTargetPreference(targetToSave);
+    setBudgetTarget(targetToSave);
+    setIsEditingMonthlyBudget(false);
+  }
+
+  // We keep this for future internal logic if needed or it can be removed
+  const dailySpendings = useMemo(() => {
+    if (!monthSummaryData?.expenses?.length) return [];
+    
+    const grouped = monthSummaryData.expenses.reduce((acc, expense) => {
+      const d = expense.date; 
+      if (!acc[d]) acc[d] = { amount: 0, currency: expense.currency };
+      acc[d].amount += expense.amount;
+      return acc;
+    }, {} as Record<string, { amount: number, currency: string }>);
+
+    return Object.entries(grouped)
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [monthSummaryData?.expenses]);
+
   const yearSummaryData = useMemo(() => {
     const expenses = yearData?.expenses || [];
     const currency = commonCurrency(expenses);
-    const points = buildMonthlyPoints(expenses);
+    const points = buildMonthlyPoints(expenses, currentDate.getFullYear());
     const total = points.reduce((sum, item) => sum + item.total, 0);
     const count = points.reduce((sum, item) => sum + item.count, 0);
     const average = points.length ? total / points.length : 0;
-    return { points, total, average, count, currency };
-  }, [yearData]);
+    
+    // Peak period
+    const peak = [...points].sort((a, b) => b.total - a.total)[0];
+    const peakLabel = peak && peak.total > 0 ? `${peak.label} · ${formatAmount(peak.total, currency)}` : "No spending yet";
+    
+    return { points, total, average, count, currency, peakLabel };
+  }, [yearData, currentDate]);
+
+  // Derived Month Data
+  const monthSummaryData = useMemo(() => {
+    const allExpenses = yearData?.expenses || [];
+    const monthExpenses = allExpenses.filter((e) => e.date.startsWith(monthYearString));
+    
+    const total = monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const count = monthExpenses.length;
+    const average = count > 0 ? total / count : 0;
+    const currency = commonCurrency(monthExpenses);
+    
+    const cats: Record<string, { total: number; count: number }> = {};
+    for (const e of monthExpenses) {
+      const cat = e.category || "Uncategorized";
+      if (!cats[cat]) cats[cat] = { total: 0, count: 0 };
+      cats[cat].total += e.amount || 0;
+      cats[cat].count += 1;
+    }
+    const byCategory = Object.entries(cats)
+      .map(([category, stats]) => ({ category, ...stats }))
+      .sort((a, b) => b.total - a.total);
+      
+    return { expenses: monthExpenses, total, count, average, currency, byCategory };
+  }, [yearData, monthYearString]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+      <ScrollView 
+        style={styles.screen} 
+        contentContainerStyle={styles.container}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
       <Pressable onPress={() => router.back()} style={styles.backButton}>
         <Ionicons name="chevron-back" color={colors.text} size={18} />
         <Text style={styles.backText}>Back</Text>
@@ -182,17 +307,17 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        {summaryPeriod === "month" && (
-          <View style={styles.monthSelector}>
-            <Pressable onPress={prevMonth} style={styles.monthArrow}>
-              <Ionicons name="chevron-back" color={colors.primary} size={20} />
-            </Pressable>
-            <Text style={styles.monthSelectorText}>{displayMonthString}</Text>
-            <Pressable onPress={nextMonth} style={styles.monthArrow}>
-              <Ionicons name="chevron-forward" color={colors.primary} size={20} />
-            </Pressable>
-          </View>
-        )}
+        <View style={styles.monthSelector}>
+          <Pressable onPress={summaryPeriod === "month" ? prevMonth : prevYear} style={styles.monthArrow}>
+            <Ionicons name="chevron-back" color={colors.primary} size={20} />
+          </Pressable>
+          <Text style={styles.monthSelectorText}>
+            {summaryPeriod === "month" ? displayMonthString : currentDate.getFullYear().toString()}
+          </Text>
+          <Pressable onPress={summaryPeriod === "month" ? nextMonth : nextYear} style={styles.monthArrow}>
+            <Ionicons name="chevron-forward" color={colors.primary} size={20} />
+          </Pressable>
+        </View>
 
         {summaryPeriod === "year" ? (
           // YEAR VIEW
@@ -206,46 +331,83 @@ export default function AnalyticsScreen() {
           ) : yearSummaryData.points.length ? (
             <>
               <View style={styles.summaryMetricsRow}>
-                <SummaryMetricCard styles={styles} label="This year" value={formatAmount(yearSummaryData.total, yearSummaryData.currency)} />
-                <SummaryMetricCard styles={styles} label="Avg / month" value={formatAmount(yearSummaryData.average, yearSummaryData.currency)} />
-                <SummaryMetricCard styles={styles} label="Entries" value={`${yearSummaryData.count}`} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="calendar" label="This year" value={formatAmount(yearSummaryData.total, yearSummaryData.currency)} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="trending-up" label="Peak Period" value={yearSummaryData.peakLabel} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="pie-chart" label="Avg / month" value={formatAmount(yearSummaryData.average, yearSummaryData.currency)} />
               </View>
 
-              <SummaryBarChart currency={yearSummaryData.currency} points={yearSummaryData.points} styles={styles} />
-              
-              {budgetTarget && budgetTarget > 0 ? (
-                <View style={styles.budgetPanel}>
-                  <View style={styles.budgetPanelHeader}>
-                    <Text style={styles.panelTitle}>Budget progress (Yearly)</Text>
-                    <Text style={styles.panelValue}>
-                      {formatAmount(yearSummaryData.total, yearSummaryData.currency)} /{" "}
-                      {formatAmount(budgetTarget * 12, yearSummaryData.currency)}
-                    </Text>
-                  </View>
+              <View style={styles.budgetPanel}>
+                <View style={styles.budgetPanelHeader}>
+                  <Text style={styles.panelTitle}>🎯 Yearly Target</Text>
+                  {isEditingYearlyBudget ? (
+                    <View style={styles.budgetEditRow}>
+                      <TextInput
+                        style={styles.budgetInput}
+                        value={yearlyBudgetInput}
+                        onChangeText={setYearlyBudgetInput}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.muted}
+                        autoFocus
+                        onBlur={handleSaveYearlyBudget}
+                        onSubmitEditing={handleSaveYearlyBudget}
+                      />
+                      <Pressable onPress={handleSaveYearlyBudget} style={styles.budgetSaveBtn}>
+                        <Text style={styles.budgetSaveText}>Save</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={styles.budgetPanelValueWrap}
+                      onPress={() => {
+                        setYearlyBudgetInput(yearlyBudgetTarget ? String(yearlyBudgetTarget) : "");
+                        setIsEditingYearlyBudget(true);
+                      }}
+                    >
+                      <Text style={styles.panelValue}>
+                        {formatAmount(yearSummaryData.total, yearSummaryData.currency)} /{" "}
+                        {yearlyBudgetTarget ? formatAmount(yearlyBudgetTarget, yearSummaryData.currency) : "Set Target"}
+                      </Text>
+                      <Ionicons name="pencil" size={12} color={colors.primary} />
+                    </Pressable>
+                  )}
+                </View>
+                {yearlyBudgetTarget && yearlyBudgetTarget > 0 ? (
                   <View style={styles.progressTrack}>
                     <View
                       style={[
                         styles.progressFill,
-                        { width: `${Math.min(100, (yearSummaryData.total / (budgetTarget * 12)) * 100)}%` },
+                        { width: `${Math.min(100, (yearSummaryData.total / yearlyBudgetTarget) * 100)}%` },
                       ]}
                     />
                   </View>
-                </View>
-              ) : null}
+                ) : null}
+              </View>
+
+              <SummaryBarChart currency={yearSummaryData.currency} points={yearSummaryData.points} styles={styles} />
 
               {yearData?.byCategory?.length ? (
                 <View style={styles.detailCard}>
-                  <Text style={styles.panelTitle}>Top categories (Year)</Text>
+                  <Text style={styles.panelTitle}>🔥 Top categories (Year)</Text>
                   <View style={styles.breakdownList}>
-                    {yearData.byCategory.slice(0, 5).map((item) => (
-                      <View key={item.category} style={styles.breakdownRow}>
-                        <View style={styles.breakdownLabelWrap}>
-                          <Text style={styles.breakdownLabel}>{item.category}</Text>
-                          <Text style={styles.breakdownMeta}>{item.count} entries</Text>
+                    {yearData.byCategory.slice(0, 5).map((item) => {
+                      const categoryData = CATEGORY_CONFIG.find(
+                        (c) => c.label.toLowerCase() === item.category.toLowerCase()
+                      ) || CATEGORY_CONFIG[CATEGORY_CONFIG.length - 1];
+
+                      return (
+                        <View key={item.category} style={styles.breakdownRow}>
+                          <View style={[styles.categoryIconBox, { backgroundColor: `${categoryData.accent}25` }]}>
+                            <Ionicons name={categoryData.icon} size={18} color={categoryData.accent} />
+                          </View>
+                          <View style={styles.breakdownLabelWrap}>
+                            <Text style={styles.breakdownLabel}>{item.category}</Text>
+                            <Text style={styles.breakdownMeta}>{item.count} entries</Text>
+                          </View>
+                          <Text style={styles.breakdownValue}>{formatAmount(item.total, yearSummaryData.currency)}</Text>
                         </View>
-                        <Text style={styles.breakdownValue}>{formatAmount(item.total, yearSummaryData.currency)}</Text>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
               ) : null}
@@ -255,91 +417,163 @@ export default function AnalyticsScreen() {
           )
         ) : (
           // MONTH VIEW
-          monthLoading ? (
+          yearLoading ? (
             <View style={styles.stateRow}>
               <ActivityIndicator color={colors.primary} />
-              <Text style={styles.stateText}>Analyzing month...</Text>
+              <Text style={styles.stateText}>Loading data...</Text>
             </View>
-          ) : monthError ? (
-            <Text style={styles.errorText}>{monthError}</Text>
-          ) : monthData ? (
+          ) : yearError ? (
+            <Text style={styles.errorText}>{yearError}</Text>
+          ) : monthSummaryData.count > 0 ? (
             <>
               <View style={styles.summaryMetricsRow}>
-                <SummaryMetricCard styles={styles} label="Spent" value={formatAmount(monthData.total, monthData.currency)} />
-                <SummaryMetricCard styles={styles} label="Avg / entry" value={formatAmount(monthData.average, monthData.currency)} />
-                <SummaryMetricCard styles={styles} label="Entries" value={`${monthData.count}`} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="wallet" label="Spent" value={formatAmount(monthSummaryData.total, monthSummaryData.currency)} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="calculator" label="Avg / entry" value={formatAmount(monthSummaryData.average, monthSummaryData.currency)} />
+                <SummaryMetricCard styles={styles} colors={colors} icon="list" label="Entries" value={`${monthSummaryData.count}`} />
               </View>
 
-              {budgetTarget && budgetTarget > 0 ? (
-                <View style={styles.budgetPanel}>
-                  <View style={styles.budgetPanelHeader}>
-                    <Text style={styles.panelTitle}>Budget progress</Text>
-                    <Text style={styles.panelValue}>
-                      {formatAmount(monthData.total, monthData.currency)} /{" "}
-                      {formatAmount(budgetTarget, monthData.currency)}
-                    </Text>
-                  </View>
+              <View style={styles.budgetPanel}>
+                <View style={styles.budgetPanelHeader}>
+                  <Text style={styles.panelTitle}>🎯 Monthly Budget</Text>
+                  {isEditingMonthlyBudget ? (
+                    <View style={styles.budgetEditRow}>
+                      <TextInput
+                        style={styles.budgetInput}
+                        value={monthlyBudgetInput}
+                        onChangeText={setMonthlyBudgetInput}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.muted}
+                        autoFocus
+                        onBlur={handleSaveMonthlyBudget}
+                        onSubmitEditing={handleSaveMonthlyBudget}
+                      />
+                      <Pressable onPress={handleSaveMonthlyBudget} style={styles.budgetSaveBtn}>
+                        <Text style={styles.budgetSaveText}>Save</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={styles.budgetPanelValueWrap}
+                      onPress={() => {
+                        setMonthlyBudgetInput(budgetTarget ? String(budgetTarget) : "");
+                        setIsEditingMonthlyBudget(true);
+                      }}
+                    >
+                      <Text style={styles.panelValue}>
+                        {formatAmount(monthSummaryData.total, monthSummaryData.currency)} /{" "}
+                        {budgetTarget ? formatAmount(budgetTarget, monthSummaryData.currency) : "Set Target"}
+                      </Text>
+                      <Ionicons name="pencil" size={12} color={colors.primary} />
+                    </Pressable>
+                  )}
+                </View>
+                {budgetTarget && budgetTarget > 0 ? (
                   <View style={styles.progressTrack}>
                     <View
                       style={[
                         styles.progressFill,
-                        { width: `${Math.min(100, (monthData.total / budgetTarget) * 100)}%` },
+                        { width: `${Math.min(100, (monthSummaryData.total / budgetTarget) * 100)}%` },
                       ]}
                     />
                   </View>
-                </View>
-              ) : null}
+                ) : null}
+              </View>
 
-              {monthData.intelligence && (
-                <View style={styles.insightPanel}>
+              <View style={styles.insightPanel}>
+                {aiCoachLoading || aiCoachError || aiCoachData?.intelligence ? (
                   <View style={styles.insightHeaderRow}>
                     <Ionicons name="sparkles" color={colors.primary} size={18} />
                     <Text style={styles.insightHeaderTitle}>AI Coach</Text>
                   </View>
-                  <Text style={styles.insightHeadline}>{monthData.intelligence.headline}</Text>
-                  <Text style={styles.insightSummary}>{monthData.intelligence.summary}</Text>
-                  
-                  {monthData.intelligence.anomalies?.length > 0 && (
-                    <View style={styles.insightSubSection}>
-                      <Text style={styles.insightSubKicker}>Anomalies</Text>
-                      {monthData.intelligence.anomalies.map((ano, i) => (
-                        <Text key={i} style={styles.insightBullet}>• {ano}</Text>
-                      ))}
+                ) : null}
+                
+                {aiCoachLoading ? (
+                  <View style={styles.aiCoachLoadingState}>
+                    <ActivityIndicator color={colors.primary} size="small" />
+                    <Text style={styles.aiCoachLoadingText}>Analyzing your spending patterns...</Text>
+                  </View>
+                ) : aiCoachError ? (
+                  <Text style={styles.errorText}>{aiCoachError}</Text>
+                ) : aiCoachData?.intelligence ? (
+                  <>
+                    <Text style={styles.insightHeadline}>{aiCoachData.intelligence.headline}</Text>
+                    <Text style={styles.insightSummary}>{aiCoachData.intelligence.summary}</Text>
+                    
+                    {aiCoachData.intelligence.anomalies?.length > 0 && (
+                      <View style={styles.insightSubSection}>
+                        <Text style={styles.insightSubKicker}>Anomalies</Text>
+                        {aiCoachData.intelligence.anomalies.map((ano, i) => (
+                          <Text key={i} style={styles.insightBullet}>• {ano}</Text>
+                        ))}
+                      </View>
+                    )}
+                    {aiCoachData.intelligence.opportunities?.length > 0 && (
+                      <View style={styles.insightSubSection}>
+                        <Text style={styles.insightSubKicker}>Opportunities</Text>
+                        {aiCoachData.intelligence.opportunities.map((opp, i) => (
+                          <Text key={i} style={styles.insightBullet}>• {opp}</Text>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <Pressable 
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} 
+                    onPress={fetchAiCoach}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                      <Ionicons name="sparkles" color={colors.primary} size={18} />
+                      <Text style={styles.insightHeaderTitle}>Generate AI Insights</Text>
                     </View>
-                  )}
-                  {monthData.intelligence.opportunities?.length > 0 && (
-                    <View style={styles.insightSubSection}>
-                      <Text style={styles.insightSubKicker}>Opportunities</Text>
-                      {monthData.intelligence.opportunities.map((opp, i) => (
-                        <Text key={i} style={styles.insightBullet}>• {opp}</Text>
-                      ))}
-                    </View>
-                  )}
+                    <Ionicons name="chevron-forward" color={colors.primary} size={18} />
+                  </Pressable>
+                )}
+              </View>
+
+              {monthSummaryData.byCategory.length > 0 && (
+                <View style={styles.detailCard}>
+                  <Text style={styles.panelTitle}>📊 Top categories</Text>
+                  <View style={styles.breakdownList}>
+                    {monthSummaryData.byCategory.slice(0, 5).map((item) => {
+                      const categoryData = CATEGORY_CONFIG.find(
+                        (c) => c.label.toLowerCase() === item.category.toLowerCase()
+                      ) || CATEGORY_CONFIG[CATEGORY_CONFIG.length - 1];
+
+                      return (
+                        <View key={item.category} style={styles.breakdownRow}>
+                          <View style={[styles.categoryIconBox, { backgroundColor: `${categoryData.accent}25` }]}>
+                            <Ionicons name={categoryData.icon} size={18} color={categoryData.accent} />
+                          </View>
+                          <View style={styles.breakdownLabelWrap}>
+                            <Text style={styles.breakdownLabel}>{item.category}</Text>
+                            <Text style={styles.breakdownMeta}>{item.count} entries</Text>
+                          </View>
+                          <Text style={styles.breakdownValue}>{formatAmount(item.total, monthSummaryData.currency)}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
 
-              {monthData.byCategory?.length ? (
+              {monthSummaryData.expenses.length > 0 && (
                 <View style={styles.detailCard}>
-                  <Text style={styles.panelTitle}>Top categories</Text>
-                  <View style={styles.breakdownList}>
-                    {monthData.byCategory.slice(0, 5).map((item) => (
-                      <View key={item.category} style={styles.breakdownRow}>
-                        <View style={styles.breakdownLabelWrap}>
-                          <Text style={styles.breakdownLabel}>{item.category}</Text>
-                          <Text style={styles.breakdownMeta}>{item.count} entries</Text>
-                        </View>
-                        <Text style={styles.breakdownValue}>{formatAmount(item.total, monthData.currency)}</Text>
-                      </View>
-                    ))}
-                  </View>
+                  <Pressable 
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => router.push(`/daily-spend?monthYear=${monthYearString}`)}
+                  >
+                    <Text style={styles.panelTitle}>📅 Daily Spend</Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+                  </Pressable>
                 </View>
-              ) : null}
+              )}
 
-              {monthData.expenses?.length ? (
+              {monthSummaryData.expenses.length > 0 && (
                 <View style={styles.detailCard}>
-                  <Text style={styles.panelTitle}>Transactions</Text>
+                  <Text style={styles.panelTitle}>💳 Transactions</Text>
                   <View style={styles.recentList}>
-                    {monthData.expenses.map((expense) => (
+                    {monthSummaryData.expenses.map((expense) => (
                       <View key={expense.id} style={styles.recentRow}>
                         <View style={styles.recentCopy}>
                           <Text style={styles.recentTitle}>{expense.description}</Text>
@@ -350,8 +584,6 @@ export default function AnalyticsScreen() {
                     ))}
                   </View>
                 </View>
-              ) : (
-                <Text style={styles.emptyText}>No transactions for this month.</Text>
               )}
             </>
           ) : (
@@ -363,8 +595,7 @@ export default function AnalyticsScreen() {
   );
 }
 
-function buildMonthlyPoints(expenses: ExpenseItem[]): SummaryPoint[] {
-  const currentYear = new Date().getFullYear();
+function buildMonthlyPoints(expenses: ExpenseItem[], currentYear: number): SummaryPoint[] {
   const buckets = Array.from({ length: 12 }, (_, month) => ({
     key: `${currentYear}-${String(month + 1).padStart(2, "0")}`,
     label: new Date(currentYear, month, 1).toLocaleString(undefined, { month: "short" }),
@@ -386,17 +617,32 @@ function buildMonthlyPoints(expenses: ExpenseItem[]): SummaryPoint[] {
 
 function SummaryMetricCard({
   styles,
+  colors,
   label,
   value,
+  icon,
 }: {
   styles: ReturnType<typeof createStyles>;
+  colors: any; // Using any or importing the exact type if preferred
   label: string;
   value: string;
+  icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
     <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        {icon && <Ionicons name={icon} size={13} color={colors.primary} />}
+        <Text 
+          style={[styles.metricLabel, { flexShrink: 1 }]} 
+          numberOfLines={1} 
+          adjustsFontSizeToFit
+        >
+          {label}
+        </Text>
+      </View>
+      <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -627,7 +873,42 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     budgetPanelHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
+      alignItems: "center",
       gap: spacing.sm,
+    },
+    budgetPanelValueWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    budgetEditRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    budgetInput: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "800",
+      minWidth: 80,
+      textAlign: "right",
+    },
+    budgetSaveBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    budgetSaveText: {
+      color: colors.onPrimary,
+      fontSize: 12,
+      fontWeight: "700",
     },
     progressTrack: {
       backgroundColor: colors.surface,
@@ -700,6 +981,13 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       gap: spacing.sm,
       justifyContent: "space-between",
       paddingTop: spacing.sm,
+    },
+    categoryIconBox: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: 36,
+      height: 36,
+      borderRadius: 10,
     },
     recentCopy: {
       flex: 1,
@@ -823,6 +1111,38 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       color: colors.text,
       fontSize: 13,
       lineHeight: 18,
+    },
+    aiCoachLoadingState: {
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      gap: spacing.sm,
+    },
+    aiCoachLoadingText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    aiCoachPromptState: {
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    aiCoachPromptText: {
+      color: colors.text,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    aiCoachButton: {
+      backgroundColor: colors.primary,
+      alignSelf: "flex-start",
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      borderRadius: 12,
+      marginTop: spacing.xs,
+    },
+    aiCoachButtonText: {
+      color: colors.onPrimary,
+      fontWeight: "800",
+      fontSize: 13,
     },
   });
 }
