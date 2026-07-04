@@ -365,35 +365,50 @@ function buildPeakPeriodLabel(expenses: ExpenseItem[]): string {
   return `${top[0]} at ${top[1]}`;
 }
 
-function buildComparedPeriod(expenses: ExpenseItem[], period: "all" | "month" | "year") {
+function buildComparedPeriod(expenses: ExpenseItem[], period: string) {
   if (!expenses.length) {
     return undefined;
   }
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const filter = period === "year"
-    ? (expense: ExpenseItem) => new Date(expense.date).getFullYear() === currentYear
-    : (expense: ExpenseItem) => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate.getFullYear() === currentYear && expenseDate.getMonth() === currentMonth;
-      };
+  let currentMonth = new Date().getMonth();
+  let currentYear = new Date().getFullYear();
+
+  let filter: (expense: ExpenseItem) => boolean;
+  let previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  let previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  let label = "previous month";
+
+  if (period === "year") {
+    filter = (expense: ExpenseItem) => new Date(expense.date).getFullYear() === currentYear;
+    previousYear = currentYear - 1;
+    label = `${previousYear}`;
+  } else {
+    if (/^\d{4}-\d{2}$/.test(period)) {
+      const [y, m] = period.split("-");
+      currentYear = parseInt(y, 10);
+      currentMonth = parseInt(m, 10) - 1;
+    }
+    
+    filter = (expense: ExpenseItem) => {
+      const expenseDate = new Date(expense.date);
+      return expenseDate.getFullYear() === currentYear && expenseDate.getMonth() === currentMonth;
+    };
+    
+    previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  }
 
   const currentTotal = expenses.filter(filter).reduce((sum, expense) => sum + expense.amount, 0);
   const previousTotal = expenses
     .filter((expense) => {
       const expenseDate = new Date(expense.date);
       if (period === "year") {
-        return expenseDate.getFullYear() === currentYear - 1;
+        return expenseDate.getFullYear() === previousYear;
       }
-
-      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
       return expenseDate.getFullYear() === previousYear && expenseDate.getMonth() === previousMonth;
     })
     .reduce((sum, expense) => sum + expense.amount, 0);
 
-  const label = period === "year" ? `${currentYear - 1}` : "previous month";
   return {
     label,
     total: previousTotal,
