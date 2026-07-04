@@ -24,6 +24,7 @@ const keys = {
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
   quickAddCategories: "replymate.expenses.quickAddCategories",
+  receiptOcrEnabled: "replymate.expenses.receiptOcrEnabled",
   // ── CineTrack tool preferences ──
   oneHandedMode: "cinetrack.oneHandedMode",
   libraryAwareChat: "cinetrack.libraryAwareChat",
@@ -174,6 +175,14 @@ export async function getQuickAddCategoriesPreference(): Promise<string[]> {
 export async function saveQuickAddCategoriesPreference(values: string[]): Promise<void> {
   const normalized = values.map((item) => item.trim()).filter(Boolean);
   await AsyncStorage.setItem(keys.quickAddCategories, JSON.stringify(normalized));
+}
+
+export async function getReceiptOcrEnabledPreference(): Promise<boolean> {
+  return readJson<boolean>(keys.receiptOcrEnabled, false);
+}
+
+export async function saveReceiptOcrEnabledPreference(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(keys.receiptOcrEnabled, JSON.stringify(value));
 }
 
 export async function getHistory(): Promise<ReplyHistoryItem[]> {

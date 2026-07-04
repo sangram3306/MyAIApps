@@ -725,6 +725,41 @@ export async function createExpenseFromApi(params: {
   return data as ExpenseMessageResponse;
 }
 
+export type OcrReceiptResult = {
+  amount?: number;
+  currency?: string;
+  category?: string;
+  description?: string;
+  merchant?: string;
+  date?: string;
+  rawText?: string;
+};
+
+export async function ocrReceiptFromApi(params: {
+  backendUrl: string;
+  imageBase64: string;
+  mimeType: string;
+}): Promise<OcrReceiptResult> {
+  const response = await fetch(`${params.backendUrl}/api/expenses/ocr`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      imageBase64: params.imageBase64,
+      mimeType: params.mimeType,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | (OcrReceiptResult & { error?: string })
+    | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not process receipt image.");
+  }
+
+  return data || {};
+}
+
 export async function getExpenseExportFromApi(params: {
   backendUrl: string;
 }): Promise<ExpenseExportResponse> {

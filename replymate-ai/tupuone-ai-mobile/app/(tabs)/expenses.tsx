@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
@@ -23,11 +25,13 @@ import {
   getBudgetTargetPreference,
   getBudgetWarningThresholdPreference,
   getQuickAddCategoriesPreference,
+  getReceiptOcrEnabledPreference,
 } from "../../storage/appStorage";
 import {
   createExpenseFromApi,
   ExpenseMessageResponse,
   getExpenseExportFromApi,
+  ocrReceiptFromApi,
   sendExpenseMessageFromApi,
 } from "../../services/api";
 
@@ -103,18 +107,21 @@ export default function ExpensesScreen() {
   const [thisMonthTotal, setThisMonthTotal] = useState<number | null>(null);
   const [lastMonthTotal, setLastMonthTotal] = useState<number | null>(null);
   const [monthCurrency, setMonthCurrency] = useState<"AED" | "INR">("AED");
+  const [receiptOcrEnabled, setReceiptOcrEnabled] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       async function loadData() {
-        const [url, target, threshold, autoCategory, quickAdds] = await Promise.all([
+        const [url, target, threshold, autoCategory, quickAdds, ocrEnabled] = await Promise.all([
           getBackendUrl(),
           getBudgetTargetPreference(),
           getBudgetWarningThresholdPreference(),
           getAutoCategorySuggestionsPreference(),
           getQuickAddCategoriesPreference(),
+          getReceiptOcrEnabledPreference(),
         ]);
 
         if (!isActive) {
@@ -126,6 +133,7 @@ export default function ExpensesScreen() {
         setBudgetWarningThreshold(threshold);
         setAutoCategorySuggestions(autoCategory);
         setQuickAddCategories(quickAdds);
+        setReceiptOcrEnabled(ocrEnabled);
 
         // Fetch current & last month totals for the dashboard card
         if (url) {
@@ -185,6 +193,113 @@ export default function ExpensesScreen() {
   }, [colors.secondary, quickAddCategories]);
 
 
+
+  async function handleScanReceipt() {
+    if (!backendUrl) {
+      setError("Backend URL not found. Please restart the app.");
+      return;
+    }
+
+    Alert.alert("Scan Receipt", "Choose how to capture your receipt", [
+      {
+        text: "Camera",
+        onPress: () => launchReceiptPicker("camera"),
+      },
+      {
+        text: "Photo Library",
+        onPress: () => launchReceiptPicker("library"),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
+  async function launchReceiptPicker(source: "camera" | "library") {
+    try {
+      if (source === "camera") {
+        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permissionResult.granted) {
+          Alert.alert(
+            "Camera Permission Needed",
+            "Please allow camera access in Settings to scan receipts.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+      } else {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permissionResult.granted) {
+          Alert.alert(
+            "Photos Permission Needed",
+            "Please allow photo access in Settings to scan receipts.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+      }
+
+      const result =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.6,
+              base64: true,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.6,
+              base64: true,
+            });
+
+      if (result.canceled || !result.assets?.[0]?.base64) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || "image/jpeg";
+
+      setScanning(true);
+      setError("");
+
+      const ocrResult = await ocrReceiptFromApi({
+        backendUrl,
+        imageBase64: asset.base64,
+        mimeType,
+      });
+
+      // Auto-fill the form from OCR results
+      if (typeof ocrResult.amount === "number" && ocrResult.amount > 0) {
+        setAmount(String(ocrResult.amount));
+      }
+
+      if (ocrResult.currency === "AED" || ocrResult.currency === "INR") {
+        setCurrency(ocrResult.currency);
+      }
+
+      if (ocrResult.category) {
+        const matchedCategory = baseCategories.find(
+          (c) => c.label.toLowerCase() === ocrResult.category?.toLowerCase(),
+        );
+        if (matchedCategory) {
+          setCategory(matchedCategory.label);
+        }
+      }
+
+      const description = ocrResult.description || ocrResult.merchant || "";
+      if (description) {
+        setNote(description);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not scan receipt.");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   async function handleSaveExpense() {
     if (!backendUrl) {
@@ -423,21 +538,40 @@ export default function ExpensesScreen() {
             }}
           />
 
-          <Pressable
-            disabled={saving}
-            onPress={handleSaveExpense}
-            style={[styles.primaryButton, saving && styles.disabledButton]}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <>
-                <Ionicons name="add-circle-outline" color={colors.text} size={17} />
-                <Text style={styles.primaryButtonText}>Save Expense</Text>
-              </>
-            )}
+          <View style={styles.buttonRow}>
+            <Pressable
+              disabled={saving || scanning}
+              onPress={handleSaveExpense}
+              style={[styles.primaryButton, styles.buttonFlex, (saving || scanning) && styles.disabledButton]}
+            >
+              {saving ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" color={colors.text} size={17} />
+                  <Text style={styles.primaryButtonText}>Save Expense</Text>
+                </>
+              )}
             </Pressable>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            {receiptOcrEnabled ? (
+              <Pressable
+                disabled={saving || scanning}
+                onPress={handleScanReceipt}
+                style={[styles.scanButton, (saving || scanning) && styles.disabledButton]}
+              >
+                {scanning ? (
+                  <ActivityIndicator color={colors.cyan} />
+                ) : (
+                  <>
+                    <Ionicons name="scan-outline" color={colors.cyan} size={17} />
+                    <Text style={styles.scanButtonText}>Scan</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : null}
+          </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
 
         <View style={styles.card}>
@@ -902,6 +1036,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     fontSize: 12,
     fontWeight: "700",
   },
+  primaryButtonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  buttonFlex: {
+    flex: 1,
+  },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primaryDim,
@@ -916,6 +1062,23 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.34,
     shadowRadius: 14,
+  },
+  scanButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 255, 198, 0.08)",
+    borderColor: colors.cyan,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: spacing.xs,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+  },
+  scanButtonText: {
+    color: colors.cyan,
+    fontSize: 13,
+    fontWeight: "900",
   },
   secondaryButton: {
     alignItems: "center",

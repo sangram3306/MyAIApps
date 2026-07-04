@@ -67,6 +67,8 @@ export default function LibraryScreen() {
   const [journalPromptEntry, setJournalPromptEntry] = useState<WatchEntry | null>(null);
   const [journalMood, setJournalMood] = useState<JournalMood>("liked");
   const [journalNotes, setJournalNotes] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   const typedStatusEntries = entries.filter((entry) => {
     const typeMatch = activeTypeFilter === "all" || entry.type === activeTypeFilter;
@@ -74,7 +76,14 @@ export default function LibraryScreen() {
     return typeMatch && statusMatch;
   });
   const genreOptions = uniqueGenres(typedStatusEntries);
-  const genreFilteredEntries = typedStatusEntries.filter((entry) => {
+  const searchFilteredEntries = typedStatusEntries.filter((entry) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (entry.title || "").toLowerCase().includes(q) || 
+           (entry.director || "").toLowerCase().includes(q) || 
+           (entry.releaseYear || "").includes(q);
+  });
+  const genreFilteredEntries = searchFilteredEntries.filter((entry) => {
     if (activeGenreFilter === "all") {
       return true;
     }
@@ -266,22 +275,39 @@ export default function LibraryScreen() {
         stickyHeaderIndices={!oneHandedMode ? [0] : undefined}
       >
         <View style={!oneHandedMode ? styles.filterSticky : undefined}>
-          {!oneHandedMode ? (
-            <LibraryFilters
-              activeGenreFilter={activeGenreFilter}
-              activeSortFilter={activeSortFilter}
-              sortDirection={sortDirection}
-              activeStatusFilter={activeStatusFilter}
-              activeTypeFilter={activeTypeFilter}
-              genreOptions={genreOptions}
-              colors={colors}
-              setActiveGenreFilter={setActiveGenreFilter}
-              setActiveSortFilter={setActiveSortFilter}
-              setSortDirection={setSortDirection}
-              setActiveStatusFilter={setActiveStatusFilter}
-              setActiveTypeFilter={setActiveTypeFilter}
-              styles={styles}
-            />
+          <View style={[styles.headerRow, { justifyContent: "space-between", marginBottom: spacing.md }]}>
+            <Text style={styles.title}>Library</Text>
+            <Pressable onPress={() => setShowFilters(!showFilters)} hitSlop={10}>
+              <Ionicons name={showFilters ? "options" : "options-outline"} color={colors.primary} size={24} />
+            </Pressable>
+          </View>
+          {showFilters ? (
+            <>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search your library..."
+                placeholderTextColor={colors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {!oneHandedMode ? (
+                <LibraryFilters
+                  activeGenreFilter={activeGenreFilter}
+                  activeSortFilter={activeSortFilter}
+                  sortDirection={sortDirection}
+                  activeStatusFilter={activeStatusFilter}
+                  activeTypeFilter={activeTypeFilter}
+                  genreOptions={genreOptions}
+                  colors={colors}
+                  setActiveGenreFilter={setActiveGenreFilter}
+                  setActiveSortFilter={setActiveSortFilter}
+                  setSortDirection={setSortDirection}
+                  setActiveStatusFilter={setActiveStatusFilter}
+                  setActiveTypeFilter={setActiveTypeFilter}
+                  styles={styles}
+                />
+              ) : null}
+            </>
           ) : null}
         </View>
 
@@ -304,7 +330,7 @@ export default function LibraryScreen() {
         </View>
       </ScrollView>
 
-      {oneHandedMode ? (
+      {oneHandedMode && showFilters ? (
         <View style={styles.bottomFilterDock}>
           <LibraryFilters
             activeGenreFilter={activeGenreFilter}
@@ -974,6 +1000,17 @@ function initials(title: string): string {
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
+    searchInput: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      color: colors.text,
+      fontSize: 14,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 10,
+      marginBottom: spacing.xs,
+    },
     screen: { flex: 1, backgroundColor: colors.background },
     container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
     containerOneHanded: { paddingBottom: spacing.xl, paddingRight: 88 },
