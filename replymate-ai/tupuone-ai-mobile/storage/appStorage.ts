@@ -21,6 +21,7 @@ const keys = {
   replyResponseCount: "replymate.replyResponseCount",
   rewriteResponseCount: "replymate.rewriteResponseCount",
   budgetTarget: "replymate.expenses.budgetTarget",
+  yearlyBudgetTarget: "replymate.expenses.yearlyBudgetTarget",
   budgetWarningThreshold: "replymate.expenses.budgetWarningThreshold",
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
   quickAddCategories: "replymate.expenses.quickAddCategories",
@@ -47,6 +48,7 @@ export type ExportPayload = {
     replyResponseCount: ResponseCountPreference;
     rewriteResponseCount: ResponseCountPreference;
     budgetTarget: number | null;
+    yearlyBudgetTarget: number | null;
     budgetWarningThreshold: number;
     autoCategorySuggestions: boolean;
     quickAddCategories: string[];
@@ -148,8 +150,16 @@ export async function getBudgetTargetPreference(): Promise<number | null> {
   return readJson<number | null>(keys.budgetTarget, null);
 }
 
-export async function saveBudgetTargetPreference(value: number | null): Promise<void> {
-  await AsyncStorage.setItem(keys.budgetTarget, JSON.stringify(value));
+export async function saveBudgetTargetPreference(target: number | null): Promise<void> {
+  await AsyncStorage.setItem(keys.budgetTarget, JSON.stringify(target));
+}
+
+export async function getYearlyBudgetTargetPreference(): Promise<number | null> {
+  return readJson<number | null>(keys.yearlyBudgetTarget, null);
+}
+
+export async function saveYearlyBudgetTargetPreference(target: number | null): Promise<void> {
+  await AsyncStorage.setItem(keys.yearlyBudgetTarget, JSON.stringify(target));
 }
 
 export async function getBudgetWarningThresholdPreference(): Promise<number> {

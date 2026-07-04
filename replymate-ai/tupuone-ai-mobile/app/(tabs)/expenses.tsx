@@ -326,7 +326,32 @@ export default function ExpensesScreen() {
   function handleRemoveScannedItem(indexToRemove: number) {
     if (!scannedItems) return;
     const filtered = scannedItems.filter((_, idx) => idx !== indexToRemove);
-    setScannedItems(filtered.length > 0 ? filtered : null);
+    if (filtered.length === 0) {
+      setScannedItems(null);
+    } else {
+      setScannedItems(filtered);
+    }
+  }
+
+  function updateScannedItem(index: number, key: keyof OcrItem, value: any) {
+    setScannedItems((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      next[index] = { ...next[index], [key]: value };
+      return next;
+    });
+  }
+
+  function cycleScannedItemCategory(index: number) {
+    setScannedItems((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      const currentCatStr = next[index].category.toLowerCase();
+      const currentIdx = baseCategories.findIndex((c) => c.label.toLowerCase() === currentCatStr);
+      const nextIdx = currentIdx === -1 || currentIdx === baseCategories.length - 1 ? 0 : currentIdx + 1;
+      next[index] = { ...next[index], category: baseCategories[nextIdx].label };
+      return next;
+    });
   }
 
   async function handleSaveExpense() {
@@ -440,9 +465,36 @@ export default function ExpensesScreen() {
                 </Text>
               ) : null}
             </View>
-            <View style={styles.ringOuter}>
+            <View style={[
+              styles.ringOuter,
+              (() => {
+                if (!budgetTarget || thisMonthTotal === null) {
+                  return {
+                    borderTopColor: colors.purple,
+                    borderRightColor: colors.cyan,
+                    borderBottomColor: colors.surfaceElevated,
+                    borderLeftColor: colors.surfaceElevated,
+                  };
+                }
+                const progress = Math.min(1, thisMonthTotal / budgetTarget);
+                const filledColor = progress >= 1 ? colors.amber : colors.cyan;
+                const emptyColor = colors.surfaceElevated;
+                return {
+                  borderTopColor: progress > 0 ? filledColor : emptyColor,
+                  borderRightColor: progress > 0.25 ? filledColor : emptyColor,
+                  borderBottomColor: progress > 0.5 ? filledColor : emptyColor,
+                  borderLeftColor: progress > 0.75 ? filledColor : emptyColor,
+                };
+              })()
+            ]}>
               <View style={styles.ringAccent} />
-              <View style={styles.ringInner} />
+              <View style={styles.ringInner}>
+                {budgetTarget && thisMonthTotal !== null ? (
+                  <Text style={{ color: colors.text, fontSize: 10, fontWeight: '900', textAlign: 'center', marginTop: 10 }}>
+                    {Math.round(Math.min(1, thisMonthTotal / budgetTarget) * 100)}%
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -713,14 +765,30 @@ export default function ExpensesScreen() {
                 const cat = baseCategories.find(c => c.label.toLowerCase() === item.category.toLowerCase()) || baseCategories.find(c => c.label === "Other");
                 return (
                   <View key={index} style={styles.scannedItemRow}>
-                    <View style={[styles.scannedItemIcon, { backgroundColor: cat?.accent + "33" }]}>
+                    <Pressable onPress={() => cycleScannedItemCategory(index)} style={[styles.scannedItemIcon, { backgroundColor: cat?.accent + "33" }]}>
                       <Ionicons name={cat?.icon as any} size={18} color={cat?.accent} />
-                    </View>
+                    </Pressable>
                     <View style={styles.scannedItemMain}>
-                      <Text style={styles.scannedItemDesc} numberOfLines={1}>{item.description}</Text>
-                      <Text style={styles.scannedItemCat}>{cat?.label}</Text>
+                      <TextInput 
+                        style={styles.scannedItemDescInput} 
+                        value={item.description}
+                        onChangeText={(val) => updateScannedItem(index, 'description', val)}
+                        placeholder="Item description"
+                        placeholderTextColor={colors.muted}
+                      />
+                      <Text style={styles.scannedItemCat} onPress={() => cycleScannedItemCategory(index)}>
+                        {cat?.label}
+                      </Text>
                     </View>
-                    <Text style={styles.scannedItemAmount}>{item.amount} {currency}</Text>
+                    <View style={styles.scannedItemAmountWrap}>
+                      <TextInput 
+                        style={styles.scannedItemAmountInput} 
+                        value={String(item.amount)}
+                        onChangeText={(val) => updateScannedItem(index, 'amount', val)}
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.scannedItemCurrency}>{currency}</Text>
+                    </View>
                     <Pressable onPress={() => handleRemoveScannedItem(index)} style={styles.removeScannedItem}>
                       <Ionicons name="trash-outline" size={18} color={colors.red} />
                     </Pressable>
@@ -893,10 +961,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
     ringOuter: {
       alignItems: "center",
       backgroundColor: colors.primary,
-      borderColor: colors.purple,
+      borderColor: colors.surfaceElevated,
       borderRadius: radius.pill,
-      borderRightColor: colors.cyan,
-      borderTopColor: colors.purple,
       borderWidth: 12,
       height: 70,
       justifyContent: "center",
@@ -1334,19 +1400,45 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
   },
   scannedItemDesc: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 2,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  scannedItemDescInput: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingVertical: 2,
   },
   scannedItemCat: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
+    marginTop: 2,
   },
   scannedItemAmount: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
-    marginHorizontal: spacing.sm,
+    color: colors.amber,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  scannedItemAmountWrap: {
+    alignItems: "flex-end",
+  },
+  scannedItemAmountInput: {
+    color: colors.amber,
+    fontSize: 13,
+    fontWeight: "900",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    minWidth: 40,
+    textAlign: "right",
+    paddingVertical: 2,
+  },
+  scannedItemCurrency: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
   },
   removeScannedItem: {
     padding: spacing.xs,
