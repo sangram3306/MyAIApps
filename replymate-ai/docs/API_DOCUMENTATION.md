@@ -6,7 +6,8 @@
 
 ## Global Headers
 
-- `X-LLM-Provider`: (Optional) Specifies the LLM provider (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
+- `X-LLM-Provider`: (Optional) Specifies the LLM provider
+  (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
 - `X-LLM-Model`: (Optional) Specific model to use from the provider.
 - `X-LLM-Reasoning`: (Optional) Boolean string (`true`, `false`) to toggle reasoning.
 
@@ -442,7 +443,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +473,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -746,6 +745,9 @@
       "type": "string",
       "minLength": 1
     },
+    "imdbId": {
+      "type": "string"
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -856,7 +858,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +893,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +914,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -984,6 +989,237 @@
   ]
 }
 ```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/decisions/simulate`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 2000,
+      "default": ""
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "maxItems": 6,
+      "default": []
+    },
+    "horizon": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "near-term"
+    },
+    "stakes": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    }
+  },
+  "required": [
+    "question"
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/message`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category"
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/intelligence`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "string",
+      "enum": [
+        "all",
+        "month",
+        "year"
+      ],
+      "default": "month"
+    }
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/watch/resolve-title`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/search-titles`
+
+**Query Parameters:**
+
+- `q` (required): string
+- `type` (optional): string
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/cinetrack/extract`
 
 **Response:**
 
