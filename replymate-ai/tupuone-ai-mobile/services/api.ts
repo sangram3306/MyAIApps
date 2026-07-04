@@ -822,7 +822,7 @@ export async function getExpenseExportFromApi(params: {
 
 export async function getExpenseIntelligenceFromApi(params: {
   backendUrl: string;
-  period?: "all" | "month" | "year";
+  period?: string;
 }): Promise<ExpenseIntelligenceResponse> {
   const response = await fetch(`${params.backendUrl}/api/expenses/intelligence`, {
     method: "POST",

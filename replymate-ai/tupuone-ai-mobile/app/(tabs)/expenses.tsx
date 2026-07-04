@@ -414,6 +414,12 @@ export default function ExpensesScreen() {
               Track, analyze and optimize your spending.
             </Text>
           </View>
+          <Pressable 
+            style={styles.heroAction}
+            onPress={() => router.push("/expense-monthly-report")}
+          >
+            <Ionicons name="pie-chart-outline" color={colors.text} size={24} />
+          </Pressable>
         </View>
 
         <View style={styles.monthCard}>
@@ -845,6 +851,13 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontWeight: "700",
       lineHeight: 17,
       maxWidth: 220,
+    },
+    heroAction: {
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.border,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      padding: spacing.sm,
     },
     monthCard: {
       backgroundColor: colors.surfaceGlass,

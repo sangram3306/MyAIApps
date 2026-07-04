@@ -33,7 +33,7 @@ export const expenseCreateSchema = z.object({
 export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
 
 export const expenseIntelligenceSchema = z.object({
-  period: z.enum(["all", "month", "year"]).optional().default("month"),
+  period: z.string().optional().default("month"),
 });
 
 export type ExpenseIntelligenceInput = z.infer<typeof expenseIntelligenceSchema>;
