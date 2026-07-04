@@ -16,13 +16,13 @@ const createExpenseInputSchema = z.object({
 });
 
 const listExpenseInputSchema = z.object({
-  period: z.enum(["all", "today", "week", "month"]).optional().default("all"),
+  period: z.string().optional().default("all"),
   category: z.string().optional(),
   limit: z.number().int().positive().max(100).optional().default(20),
 });
 
 const summaryInputSchema = z.object({
-  period: z.enum(["all", "today", "week", "month"]).optional().default("month"),
+  period: z.string().optional().default("month"),
   category: z.string().optional(),
 });
 

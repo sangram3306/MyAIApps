@@ -71,7 +71,7 @@ export async function createExpense(input: {
 }
 
 export async function listExpenses(filter: {
-  period?: "all" | "today" | "week" | "month";
+  period?: string;
   category?: string;
   limit?: number;
 } = {}): Promise<ExpenseItem[]> {
@@ -111,7 +111,7 @@ export async function listExpenses(filter: {
 }
 
 export async function getExpenseSummary(filter: {
-  period?: "all" | "today" | "week" | "month";
+  period?: string;
   category?: string;
 } = {}): Promise<{
   total: number;
@@ -194,9 +194,20 @@ async function findExpense(identifier: string): Promise<ExpenseItem | null> {
   );
 }
 
-function getDateRange(period: "all" | "today" | "week" | "month"): { start: string; end: string } | null {
+function getDateRange(period: string): { start: string; end: string } | null {
   if (period === "all") {
     return null;
+  }
+
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [yearStr, monthStr] = period.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const lastDay = new Date(year, month, 0).getDate();
+    return {
+      start: `${period}-01`,
+      end: `${period}-${String(lastDay).padStart(2, "0")}`
+    };
   }
 
   const now = new Date();
