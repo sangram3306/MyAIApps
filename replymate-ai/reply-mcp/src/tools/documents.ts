@@ -34,10 +34,19 @@ export async function generateAndEmailReportTool(payload: any) {
 
       // Try to parse if it's a string
       if (typeof excelData === "string") {
+        // Strip markdown formatting if the LLM wrapped the JSON in backticks
+        let cleanedString = excelData.trim();
+        if (cleanedString.startsWith("```")) {
+          const lines = cleanedString.split("\n");
+          if (lines[0].startsWith("```")) lines.shift();
+          if (lines[lines.length - 1].startsWith("```")) lines.pop();
+          cleanedString = lines.join("\n").trim();
+        }
+        
         try {
-          excelData = JSON.parse(excelData);
+          excelData = JSON.parse(cleanedString);
         } catch (e) {
-          throw new Error("Could not parse Excel data string as JSON.");
+          throw new Error(`Could not parse Excel data string as JSON. Cleaned string: ${cleanedString.substring(0, 100)}...`);
         }
       }
 
