@@ -12,6 +12,10 @@ export type LlmRequestOptions = {
   maxTokens?: number;
   responseFormat?: { type: "json_object" };
   messages: LlmMessage[];
+  tools?: Array<{
+    type: "function";
+    function: { name: string; description: string; parameters: Record<string, any> };
+  }>;
 };
 
 type LlmRequestContext = {
@@ -34,6 +38,11 @@ type ChatResponse = {
     message?: {
       content?: string;
       reasoning?: string;
+      tool_calls?: Array<{
+        id: string;
+        type: "function";
+        function: { name: string; arguments: string };
+      }>;
     };
   }>;
 };
@@ -44,6 +53,7 @@ type GeminiResponse = {
     content?: {
       parts?: Array<{
         text?: string;
+        functionCall?: { name: string; args: Record<string, any> };
       }>;
     };
   }>;
@@ -130,6 +140,7 @@ export function getActiveLlmInfo(): {
 
 export async function callChatCompletion(options: LlmRequestOptions): Promise<{
   content: string;
+  toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
   provider: LlmProvider;
   model: string;
   baseUrl: string;
@@ -163,6 +174,7 @@ export async function callChatCompletion(options: LlmRequestOptions): Promise<{
       max_tokens: options.maxTokens ?? 500,
       ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
       messages: options.messages,
+      ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
     }),
   });
 
@@ -173,13 +185,15 @@ export async function callChatCompletion(options: LlmRequestOptions): Promise<{
   }
 
   const data = (await response.json()) as ChatResponse;
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
+  const content = data.choices?.[0]?.message?.content || "";
+  const toolCalls = data.choices?.[0]?.message?.tool_calls;
+  if (!content && !toolCalls?.length) {
+    throw new Error(`${config.displayName} response did not include message content or tool calls.`);
   }
 
   return {
     content,
+    toolCalls,
     provider: config.provider,
     model: config.model,
     baseUrl: config.baseUrl,
@@ -191,6 +205,7 @@ async function callGeminiCompletion(
   options: LlmRequestOptions,
 ): Promise<{
   content: string;
+  toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
   provider: LlmProvider;
   model: string;
   baseUrl: string;
@@ -206,10 +221,21 @@ async function callGeminiCompletion(
       role: message.role === "assistant" ? "model" : "user",
       parts: [{ text: message.content }],
     }));
-  const baseRequest = {
+  const baseRequest: any = {
     ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
     contents: contents.length ? contents : [{ role: "user", parts: [{ text: "" }] }],
   };
+
+  if (options.tools && options.tools.length > 0) {
+    baseRequest.tools = [{
+      functionDeclarations: options.tools.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        parameters: t.function.parameters,
+      })),
+    }];
+  }
+
   const initialMaxOutputTokens = getGeminiMaxOutputTokens(config.model, options.maxTokens);
 
   let data = await fetchGeminiCompletion(config, options, baseRequest, initialMaxOutputTokens);
@@ -226,7 +252,19 @@ async function callGeminiCompletion(
   const content = data.candidates?.[0]?.content?.parts
     ?.map((part) => part.text || "")
     .join("")
-    .trim();
+    .trim() || "";
+
+  const functionCalls = data.candidates?.[0]?.content?.parts
+    ?.filter((part) => part.functionCall)
+    .map((part, index) => ({
+      id: `call_${index}`,
+      type: "function" as const,
+      function: {
+        name: part.functionCall!.name,
+        arguments: JSON.stringify(part.functionCall!.args),
+      },
+    }));
+
   if (finishReason === "MAX_TOKENS") {
     console.error(`[llm] ${config.displayName} response hit max tokens`, {
       model: config.model,
@@ -236,12 +274,13 @@ async function callGeminiCompletion(
     });
     throw new Error(`${config.displayName} response hit the output token limit.`);
   }
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
+  if (!content && (!functionCalls || functionCalls.length === 0)) {
+    throw new Error(`${config.displayName} response did not include message content or tool calls.`);
   }
 
   return {
     content,
+    toolCalls: functionCalls?.length ? functionCalls : undefined,
     provider: config.provider,
     model: config.model,
     baseUrl: config.baseUrl,
@@ -251,10 +290,7 @@ async function callGeminiCompletion(
 async function fetchGeminiCompletion(
   config: ProviderConfig,
   options: LlmRequestOptions,
-  baseRequest: {
-    systemInstruction?: { parts: Array<{ text: string }> };
-    contents: Array<{ role: string; parts: Array<{ text: string }> }>;
-  },
+  baseRequest: any,
   maxOutputTokens: number,
 ): Promise<GeminiResponse> {
   const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/models/${config.model}:generateContent`, {
@@ -289,6 +325,7 @@ async function callOpenRouterCompletion(
   reasoningEnabled: boolean,
 ): Promise<{
   content: string;
+  toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
   provider: LlmProvider;
   model: string;
   baseUrl: string;
@@ -305,7 +342,9 @@ async function callOpenRouterCompletion(
   }
 
   const finalFinishReason = data.choices?.[0]?.finish_reason;
-  const content = data.choices?.[0]?.message?.content;
+  const content = data.choices?.[0]?.message?.content || "";
+  const toolCalls = data.choices?.[0]?.message?.tool_calls;
+
   if (finalFinishReason === "length") {
     console.error(`[llm] ${config.displayName} response hit max tokens`, {
       model: config.model,
@@ -313,12 +352,13 @@ async function callOpenRouterCompletion(
     });
     throw new Error(`${config.displayName} response hit the output token limit.`);
   }
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
+  if (!content && !toolCalls?.length) {
+    throw new Error(`${config.displayName} response did not include message content or tool calls.`);
   }
 
   return {
     content,
+    toolCalls,
     provider: config.provider,
     model: config.model,
     baseUrl: config.baseUrl,
@@ -337,6 +377,7 @@ async function fetchOpenRouterCompletion(
     max_tokens: maxTokens,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
     messages: options.messages,
+    ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
   };
 
   if (reasoningEnabled) {
@@ -385,6 +426,7 @@ async function callGroqCompletion(
   reasoningEnabled: boolean,
 ): Promise<{
   content: string;
+  toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
   provider: LlmProvider;
   model: string;
   baseUrl: string;
@@ -395,6 +437,7 @@ async function callGroqCompletion(
     max_tokens: options.maxTokens ?? 500,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
     messages: options.messages,
+    ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
   };
 
   if (isGroqReasoningModel(config.model)) {
@@ -417,13 +460,16 @@ async function callGroqCompletion(
   }
 
   const data = (await response.json()) as ChatResponse;
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error(`${config.displayName} response did not include message content.`);
+  const content = data.choices?.[0]?.message?.content || "";
+  const toolCalls = data.choices?.[0]?.message?.tool_calls;
+
+  if (!content && !toolCalls?.length) {
+    throw new Error(`${config.displayName} response did not include message content or tool calls.`);
   }
 
   return {
     content,
+    toolCalls,
     provider: config.provider,
     model: config.model,
     baseUrl: config.baseUrl,

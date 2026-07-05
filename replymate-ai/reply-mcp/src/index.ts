@@ -35,6 +35,7 @@ import {
   updateWatchEntryTool,
   updateWatchEntryStatusTool,
 } from "./tools/watch.js";
+import { generateAndEmailReportTool } from "./tools/documents.js";
 
 dotenv.config();
 
@@ -138,6 +139,10 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "saveDecisionSimulation") {
       return res.json(await saveDecisionSimulationTool(payload));
+    }
+
+    if (toolName === "generateAndEmailReport") {
+      return res.json(await generateAndEmailReportTool(payload));
     }
 
     if (toolName === "listDecisionSimulations") {
