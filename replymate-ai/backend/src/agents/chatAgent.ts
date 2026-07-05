@@ -1,4 +1,10 @@
 import { callChatCompletion, hasConfiguredLlmApiKey } from "../services/llmService";
+import {
+  getMemories,
+  saveMemory,
+  deleteMemoryByFact,
+  formatMemoriesForPrompt,
+} from "../services/memoryService";
 
 type Source = "static" | "llm" | "fallback";
 
@@ -28,6 +34,7 @@ export type ChatResponse = {
 
 export async function handleChatMessage(
   message: string,
+  userId: string,
   history?: { role: "user" | "assistant"; content: string }[]
 ): Promise<ChatResponse> {
   const trimmedMessage = message.trim();
@@ -43,19 +50,38 @@ export async function handleChatMessage(
     });
   }
 
+  // ── Load memories from database ──────────────────────────────────────
+  let memories;
+  try {
+    memories = await getMemories(userId);
+    trace.push(`Loaded ${memories.length} memories`);
+  } catch {
+    memories = [];
+    trace.push("Failed to load memories, continuing without them");
+  }
+
+  const memoryBlock = formatMemoriesForPrompt(memories);
+
+  // ── Build system prompt with injected memories ───────────────────────
+  const systemPrompt =
+    "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action." +
+    memoryBlock;
+
+  // ── Only use the last 5 messages for short-term context ──────────────
+  const recentHistory = (history || []).slice(-5).map((msg) => ({
+    role: msg.role,
+    content: msg.content,
+  }));
+
   const requestBody = {
     temperature: 0.55,
     max_tokens: 900,
     messages: [
       {
         role: "system" as const,
-        content:
-          "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action.",
+        content: systemPrompt,
       },
-      ...(history || []).map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
+      ...recentHistory,
       {
         role: "user" as const,
         content: trimmedMessage,
@@ -103,6 +129,12 @@ export async function handleChatMessage(
       },
     ];
 
+    // ── Background: Extract memories from this exchange ──────────────
+    extractAndSaveMemories(userId, trimmedMessage, completion.content.trim()).catch(
+      (err) => console.error("[chat] memory extraction failed (non-blocking):", err)
+    );
+    trace.push("Triggered background memory extraction");
+
     return buildResponse({
       assistantReply: completion.content.trim(),
       trace: [...trace, "Generated direct LLM response"],
@@ -118,6 +150,85 @@ export async function handleChatMessage(
       source: "fallback",
       agentEvents: [],
     });
+  }
+}
+
+/**
+ * Lightweight background call to the LLM to extract memorable facts from a
+ * user↔assistant exchange. Runs non-blocking — failures don't affect the
+ * chat response.
+ */
+async function extractAndSaveMemories(
+  userId: string,
+  userMessage: string,
+  assistantReply: string
+): Promise<void> {
+  if (!hasConfiguredLlmApiKey()) return;
+
+  const extractionPrompt = `You are a memory extraction system. Analyze the following conversation exchange and extract any facts worth remembering about the user for future conversations.
+
+Rules:
+- Only extract concrete, lasting facts (name, preferences, projects, relationships, skills, goals).
+- Do NOT extract routine greetings, transient questions (weather, time), or one-off requests.
+- If nothing is worth remembering, respond with exactly: []
+- Respond ONLY with a JSON array of objects. No markdown, no explanation.
+- Each object must have: "action" ("save" or "delete"), "fact" (string), "category" ("preference" | "personal" | "project" | "context")
+- Use "delete" when the user corrects or negates a previous fact (e.g., "Actually my name is not John").
+
+User: ${userMessage}
+Assistant: ${assistantReply}
+
+Respond with ONLY the JSON array:`;
+
+  try {
+    const result = await callChatCompletion({
+      temperature: 0.1,
+      maxTokens: 400,
+      messages: [
+        { role: "system", content: "You extract structured facts from conversations. Respond with only valid JSON arrays." },
+        { role: "user", content: extractionPrompt },
+      ],
+    });
+
+    const raw = result.content.trim();
+    // Handle "[]" or empty case
+    if (raw === "[]" || !raw) {
+      return;
+    }
+
+    // Parse the JSON — strip markdown fences if the LLM wraps them
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    let actions: Array<{
+      action: "save" | "delete";
+      fact: string;
+      category?: "preference" | "personal" | "project" | "context";
+    }>;
+
+    try {
+      actions = JSON.parse(cleaned);
+    } catch {
+      console.warn("[memoryExtraction] Could not parse LLM response as JSON:", cleaned);
+      return;
+    }
+
+    if (!Array.isArray(actions)) return;
+
+    for (const item of actions) {
+      if (!item.fact || typeof item.fact !== "string") continue;
+
+      if (item.action === "delete") {
+        await deleteMemoryByFact(userId, item.fact);
+      } else {
+        await saveMemory(userId, item.fact, item.category || "context", userMessage.slice(0, 60));
+      }
+    }
+
+    if (actions.length > 0) {
+      console.log(`[memoryExtraction] Processed ${actions.length} memory action(s)`);
+    }
+  } catch (err) {
+    // Non-critical — swallow errors
+    console.error("[memoryExtraction] LLM call failed:", err);
   }
 }
 

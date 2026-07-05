@@ -1576,3 +1576,66 @@ async function getJsonHeaders(): Promise<Record<string, string>> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
+
+// ── Memory API ─────────────────────────────────────────────────────────
+
+export type MemoryItem = {
+  id: string;
+  fact: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listMemoriesFromApi(params: {
+  backendUrl: string;
+}): Promise<MemoryItem[]> {
+  const response = await fetch(`${params.backendUrl}/api/memory/list`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | { memories?: MemoryItem[]; error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not fetch memories.");
+  }
+
+  return data?.memories || [];
+}
+
+export async function deleteMemoryFromApi(params: {
+  backendUrl: string;
+  memoryId: string;
+}): Promise<void> {
+  const response = await fetch(`${params.backendUrl}/api/memory/${params.memoryId}`, {
+    method: "DELETE",
+    headers: await getApiHeaders(),
+  });
+
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(data?.error || "Could not delete memory.");
+  }
+}
+
+export async function clearAllMemoriesFromApi(params: {
+  backendUrl: string;
+}): Promise<number> {
+  const response = await fetch(`${params.backendUrl}/api/memory/clear`, {
+    method: "DELETE",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | { deleted?: number; error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not clear memories.");
+  }
+
+  return data?.deleted || 0;
+}

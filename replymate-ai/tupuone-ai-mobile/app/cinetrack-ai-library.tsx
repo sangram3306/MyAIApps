@@ -10,12 +10,14 @@ import {
   Text,
   TextInput,
   View,
+  PanResponder,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../constants/theme";
 import { useAppTheme } from "../context/app-theme";
+import { useRef } from "react";
 import {
   deleteWatchItemFromApi,
   listWatchItemsFromApi,
@@ -73,6 +75,9 @@ export default function CinetrackAiLibraryScreen() {
   const [activeSortFilter, setActiveSortFilter] = useState<"default" | "imdb" | "year">("default");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
   const [selectedEntry, setSelectedEntry] = useState<WatchEntry | null>(null);
   const [activeAvailabilityRegion, setActiveAvailabilityRegion] = useState<"all" | string>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -80,6 +85,22 @@ export default function CinetrackAiLibraryScreen() {
   const [editDraft, setEditDraft] = useState<WatchEditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const params = useLocalSearchParams<{ openTitle?: string }>();
+
+  const scrollY = useRef(0);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          return scrollY.current <= 0 && gestureState.dy > 15 && Math.abs(gestureState.dx) < 20;
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 50) {
+            setSelectedEntry(null);
+          }
+        },
+      }),
+    []
+  );
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const typedStatusEntries = entries.filter((entry) => {
@@ -90,7 +111,15 @@ export default function CinetrackAiLibraryScreen() {
 
   const genreOptions = uniqueGenres(typedStatusEntries);
 
-  const genreFilteredEntries = typedStatusEntries.filter((entry) => {
+  const searchFilteredEntries = typedStatusEntries.filter((entry) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (entry.title || "").toLowerCase().includes(q) || 
+           (entry.director || "").toLowerCase().includes(q) || 
+           (entry.releaseYear || "").includes(q);
+  });
+
+  const genreFilteredEntries = searchFilteredEntries.filter((entry) => {
     if (activeGenreFilter === "all") return true;
     const genres = genresForEntry(entry);
     return genres.some((g) => g.toLowerCase() === activeGenreFilter.toLowerCase());
@@ -269,36 +298,51 @@ export default function CinetrackAiLibraryScreen() {
         {/* Sticky filter header */}
         <View style={styles.filterSticky}>
           {/* Top bar */}
-          <View style={styles.topBar}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="chevron-back" color={colors.text} size={18} />
-              <Text style={styles.backText}>Back</Text>
-            </Pressable>
-            <View style={styles.headerMeta}>
-              <View style={styles.heroBadge}>
-                <Ionicons name="film-outline" color={colors.primary} size={11} />
-                <Text style={styles.heroBadgeText}>Library</Text>
+          <View style={[styles.topBar, { justifyContent: "space-between" }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+              <Pressable onPress={() => router.back()} style={styles.backButton}>
+                <Ionicons name="chevron-back" color={colors.text} size={18} />
+                <Text style={styles.backText}>Back</Text>
+              </Pressable>
+              <View style={styles.headerMeta}>
+                <View style={styles.heroBadge}>
+                  <Ionicons name="film-outline" color={colors.primary} size={11} />
+                  <Text style={styles.heroBadgeText}>Library</Text>
+                </View>
+                <Text style={styles.countBadge}>{filteredEntries.length} titles</Text>
               </View>
-              <Text style={styles.countBadge}>{filteredEntries.length} titles</Text>
             </View>
+            <Pressable onPress={() => setShowFilters(!showFilters)} hitSlop={10} style={{ padding: spacing.xs }}>
+              <Ionicons name={showFilters ? "options" : "options-outline"} color={colors.primary} size={22} />
+            </Pressable>
           </View>
 
-          {/* Filter panel */}
-          <LibraryFilters
-            activeGenreFilter={activeGenreFilter}
-            activeSortFilter={activeSortFilter}
-            sortDirection={sortDirection}
-            activeStatusFilter={activeStatusFilter}
-            activeTypeFilter={activeTypeFilter}
-            genreOptions={genreOptions}
-            colors={colors}
-            setActiveGenreFilter={setActiveGenreFilter}
-            setActiveSortFilter={setActiveSortFilter}
-            setSortDirection={setSortDirection}
-            setActiveStatusFilter={setActiveStatusFilter}
-            setActiveTypeFilter={setActiveTypeFilter}
-            styles={styles}
-          />
+          {showFilters ? (
+            <>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search your library..."
+                placeholderTextColor={colors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <LibraryFilters
+                activeGenreFilter={activeGenreFilter}
+                activeSortFilter={activeSortFilter}
+                sortDirection={sortDirection}
+                activeStatusFilter={activeStatusFilter}
+                activeTypeFilter={activeTypeFilter}
+                genreOptions={genreOptions}
+                colors={colors}
+                setActiveGenreFilter={setActiveGenreFilter}
+                setActiveSortFilter={setActiveSortFilter}
+                setSortDirection={setSortDirection}
+                setActiveStatusFilter={setActiveStatusFilter}
+                setActiveTypeFilter={setActiveTypeFilter}
+                styles={styles}
+              />
+            </>
+          ) : null}
         </View>
 
         {/* States */}
@@ -331,17 +375,28 @@ export default function CinetrackAiLibraryScreen() {
       {/* ── Detail modal ─────────────────────────────────────────────────────── */}
       <Modal
         animationType="slide"
-        transparent
+        transparent={Platform.OS !== "ios"}
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
         visible={Boolean(selectedEntry)}
         onRequestClose={() => setSelectedEntry(null)}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismiss} onPress={() => setSelectedEntry(null)} />
-          <View style={styles.modalSheet}>
+        <View style={Platform.OS === "ios" ? { flex: 1, backgroundColor: colors.surface } : styles.modalBackdrop}>
+          {Platform.OS !== "ios" && <Pressable style={styles.modalDismiss} onPress={() => setSelectedEntry(null)} />}
+          <View style={Platform.OS === "ios" ? { flex: 1 } : styles.modalSheet} {...(Platform.OS !== "ios" ? panResponder.panHandlers : {})}>
+            <View style={{ width: '100%', paddingVertical: 16, alignItems: 'center', marginTop: Platform.OS === "ios" ? 0 : -8 }}>
+              <View style={{ width: 40, height: 5, backgroundColor: colors.borderStrong, borderRadius: 3 }} />
+            </View>
             {selectedEntry ? (
               <ScrollView
                 contentContainerStyle={styles.modalContent}
                 showsVerticalScrollIndicator={false}
+                onScroll={(e) => {
+                  scrollY.current = e.nativeEvent.contentOffset.y;
+                  if (e.nativeEvent.contentOffset.y < -60) {
+                    setSelectedEntry(null);
+                  }
+                }}
+                scrollEventThrottle={16}
               >
                 <Poster entry={selectedEntry} styles={styles} large />
 
@@ -1041,6 +1096,17 @@ function initials(title: string): string {
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
+    searchInput: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      color: colors.text,
+      fontSize: 14,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 10,
+      marginBottom: spacing.xs,
+    },
     screen: { flex: 1, backgroundColor: colors.background },
     container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
 

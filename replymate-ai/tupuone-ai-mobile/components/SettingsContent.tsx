@@ -42,7 +42,7 @@ import {
   saveThemeModePreference,
   getBackendUrl,
 } from "../storage/appStorage";
-import { deleteAccountFromApi } from "../services/api";
+import { deleteAccountFromApi, listMemoriesFromApi, clearAllMemoriesFromApi } from "../services/api";
 
 const defaultTabOptions: { label: string; value: DefaultTabId }[] = [
   { label: "Home", value: "home" },
@@ -396,31 +396,69 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
 
 
           <SettingRow
-            icon="chatbubbles-outline"
-            title="Chat"
-            subtitle={`Context length: ${chatContextLength === 0 ? "None" : chatContextLength}`}
+            icon="hardware-chip-outline"
+            title="AI Memory"
+            subtitle="ChatGPT-style memory extraction"
             active={expandedPanel === "chat"}
             onPress={() => togglePanel("chat")}
             styles={styles}
           />
           {expandedPanel === "chat" ? (
             <DetailCard styles={styles}>
-              <Text style={styles.detailLabel}>Context Length</Text>
-              <SegmentedControl
-                options={[
-                  { label: "0", value: "0" },
-                  { label: "10", value: "10" },
-                  { label: "30", value: "30" },
-                  { label: "50", value: "50" },
-                  { label: "100", value: "100" },
-                ]}
-                value={String(chatContextLength)}
-                onChange={handleChatContextLengthChange}
-                styles={styles}
-              />
               <Text style={styles.detailText}>
-                More context improves memory but uses more AI tokens.
+                SP ONE AI automatically remembers important facts about you across conversations — your name, preferences, projects, and more. This works like ChatGPT's Memory feature.
               </Text>
+              <Pressable
+                style={[styles.segmentOption, styles.segmentActive, { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 16 }]}
+                onPress={async () => {
+                  try {
+                    const url = await getBackendUrl();
+                    if (!url) return;
+                    const memories = await listMemoriesFromApi({ backendUrl: url });
+                    const memoryList = memories.length
+                      ? memories.map((m) => `• ${m.fact} (${m.category})`).join("\n")
+                      : "No memories stored yet.";
+                    Alert.alert(
+                      `AI Memories (${memories.length})`,
+                      memoryList,
+                      memories.length > 0
+                        ? [
+                            { text: "OK", style: "cancel" },
+                            {
+                              text: "Clear All",
+                              style: "destructive",
+                              onPress: async () => {
+                                Alert.alert(
+                                  "Clear All Memories?",
+                                  "This will permanently delete all remembered facts. The AI will start fresh.",
+                                  [
+                                    { text: "Cancel", style: "cancel" },
+                                    {
+                                      text: "Clear All",
+                                      style: "destructive",
+                                      onPress: async () => {
+                                        try {
+                                          await clearAllMemoriesFromApi({ backendUrl: url });
+                                          Alert.alert("Done", "All AI memories have been cleared.");
+                                        } catch {
+                                          Alert.alert("Error", "Could not clear memories.");
+                                        }
+                                      },
+                                    },
+                                  ]
+                                );
+                              },
+                            },
+                          ]
+                        : [{ text: "OK" }]
+                    );
+                  } catch {
+                    Alert.alert("Error", "Could not fetch memories. Make sure the backend is running.");
+                  }
+                }}
+              >
+                <Text style={[styles.segmentText, styles.segmentActiveText]}>View Memories</Text>
+              </Pressable>
             </DetailCard>
           ) : null}
 

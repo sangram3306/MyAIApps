@@ -2,18 +2,34 @@ import { Router } from "express";
 import { ZodError } from "zod";
 import { chatMessageSchema } from "../schemas/chatSchemas";
 import { handleChatMessage } from "../agents/chatAgent";
+import { verifyToken } from "../services/authService";
 
 const router = Router();
 
 router.post("/message", handleChatMessageRequest);
 
-export async function handleChatMessageRequest(req: { body: unknown }, res: {
+export async function handleChatMessageRequest(req: { body: unknown; headers: Record<string, string | string[] | undefined> }, res: {
   status(code: number): { json(payload: unknown): void };
   json(payload: unknown): void;
 }) {
   try {
     const input = chatMessageSchema.parse(req.body);
-    const result = await handleChatMessage(input.message, input.history);
+
+    let userId = "default";
+    const authHeader = req.headers.authorization;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const decoded = verifyToken(token);
+        if (decoded && decoded.userId) {
+          userId = decoded.userId;
+        }
+      } catch (err) {
+        // Ignored, fallback to "default"
+      }
+    }
+
+    const result = await handleChatMessage(input.message, userId, input.history);
     res.json(result);
   } catch (error) {
     if (error instanceof ZodError) {
