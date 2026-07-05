@@ -35,7 +35,8 @@ export type ChatResponse = {
 export async function handleChatMessage(
   message: string,
   userId: string,
-  history?: { role: "user" | "assistant"; content: string }[]
+  history?: { role: "user" | "assistant"; content: string }[],
+  userName?: string
 ): Promise<ChatResponse> {
   const trimmedMessage = message.trim();
   const trace = ["Received chat message", "Routed to direct LLM chat"];
