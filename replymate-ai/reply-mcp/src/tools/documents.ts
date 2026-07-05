@@ -49,7 +49,7 @@ export async function generateAndEmailReportTool(payload: any) {
     }
 
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"Tupu chat" <${SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"Tupu chat" <onboarding@resend.dev>`,
       to: params.recipientEmail,
       subject: params.subject,
       text: params.bodyText,
