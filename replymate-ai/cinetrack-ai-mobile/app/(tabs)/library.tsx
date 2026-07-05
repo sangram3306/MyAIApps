@@ -1,5 +1,5 @@
-import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { type ComponentProps, useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { ActivityIndicator, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, PanResponder } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,6 +69,22 @@ export default function LibraryScreen() {
   const [journalNotes, setJournalNotes] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  const scrollY = useRef(0);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          return scrollY.current <= 0 && gestureState.dy > 15 && Math.abs(gestureState.dx) < 20;
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 50) {
+            setSelectedEntry(null);
+          }
+        },
+      }),
+    []
+  );
 
   const typedStatusEntries = entries.filter((entry) => {
     const typeMatch = activeTypeFilter === "all" || entry.type === activeTypeFilter;
@@ -354,9 +370,22 @@ export default function LibraryScreen() {
       <Modal animationType="slide" transparent visible={Boolean(selectedEntry)} onRequestClose={() => setSelectedEntry(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalDismiss} onPress={() => setSelectedEntry(null)} />
-          <View style={styles.modalSheet}>
+          <View style={styles.modalSheet} {...panResponder.panHandlers}>
+            <View style={{ width: '100%', paddingVertical: 16, alignItems: 'center', marginTop: -8 }}>
+              <View style={{ width: 40, height: 5, backgroundColor: colors.borderStrong, borderRadius: 3 }} />
+            </View>
             {selectedEntry ? (
-              <ScrollView contentContainerStyle={styles.modalContent}>
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                showsVerticalScrollIndicator={false}
+                onScroll={(e) => {
+                  scrollY.current = e.nativeEvent.contentOffset.y;
+                  if (e.nativeEvent.contentOffset.y < -60) {
+                    setSelectedEntry(null);
+                  }
+                }}
+                scrollEventThrottle={16}
+              >
                 <Poster entry={selectedEntry} styles={styles} large />
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{selectedEntry.title}</Text>
