@@ -7,7 +7,7 @@ const MAX_MEMORIES_PER_USER = 200;
  */
 export async function getMemories(userId: string = "default"): Promise<IChatMemory[]> {
   try {
-    return await ChatMemory.find({ userId }).sort({ updatedAt: -1 }).lean();
+    return await ChatMemory.find({ userId }).sort({ updatedAt: -1 });
   } catch (error) {
     console.error("[memoryService] Failed to get memories:", error);
     return [];

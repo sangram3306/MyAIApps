@@ -65,7 +65,7 @@ router.delete("/clear", async (req: Request, res: Response) => {
  */
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
-    const success = await deleteMemory(req.params.id);
+    const success = await deleteMemory(req.params.id as string);
     if (!success) {
       return res.status(404).json({ error: "Memory not found." });
     }
