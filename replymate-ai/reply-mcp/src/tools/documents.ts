@@ -30,10 +30,31 @@ export async function generateAndEmailReportTool(payload: any) {
       filename = `Report_${Date.now()}.pdf`;
       contentType = "application/pdf";
     } else {
-      if (!Array.isArray(params.data)) {
-        throw new Error("Data must be a JSON array for Excel reports.");
+      let excelData = params.data;
+
+      // Try to parse if it's a string
+      if (typeof excelData === "string") {
+        try {
+          excelData = JSON.parse(excelData);
+        } catch (e) {
+          throw new Error("Could not parse Excel data string as JSON.");
+        }
       }
-      attachmentBuffer = await generateExcelBuffer(params.data);
+
+      // If it's an object with a single array property (LLMs do this often)
+      if (!Array.isArray(excelData) && typeof excelData === "object" && excelData !== null) {
+        const values = Object.values(excelData);
+        const arrayVal = values.find((v) => Array.isArray(v));
+        if (arrayVal) {
+          excelData = arrayVal;
+        }
+      }
+
+      if (!Array.isArray(excelData)) {
+        throw new Error(`Data must be a JSON array for Excel reports. Instead got: ${typeof excelData}`);
+      }
+
+      attachmentBuffer = await generateExcelBuffer(excelData);
       filename = `Report_${Date.now()}.xlsx`;
       contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     }
