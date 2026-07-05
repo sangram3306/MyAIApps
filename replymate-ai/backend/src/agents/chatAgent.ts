@@ -146,7 +146,7 @@ export async function handleChatMessage(
             method: "POST",
             headers: { 
               "Content-Type": "application/json",
-              ...(process.env.MCP_SHARED_SECRET ? { Authorization: `Bearer ${process.env.MCP_SHARED_SECRET}` } : {})
+              ...(process.env.MCP_SHARED_SECRET ? { "MCP_SHARED_SECRET": process.env.MCP_SHARED_SECRET } : {})
             },
             body: JSON.stringify(args)
           });
