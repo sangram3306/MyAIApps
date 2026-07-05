@@ -18,6 +18,7 @@ import {
   getAppLockModePreference,
   getDefaultTabPreference,
   getLibraryAwareChatPreference,
+  getChatContextLengthPreference,
   getLlmPreference,
   getRagEnabledPreference,
   getReceiptOcrEnabledPreference,
@@ -30,6 +31,7 @@ import {
   saveAppLockModePreference,
   saveDefaultTabPreference,
   saveLibraryAwareChatPreference,
+  saveChatContextLengthPreference,
   saveLlmPreference,
   saveRagEnabledPreference,
   saveReceiptOcrEnabledPreference,
@@ -71,7 +73,7 @@ const responseCountOptions: { label: string; value: `${ResponseCountPreference}`
   { label: "5", value: "5" },
 ];
 
-type DetailPanelId = "appearance" | "launch" | "writing" | "cinetrack" | "expenses" | "privacy" | "lock" | "searchBar" | null;
+type DetailPanelId = "appearance" | "launch" | "writing" | "chat" | "cinetrack" | "expenses" | "privacy" | "lock" | "searchBar" | null;
 
 type RowTone = "primary" | "purple" | "danger";
 
@@ -95,6 +97,7 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
   const [clearingData, setClearingData] = useState(false);
   const [searchAutocompleteEnabled, setSearchAutocompleteEnabled] = useState(true);
   // CineTrack preferences
+  const [chatContextLength, setChatContextLength] = useState(50);
   const [libraryAwareChat, setLibraryAwareChat] = useState(true);
   const [alwaysUseLlmChat, setAlwaysUseLlmChat] = useState(false);
   const [ragEnabled, setRagEnabled] = useState(false);
@@ -114,18 +117,20 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
       getSearchAutocompletePreference(),
       getReplyResponseCountPreference(),
       getRewriteResponseCountPreference(),
+      getChatContextLengthPreference(),
       getLibraryAwareChatPreference(),
       getAlwaysUseLlmChatPreference(),
       getRagEnabledPreference(),
       getSmartContextEnabledPreference(),
       getReceiptOcrEnabledPreference(),
-    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, libAware, alwaysLlm, rag, smartCtx, ocrEnabled]) => {
+    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, chatContextLen, libAware, alwaysLlm, rag, smartCtx, ocrEnabled]) => {
       setLlmPreference(llm);
       setDefaultTab(tab);
       setAppLockMode(lockMode);
       setSearchAutocompleteEnabled(searchAuto);
       setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
       setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
+      setChatContextLength(chatContextLen);
       setLibraryAwareChat(libAware);
       setAlwaysUseLlmChat(alwaysLlm);
       setRagEnabled(rag);
@@ -191,6 +196,7 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
       setAppLockMode("off");
       setReplyResponseCount("5");
       setRewriteResponseCount("5");
+      setChatContextLength(50);
       setLibraryAwareChat(true);
       setAlwaysUseLlmChat(false);
       setRagEnabled(false);
@@ -231,6 +237,13 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
         },
       ]
     );
+  }
+
+
+  function handleChatContextLengthChange(value: string) {
+    const num = parseInt(value, 10);
+    setChatContextLength(num);
+    void saveChatContextLengthPreference(num);
   }
 
   function handleLibraryAwareChatChange(value: boolean) {
@@ -378,6 +391,36 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
                 styles={styles}
               />
               <Text style={styles.detailText}>Grammar always returns one corrected version.</Text>
+            </DetailCard>
+          ) : null}
+
+
+          <SettingRow
+            icon="chatbubbles-outline"
+            title="Chat"
+            subtitle={`Context length: ${chatContextLength === 0 ? "None" : chatContextLength}`}
+            active={expandedPanel === "chat"}
+            onPress={() => togglePanel("chat")}
+            styles={styles}
+          />
+          {expandedPanel === "chat" ? (
+            <DetailCard styles={styles}>
+              <Text style={styles.detailLabel}>Context Length</Text>
+              <SegmentedControl
+                options={[
+                  { label: "0", value: "0" },
+                  { label: "10", value: "10" },
+                  { label: "30", value: "30" },
+                  { label: "50", value: "50" },
+                  { label: "100", value: "100" },
+                ]}
+                value={String(chatContextLength)}
+                onChange={handleChatContextLengthChange}
+                styles={styles}
+              />
+              <Text style={styles.detailText}>
+                More context improves memory but uses more AI tokens.
+              </Text>
             </DetailCard>
           ) : null}
 

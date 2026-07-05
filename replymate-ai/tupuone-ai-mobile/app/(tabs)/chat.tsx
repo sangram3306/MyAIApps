@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { getBackendUrl } from "../../storage/appStorage";
+import { getBackendUrl, getChatContextLengthPreference } from "../../storage/appStorage";
 import { saveAgentDetails } from "../../storage/agentDetailsStore";
 import { ChatMessageResponse, sendChatMessageFromApi } from "../../services/api";
 
@@ -101,11 +101,23 @@ export default function ChatScreen() {
 
     abortControllerRef.current = new AbortController();
 
+
+    async function buildHistoryPayload() {
+      const limit = await getChatContextLengthPreference();
+      if (limit === 0) return undefined;
+      const validMessages = messages
+        .filter((m) => !m.id.includes("error") && !m.content.includes("I could not process that message right now"))
+        .slice(-(limit === 100 ? 999 : limit))
+        .map((m) => ({ role: m.role, content: m.content }));
+      return validMessages.length > 0 ? validMessages : undefined;
+    }
+
     try {
       const result = await sendChatMessageFromApi({
         backendUrl: activeUrl,
         message: nextMessage,
         signal: abortControllerRef.current.signal,
+        history: await buildHistoryPayload(),
       });
 
       const assistantId = `${generateId()}-assistant`;
