@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useMemo, useState, useEffect } from "react
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as LocalAuthentication from "expo-local-authentication";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "./PremiumUI";
 import { radius, spacing } from "../constants/theme";
@@ -108,38 +108,40 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
   const selectedProvider = llmProviders.find((provider) => provider.id === llmPreference.provider) || llmProviders[0];
   const selectedModel = selectedProvider.models.find((model) => model.value === llmPreference.model);
 
-  useEffect(() => {
-    Promise.all([
-      getThemeModePreference(),
-      getLlmPreference(),
-      getDefaultTabPreference(),
-      getAppLockModePreference(),
-      getSearchAutocompletePreference(),
-      getReplyResponseCountPreference(),
-      getRewriteResponseCountPreference(),
-      getChatContextLengthPreference(),
-      getLibraryAwareChatPreference(),
-      getAlwaysUseLlmChatPreference(),
-      getRagEnabledPreference(),
-      getSmartContextEnabledPreference(),
-      getReceiptOcrEnabledPreference(),
-    ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, chatContextLen, libAware, alwaysLlm, rag, smartCtx, ocrEnabled]) => {
-      setLlmPreference(llm);
-      setDefaultTab(tab);
-      setAppLockMode(lockMode);
-      setSearchAutocompleteEnabled(searchAuto);
-      setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
-      setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
-      setChatContextLength(chatContextLen);
-      setLibraryAwareChat(libAware);
-      setAlwaysUseLlmChat(alwaysLlm);
-      setRagEnabled(rag);
-      setSmartContextEnabled(smartCtx);
-      setReceiptOcrEnabled(ocrEnabled);
-    });
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([
+        getThemeModePreference(),
+        getLlmPreference(),
+        getDefaultTabPreference(),
+        getAppLockModePreference(),
+        getSearchAutocompletePreference(),
+        getReplyResponseCountPreference(),
+        getRewriteResponseCountPreference(),
+        getChatContextLengthPreference(),
+        getLibraryAwareChatPreference(),
+        getAlwaysUseLlmChatPreference(),
+        getRagEnabledPreference(),
+        getSmartContextEnabledPreference(),
+        getReceiptOcrEnabledPreference(),
+      ]).then(([, llm, tab, lockMode, searchAuto, replyCount, rewriteCount, chatContextLen, libAware, alwaysLlm, rag, smartCtx, ocrEnabled]) => {
+        setLlmPreference(llm);
+        setDefaultTab(tab);
+        setAppLockMode(lockMode);
+        setSearchAutocompleteEnabled(searchAuto);
+        setReplyResponseCount(String(replyCount) as `${ResponseCountPreference}`);
+        setRewriteResponseCount(String(rewriteCount) as `${ResponseCountPreference}`);
+        setChatContextLength(chatContextLen);
+        setLibraryAwareChat(libAware);
+        setAlwaysUseLlmChat(alwaysLlm);
+        setRagEnabled(rag);
+        setSmartContextEnabled(smartCtx);
+        setReceiptOcrEnabled(ocrEnabled);
+      });
 
-    return () => setExpandedPanel(null);
-  }, []);
+      return () => setExpandedPanel(null);
+    }, [])
+  );
 
   function handleSearchAutocompleteChange(value: boolean) {
     setSearchAutocompleteEnabled(value);
