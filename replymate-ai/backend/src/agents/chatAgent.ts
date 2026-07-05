@@ -43,7 +43,7 @@ export async function handleChatMessage(
   if (!hasConfiguredLlmApiKey()) {
     return buildResponse({
       assistantReply:
-        "SP ONE AI is ready to chat, but the selected LLM provider is not configured on the backend yet.",
+        "Tupu chat is ready to chat, but the selected LLM provider is not configured on the backend yet.",
       trace: [...trace, "Returned configuration fallback"],
       source: "fallback",
       agentEvents: [],
@@ -64,7 +64,9 @@ export async function handleChatMessage(
 
   // ── Build system prompt with injected memories ───────────────────────
   const systemPrompt =
-    "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action." +
+    "You are Tupu chat, a helpful general-purpose assistant. " +
+    (userName ? `You are talking to ${userName}. ` : "") +
+    "Answer the user's message directly and naturally. You have access to tools to generate and email PDF and Excel reports. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action." +
     memoryBlock;
 
   // ── Only use the last 5 messages for short-term context ──────────────
@@ -89,14 +91,86 @@ export async function handleChatMessage(
     ],
   };
 
-  try {
-    const completion = await callChatCompletion({
+    const tools = [];
+    if (process.env.MCP_SERVER_URL) {
+      tools.push({
+        type: "function" as const,
+        function: {
+          name: "generateAndEmailReport",
+          description: "Generates a PDF or Excel document and emails it to the user. Use this when the user asks for a report, summary, or document to be sent to them. The data payload should be robust and well-formatted.",
+          parameters: {
+            type: "object",
+            properties: {
+              reportType: { type: "string", enum: ["pdf", "excel"] },
+              recipientEmail: { type: "string", description: "The email address to send the report to" },
+              subject: { type: "string", description: "The subject of the email" },
+              bodyText: { type: "string", description: "The text body of the email" },
+              data: {
+                type: "string",
+                description: "For PDF, provide a markdown string. For Excel, provide a JSON string representing an array of objects. Example: '[{\"Name\":\"Project A\", \"Cost\":100}]'"
+              }
+            },
+            required: ["reportType", "recipientEmail", "subject", "bodyText", "data"]
+          }
+        }
+      });
+    }
+
+    let completion = await callChatCompletion({
       temperature: requestBody.temperature,
       maxTokens: requestBody.max_tokens,
       messages: requestBody.messages,
+      tools: tools.length > 0 ? tools : undefined,
     });
 
-    const agentEvents: AgentEvent[] = [
+    let assistantReply = completion.content;
+    let agentEvents: AgentEvent[] = [];
+
+    // Handle tool call interception
+    if (completion.toolCalls && completion.toolCalls.length > 0) {
+      trace.push(`Intercepted tool call: ${completion.toolCalls[0].function.name}`);
+      
+      const toolCall = completion.toolCalls[0];
+      if (toolCall.function.name === "generateAndEmailReport" && process.env.MCP_SERVER_URL) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          
+          // If Excel, the LLM might have sent the data as a stringified JSON array
+          if (args.reportType === "excel" && typeof args.data === "string") {
+            try { args.data = JSON.parse(args.data); } catch (e) { /* ignore */ }
+          }
+
+          const mcpResponse = await fetch(`${process.env.MCP_SERVER_URL.replace(/\/$/, "")}/tools/generateAndEmailReport`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(args)
+          });
+          
+          const mcpResult = await mcpResponse.json();
+          trace.push(`MCP tool call returned: ${JSON.stringify(mcpResult)}`);
+
+          // Fetch follow-up completion to summarize the result to the user
+          const followupMessages = [
+            ...requestBody.messages,
+            { role: "assistant" as const, content: "I am generating the report now." },
+            { role: "user" as const, content: `System: The tool call completed with result: ${JSON.stringify(mcpResult)}. Please tell the user.` }
+          ];
+
+          completion = await callChatCompletion({
+            temperature: requestBody.temperature,
+            maxTokens: requestBody.max_tokens,
+            messages: followupMessages,
+          });
+
+          assistantReply = completion.content;
+        } catch (err) {
+          trace.push(`Failed to execute tool: ${err}`);
+          assistantReply = "I tried to generate the report, but encountered an internal error. Please try again later.";
+        }
+      }
+    }
+
+    agentEvents = [
       {
         id: "llm-1",
         title: "Direct LLM chat",
@@ -113,7 +187,7 @@ export async function handleChatMessage(
         response: {
           provider: completion.provider,
           model: completion.model,
-          assistantReply: completion.content.trim(),
+          assistantReply: assistantReply.trim(),
         },
       },
       {
@@ -124,20 +198,20 @@ export async function handleChatMessage(
           userMessage: trimmedMessage,
         },
         response: {
-          assistantReply: completion.content.trim(),
+          assistantReply: assistantReply.trim(),
         },
       },
     ];
 
     // ── Background: Extract memories from this exchange ──────────────
-    extractAndSaveMemories(userId, trimmedMessage, completion.content.trim()).catch(
+    extractAndSaveMemories(userId, trimmedMessage, assistantReply.trim()).catch(
       (err) => console.error("[chat] memory extraction failed (non-blocking):", err)
     );
     trace.push("Triggered background memory extraction");
 
     return buildResponse({
-      assistantReply: completion.content.trim(),
-      trace: [...trace, "Generated direct LLM response"],
+      assistantReply: assistantReply.trim(),
+      trace: [...trace, "Generated final response"],
       source: "llm",
       agentEvents,
     });

@@ -15,7 +15,7 @@ test("POST /api/chat/message returns a direct LLM response", async () => {
         choices: [
           {
             message: {
-              content: "Sure. Here is a direct answer from SP ONE AI.",
+              content: "Sure. Here is a direct answer from Tupu chat.",
             },
           },
         ],
@@ -30,7 +30,7 @@ test("POST /api/chat/message returns a direct LLM response", async () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(data.intent, "general");
-    assert.equal(data.assistantReply, "Sure. Here is a direct answer from SP ONE AI.");
+    assert.equal(data.assistantReply, "Sure. Here is a direct answer from Tupu chat.");
     assert.deepEqual(data.toolCalls, []);
     assert.ok(Array.isArray(data.agentTrace));
     assert.ok(Array.isArray(data.agentEvents));

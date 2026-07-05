@@ -16,6 +16,7 @@ export async function handleChatMessageRequest(req: { body: unknown; headers: Re
     const input = chatMessageSchema.parse(req.body);
 
     let userId = "default";
+    let userName: string | undefined = undefined;
     const authHeader = req.headers.authorization;
     if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
       try {
@@ -23,13 +24,14 @@ export async function handleChatMessageRequest(req: { body: unknown; headers: Re
         const decoded = verifyToken(token);
         if (decoded && decoded.userId) {
           userId = decoded.userId;
+          userName = decoded.name;
         }
       } catch (err) {
         // Ignored, fallback to "default"
       }
     }
 
-    const result = await handleChatMessage(input.message, userId, input.history);
+    const result = await handleChatMessage(input.message, userId, userName, input.history);
     res.json(result);
   } catch (error) {
     if (error instanceof ZodError) {

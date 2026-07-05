@@ -222,7 +222,7 @@ export default function ChatScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.threadTitle}>
-                SP ONE <Text style={styles.threadTitleAccent}>AI</Text>
+                Tupu <Text style={styles.threadTitleAccent}>chat</Text>
               </Text>
               <Text style={styles.threadSubtitle}>Your AI assistant for thinking, writing and planning.</Text>
             </View>
@@ -270,7 +270,7 @@ export default function ChatScreen() {
             ) : (
               <View style={styles.emptyHint}>
                 <Text style={styles.emptyHintTitle}>Start with a question</Text>
-                <Text style={styles.emptyHintCopy}>Ask SP ONE AI anything.</Text>
+                <Text style={styles.emptyHintCopy}>Ask Tupu chat anything.</Text>
               </View>
             )}
           </ScrollView>
@@ -301,7 +301,7 @@ export default function ChatScreen() {
               )}
             </Pressable>
           </View>
-          <Text style={styles.disclaimer}>SP ONE can make mistakes. Verify important info.</Text>
+          <Text style={styles.disclaimer}>Tupu chat can make mistakes. Verify important info.</Text>
         </View>
       </View>
       <Modal visible={showHistory} animationType="slide" transparent>
