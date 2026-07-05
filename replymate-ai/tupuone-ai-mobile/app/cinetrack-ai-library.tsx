@@ -375,14 +375,15 @@ export default function CinetrackAiLibraryScreen() {
       {/* ── Detail modal ─────────────────────────────────────────────────────── */}
       <Modal
         animationType="slide"
-        transparent
+        transparent={Platform.OS !== "ios"}
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
         visible={Boolean(selectedEntry)}
         onRequestClose={() => setSelectedEntry(null)}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismiss} onPress={() => setSelectedEntry(null)} />
-          <View style={styles.modalSheet} {...panResponder.panHandlers}>
-            <View style={{ width: '100%', paddingVertical: 16, alignItems: 'center', marginTop: -8 }}>
+        <View style={Platform.OS === "ios" ? { flex: 1, backgroundColor: colors.surface } : styles.modalBackdrop}>
+          {Platform.OS !== "ios" && <Pressable style={styles.modalDismiss} onPress={() => setSelectedEntry(null)} />}
+          <View style={Platform.OS === "ios" ? { flex: 1 } : styles.modalSheet} {...(Platform.OS !== "ios" ? panResponder.panHandlers : {})}>
+            <View style={{ width: '100%', paddingVertical: 16, alignItems: 'center', marginTop: Platform.OS === "ios" ? 0 : -8 }}>
               <View style={{ width: 40, height: 5, backgroundColor: colors.borderStrong, borderRadius: 3 }} />
             </View>
             {selectedEntry ? (

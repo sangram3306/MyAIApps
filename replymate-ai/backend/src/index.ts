@@ -11,6 +11,7 @@ import learningRouter from "./routes/learningRoutes";
 import repliesRouter from "./routes/replies";
 import settingsRouter from "./routes/settingsRoutes";
 import watchRouter from "./routes/watchRoutes";
+import memoryRouter from "./routes/memoryRoutes";
 import authRouter from "./routes/auth";
 import { getActiveLlmInfo, normalizeProvider, runWithLlmContext } from "./services/llmService";
 import { connectDB } from "./services/db";
@@ -89,6 +90,7 @@ app.use("/api/decisions", decisionRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/watch", watchRouter);
+app.use("/api/memory", memoryRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found." });
