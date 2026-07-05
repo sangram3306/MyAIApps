@@ -144,7 +144,10 @@ export async function handleChatMessage(
 
           const mcpResponse = await fetch(`${process.env.MCP_SERVER_URL.replace(/\/$/, "")}/tools/generateAndEmailReport`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              ...(process.env.MCP_SHARED_SECRET ? { Authorization: `Bearer ${process.env.MCP_SHARED_SECRET}` } : {})
+            },
             body: JSON.stringify(args)
           });
           
