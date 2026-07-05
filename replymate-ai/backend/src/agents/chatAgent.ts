@@ -91,6 +91,7 @@ export async function handleChatMessage(
     ],
   };
 
+  try {
     const tools = [];
     if (process.env.MCP_SERVER_URL) {
       tools.push({
