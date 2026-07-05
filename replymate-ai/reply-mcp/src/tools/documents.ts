@@ -42,6 +42,9 @@ export async function generateAndEmailReportTool(payload: any) {
           if (lines[lines.length - 1].startsWith("```")) lines.pop();
           cleanedString = lines.join("\n").trim();
         }
+
+        // Fix over-escaped quotes (e.g. LLM generated [{\"Country\":... instead of [{"Country":...)
+        cleanedString = cleanedString.replace(/\\"/g, '"');
         
         try {
           excelData = JSON.parse(cleanedString);
