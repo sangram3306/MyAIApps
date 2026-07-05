@@ -21,16 +21,6 @@ export async function generateAndEmailReportTool(payload: any) {
       throw new Error("SMTP configuration is missing on the server.");
     }
 
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT) || 587,
-      secure: Number(SMTP_PORT) === 465,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-    });
-
     let attachmentBuffer: Buffer;
     let filename: string;
     let contentType: string;
@@ -48,19 +38,49 @@ export async function generateAndEmailReportTool(payload: any) {
       contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     }
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"Tupu chat" <onboarding@resend.dev>`,
-      to: params.recipientEmail,
-      subject: params.subject,
-      text: params.bodyText,
-      attachments: [
-        {
-          filename,
-          content: attachmentBuffer,
-          contentType,
+    if (SMTP_HOST.includes("resend.com")) {
+      // Render free tier blocks outbound SMTP ports, so we use Resend's REST API directly
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${SMTP_PASS}`,
+          "Content-Type": "application/json"
         },
-      ],
-    });
+        body: JSON.stringify({
+          from: process.env.SMTP_FROM || `"Tupu chat" <onboarding@resend.dev>`,
+          to: [params.recipientEmail],
+          subject: params.subject,
+          text: params.bodyText,
+          attachments: [
+            {
+              filename,
+              content: attachmentBuffer.toString("base64")
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Resend API error: ${response.status} ${errText}`);
+      }
+    } else {
+      // Fallback to nodemailer for other providers (may be blocked by Render)
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT) || 587,
+        secure: Number(SMTP_PORT) === 465,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      });
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"Tupu chat" <onboarding@resend.dev>`,
+        to: params.recipientEmail,
+        subject: params.subject,
+        text: params.bodyText,
+        attachments: [{ filename, content: attachmentBuffer, contentType }],
+      });
+    }
 
     return { success: true, message: `Report generated and emailed to ${params.recipientEmail}` };
   } catch (error) {
