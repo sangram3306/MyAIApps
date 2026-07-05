@@ -26,7 +26,10 @@ export type ChatResponse = {
   };
 };
 
-export async function handleChatMessage(message: string): Promise<ChatResponse> {
+export async function handleChatMessage(
+  message: string,
+  history?: { role: "user" | "assistant"; content: string }[]
+): Promise<ChatResponse> {
   const trimmedMessage = message.trim();
   const trace = ["Received chat message", "Routed to direct LLM chat"];
 
@@ -49,6 +52,10 @@ export async function handleChatMessage(message: string): Promise<ChatResponse> 
         content:
           "You are SP ONE AI, a helpful general-purpose assistant. Answer the user's message directly and naturally. Do not claim access to app data or tools from this chat. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action.",
       },
+      ...(history || []).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
       {
         role: "user" as const,
         content: trimmedMessage,

@@ -625,12 +625,14 @@ export async function sendChatMessageFromApi(params: {
   backendUrl: string;
   message: string;
   signal?: AbortSignal;
+  history?: { role: "user" | "assistant"; content: string }[];
 }): Promise<ChatMessageResponse> {
   const response = await fetch(`${params.backendUrl}/api/chat/message`, {
     method: "POST",
     headers: await getApiHeaders(),
     body: JSON.stringify({
       message: params.message,
+      ...(params.history ? { history: params.history } : {}),
     }),
     signal: params.signal,
   });

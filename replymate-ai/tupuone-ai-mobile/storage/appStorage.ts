@@ -26,6 +26,7 @@ const keys = {
   autoCategorySuggestions: "replymate.expenses.autoCategorySuggestions",
   quickAddCategories: "replymate.expenses.quickAddCategories",
   receiptOcrEnabled: "replymate.expenses.receiptOcrEnabled",
+  chatContextLength: "replymate.chatContextLength",
   // ── CineTrack tool preferences ──
   oneHandedMode: "cinetrack.oneHandedMode",
   libraryAwareChat: "cinetrack.libraryAwareChat",
@@ -54,6 +55,7 @@ export type ExportPayload = {
     quickAddCategories: string[];
   };
   history: ReplyHistoryItem[];
+  chatContextLength?: number;
   favorites: FavoriteReply[];
 };
 
@@ -195,6 +197,15 @@ export async function saveReceiptOcrEnabledPreference(value: boolean): Promise<v
   await AsyncStorage.setItem(keys.receiptOcrEnabled, JSON.stringify(value));
 }
 
+
+export async function getChatContextLengthPreference(): Promise<number> {
+  return readJson<number>(keys.chatContextLength, 50);
+}
+
+export async function saveChatContextLengthPreference(value: number): Promise<void> {
+  await AsyncStorage.setItem(keys.chatContextLength, JSON.stringify(value));
+}
+
 export async function getHistory(): Promise<ReplyHistoryItem[]> {
   return readJson<ReplyHistoryItem[]>(keys.history, []);
 }
@@ -304,6 +315,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
     budgetWarningThreshold,
     autoCategorySuggestions,
     quickAddCategories,
+    chatContextLength,
     history,
   ] =
     await Promise.all([
@@ -319,6 +331,7 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       getBudgetWarningThresholdPreference(),
       getAutoCategorySuggestionsPreference(),
       getQuickAddCategoriesPreference(),
+      getChatContextLengthPreference(),
       getHistory(),
     ]);
 
@@ -343,7 +356,9 @@ export async function buildLocalExportPayload(): Promise<ExportPayload> {
       budgetWarningThreshold,
       autoCategorySuggestions,
       quickAddCategories,
+      yearlyBudgetTarget: null,
     },
+    chatContextLength,
     history,
     favorites,
   };
@@ -366,6 +381,9 @@ export async function importLocalPayload(payload: ExportPayload): Promise<void> 
   if (app.budgetWarningThreshold !== undefined) await saveBudgetWarningThresholdPreference(app.budgetWarningThreshold);
   if (app.autoCategorySuggestions !== undefined) await saveAutoCategorySuggestionsPreference(app.autoCategorySuggestions);
   if (app.quickAddCategories !== undefined) await saveQuickAddCategoriesPreference(app.quickAddCategories);
+
+
+  if (payload.chatContextLength !== undefined) await saveChatContextLengthPreference(payload.chatContextLength);
 
   // Save history
   if (Array.isArray(history)) {
