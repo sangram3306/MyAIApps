@@ -128,6 +128,29 @@ export async function handleChatMessage(
     let assistantReply = completion.content;
     let agentEvents: AgentEvent[] = [];
 
+    // Fallback: If the LLM failed to use native tool calling and instead output raw JSON in the chat
+    if ((!completion.toolCalls || completion.toolCalls.length === 0) && assistantReply.trim().startsWith('{') && assistantReply.includes('"generateAndEmailReport"')) {
+      try {
+        const parsedContent = JSON.parse(assistantReply.trim());
+        if (parsedContent.name === "generateAndEmailReport" && parsedContent.parameters) {
+          completion.toolCalls = [
+            {
+              id: "fallback_call",
+              type: "function",
+              function: {
+                name: "generateAndEmailReport",
+                arguments: JSON.stringify(parsedContent.parameters)
+              }
+            }
+          ];
+          // Clear the reply since it was just a tool call payload
+          assistantReply = "";
+        }
+      } catch (e) {
+        // Not valid JSON, ignore and let it be sent as a normal chat message
+      }
+    }
+
     // Handle tool call interception
     if (completion.toolCalls && completion.toolCalls.length > 0) {
       trace.push(`Intercepted tool call: ${completion.toolCalls[0].function.name}`);
