@@ -31,7 +31,7 @@ export async function handleChatMessageRequest(req: { body: unknown; headers: Re
       }
     }
 
-    const result = await handleChatMessage(input.message, userId, userName, input.history);
+    const result = await handleChatMessage(input.message, userId, input.history, userName);
     res.json(result);
   } catch (error) {
     if (error instanceof ZodError) {
