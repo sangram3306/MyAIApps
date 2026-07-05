@@ -78,7 +78,7 @@ export async function handleChatMessage(
 
   const requestBody = {
     temperature: 0.55,
-    max_tokens: 900,
+    max_tokens: 4096,
     messages: [
       {
         role: "system" as const,
