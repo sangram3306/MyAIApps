@@ -51,7 +51,7 @@ export async function handleChatMessage(
   }
 
   // ── Load memories from database ──────────────────────────────────────
-  let memories;
+  let memories: any[] = [];
   try {
     memories = await getMemories(userId);
     trace.push(`Loaded ${memories.length} memories`);

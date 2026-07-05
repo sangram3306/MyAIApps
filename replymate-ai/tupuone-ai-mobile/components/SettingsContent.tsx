@@ -396,15 +396,16 @@ export function SettingsContent({ onClose, defaultExpand }: { onClose?: () => vo
 
 
           <SettingRow
-            icon="hardware-chip-outline"
-            title="AI Memory"
-            subtitle="ChatGPT-style memory extraction"
+            icon="chatbubbles-outline"
+            title="Chat"
+            subtitle="AI Memory settings"
             active={expandedPanel === "chat"}
             onPress={() => togglePanel("chat")}
             styles={styles}
           />
           {expandedPanel === "chat" ? (
             <DetailCard styles={styles}>
+              <Text style={styles.detailLabel}>AI Memory</Text>
               <Text style={styles.detailText}>
                 SP ONE AI automatically remembers important facts about you across conversations — your name, preferences, projects, and more. This works like ChatGPT's Memory feature.
               </Text>
