@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { MatrixBackground } from "../components/PremiumUI";
 import { radius, spacing, typography } from "../constants/theme";
@@ -15,6 +16,7 @@ import {
 
 export default function AiMemoryScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,7 +86,7 @@ export default function AiMemoryScreen() {
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.xl,
+      paddingTop: Math.max(spacing.xl, insets.top + spacing.sm),
       paddingBottom: spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
