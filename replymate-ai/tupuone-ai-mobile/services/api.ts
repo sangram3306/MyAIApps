@@ -162,6 +162,7 @@ export type ChatAgentEvent = {
 
 export type ChatMessageResponse = {
   assistantReply: string;
+  suggestedTitle?: string;
   intent: string;
   toolCalls: ChatToolCall[];
   agentTrace: string[];

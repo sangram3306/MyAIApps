@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
   Modal,
 } from "react-native";
+import * as ExpoClipboard from "expo-clipboard";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Markdown from "react-native-markdown-display";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
-import { getBackendUrl } from "../../storage/appStorage";
+import { getBackendUrl, getChatContextLengthPreference } from "../../storage/appStorage";
 import { saveAgentDetails } from "../../storage/agentDetailsStore";
 import { ChatMessageResponse, sendChatMessageFromApi } from "../../services/api";
 import { ChatSession, listChatSessions, saveChatSession, deleteChatSession } from "../../storage/chatSessionStore";
@@ -30,16 +33,80 @@ type ChatBubble = {
   toolCalls?: ChatMessageResponse["toolCalls"];
   agentTrace?: string[];
   metadata?: ChatMessageResponse["metadata"];
+  isError?: boolean;
 };
+
+const SUGGESTED_PROMPTS = [
+  { icon: "bulb-outline" as const, text: "Help me brainstorm ideas" },
+  { icon: "create-outline" as const, text: "Write a professional email" },
+  { icon: "book-outline" as const, text: "Explain a topic simply" },
+  { icon: "calendar-outline" as const, text: "Help me plan my week" },
+];
 
 function generateId(): string {
   return String(Date.now());
+}
+
+// ── Typing indicator dots animation ──────────────────────────────────────
+function TypingIndicator({ colors }: { colors: ReturnType<typeof useAppTheme>["colors"] }) {
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+        ]),
+      );
+    const anim = Animated.parallel([animate(dot1, 0), animate(dot2, 150), animate(dot3, 300)]);
+    anim.start();
+    return () => anim.stop();
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View
+      style={{
+        alignSelf: "flex-start",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: colors.surfaceGlass,
+        borderColor: colors.primaryBorder,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 12,
+        shadowColor: colors.cyan,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+      }}
+    >
+      {[dot1, dot2, dot3].map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: colors.primary,
+            opacity: dot,
+          }}
+        />
+      ))}
+    </View>
+  );
 }
 
 export default function ChatScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+  const markdownStyles = useMemo(() => createMarkdownStyles(colors), [colors]);
   const scrollRef = useRef<ScrollView | null>(null);
   const [backendUrl, setBackendUrl] = useState("");
   const [message, setMessage] = useState("");
@@ -49,13 +116,22 @@ export default function ChatScreen() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [historySessions, setHistorySessions] = useState<ChatSession[]>([]);
+  const [activeBubbleMenu, setActiveBubbleMenu] = useState<string | null>(null);
+  const [contextLength, setContextLength] = useState(5);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sendDebounceRef = useRef(false);
   const params = useLocalSearchParams<{ query?: string }>();
 
   useFocusEffect(
     useCallback(() => {
       getBackendUrl().then(setBackendUrl);
       loadHistorySessions();
+      getChatContextLengthPreference().then((val) => {
+        // The preference is stored as a percentage-like value (1-100),
+        // map it to a reasonable message count (1-20)
+        const mapped = Math.max(1, Math.min(20, Math.round(val / 5)));
+        setContextLength(mapped);
+      });
     }, []),
   );
 
@@ -66,7 +142,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
-  }, [messages]);
+  }, [messages, loading]);
 
   useEffect(() => {
     if (params.query) {
@@ -77,6 +153,11 @@ export default function ChatScreen() {
   }, [params.query]);
 
   async function handleSend(value?: string) {
+    // Debounce rapid sends
+    if (sendDebounceRef.current) return;
+    sendDebounceRef.current = true;
+    setTimeout(() => { sendDebounceRef.current = false; }, 600);
+
     const nextMessage = (value ?? message).trim();
 
     let activeUrl = backendUrl;
@@ -113,11 +194,10 @@ export default function ChatScreen() {
     abortControllerRef.current = new AbortController();
 
     function buildHistoryPayload() {
-      // Only send last 5 messages — long-term context is handled by
-      // the backend's entity extraction memory system.
+      // Use user-configured context length instead of hardcoded 5
       const validMessages = messages
         .filter((m) => !m.id.includes("error") && !m.content.includes("I could not process that message right now"))
-        .slice(-5)
+        .slice(-contextLength)
         .map((m) => ({ role: m.role, content: m.content }));
       return validMessages.length > 0 ? validMessages : undefined;
     }
@@ -156,8 +236,9 @@ export default function ChatScreen() {
         const sessionId = currentSessionId || `session-${Date.now()}`;
         if (!currentSessionId) setCurrentSessionId(sessionId);
         
-        const sessionTitle = updatedMessages.find(m => m.role === "user")?.content || "New Chat";
-        const titleSnippet = sessionTitle.length > 40 ? sessionTitle.substring(0, 40) + "..." : sessionTitle;
+        // Use AI-generated title if available, otherwise truncate first user message
+        const fallbackTitle = updatedMessages.find(m => m.role === "user")?.content || "New Chat";
+        const titleSnippet = result.suggestedTitle || (fallbackTitle.length > 40 ? fallbackTitle.substring(0, 40) + "..." : fallbackTitle);
         
         saveChatSession({
           id: sessionId,
@@ -183,6 +264,7 @@ export default function ChatScreen() {
           id: `${generateId()}-assistant-error`,
           role: "assistant",
           content: "I could not process that message right now. Please try again shortly.",
+          isError: true,
           toolCalls: [],
           agentTrace: ["Request failed"],
           metadata: {
@@ -197,6 +279,36 @@ export default function ChatScreen() {
       abortControllerRef.current = null;
       setLoading(false);
     }
+  }
+
+  function handleRetry(item: ChatBubble) {
+    // Find the user message that preceded this assistant message
+    const msgIndex = messages.findIndex((m) => m.id === item.id);
+    const userMsg = item.userMessage || (msgIndex > 0 ? messages[msgIndex - 1]?.content : null);
+    if (!userMsg) return;
+
+    // Remove the error/assistant bubble and re-send
+    setMessages((current) => current.filter((m) => m.id !== item.id));
+    handleSend(userMsg);
+  }
+
+  function handleCopy(text: string) {
+    ExpoClipboard.setStringAsync(text);
+    setActiveBubbleMenu(null);
+  }
+
+  async function handleShare(text: string) {
+    setActiveBubbleMenu(null);
+    try {
+      await Share.share({ message: text });
+    } catch {
+      // user cancelled
+    }
+  }
+
+  function handleDeleteMessage(id: string) {
+    setMessages((current) => current.filter((m) => m.id !== id));
+    setActiveBubbleMenu(null);
   }
 
   function handleStop() {
@@ -227,6 +339,9 @@ export default function ChatScreen() {
               <Text style={styles.threadSubtitle}>Your AI assistant for thinking, writing and planning.</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable style={styles.historyBtn} onPress={() => router.push("/ai-memory" as never)}>
+                <Ionicons name="hardware-chip-outline" color={colors.text} size={20} />
+              </Pressable>
               <Pressable style={styles.historyBtn} onPress={() => setShowHistory(true)}>
                 <Ionicons name="time-outline" color={colors.text} size={20} />
               </Pressable>
@@ -244,33 +359,102 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
           >
             {messages.length ? (
-              messages.map((item) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.bubble,
-                    item.role === "user" ? styles.userBubble : styles.assistantBubble,
-                  ]}
-                >
-                  <Text style={styles.bubbleText}>{item.content}</Text>
+              <>
+                {messages.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onLongPress={() => setActiveBubbleMenu(activeBubbleMenu === item.id ? null : item.id)}
+                    onPress={() => activeBubbleMenu ? setActiveBubbleMenu(null) : undefined}
+                    style={[
+                      styles.bubble,
+                      item.role === "user" ? styles.userBubble : styles.assistantBubble,
+                      item.isError && styles.errorBubble,
+                    ]}
+                  >
+                    {item.role === "assistant" ? (
+                      <Markdown style={markdownStyles}>{item.content}</Markdown>
+                    ) : (
+                      <Text style={styles.bubbleText}>{item.content}</Text>
+                    )}
 
-                  {item.role === "assistant" && item.metadata ? (
-                    <Pressable
-                      onPress={() =>
-                        router.push(`/agent-details?id=${encodeURIComponent(item.id)}` as never)
-                      }
-                      style={styles.detailsLink}
-                    >
-                      <Text style={styles.detailsLinkTitle}>View flow</Text>
-                      <Ionicons name="chevron-forward" color={colors.primary} size={15} />
-                    </Pressable>
-                  ) : null}
-                </View>
-              ))
+                    {/* Action buttons row */}
+                    {item.role === "assistant" && (
+                      <View style={styles.bubbleActions}>
+                        {item.metadata ? (
+                          <Pressable
+                            onPress={() =>
+                              router.push(`/agent-details?id=${encodeURIComponent(item.id)}` as never)
+                            }
+                            style={styles.detailsLink}
+                          >
+                            <Text style={styles.detailsLinkTitle}>View flow</Text>
+                            <Ionicons name="chevron-forward" color={colors.primary} size={15} />
+                          </Pressable>
+                        ) : null}
+                        <View style={{ flex: 1 }} />
+                        <Pressable onPress={() => handleCopy(item.content)} style={styles.bubbleActionBtn} hitSlop={8}>
+                          <Ionicons name="copy-outline" color={colors.muted} size={14} />
+                        </Pressable>
+                        <Pressable onPress={() => handleShare(item.content)} style={styles.bubbleActionBtn} hitSlop={8}>
+                          <Ionicons name="share-outline" color={colors.muted} size={14} />
+                        </Pressable>
+                        {item.isError && (
+                          <Pressable onPress={() => handleRetry(item)} style={styles.retryBtn} hitSlop={8}>
+                            <Ionicons name="refresh-outline" color={colors.amber} size={14} />
+                            <Text style={[styles.detailsLinkTitle, { color: colors.amber }]}>Retry</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Long-press context menu */}
+                    {activeBubbleMenu === item.id && (
+                      <View style={styles.contextMenu}>
+                        <Pressable style={styles.contextMenuItem} onPress={() => handleCopy(item.content)}>
+                          <Ionicons name="copy-outline" color={colors.text} size={16} />
+                          <Text style={styles.contextMenuText}>Copy</Text>
+                        </Pressable>
+                        <Pressable style={styles.contextMenuItem} onPress={() => handleShare(item.content)}>
+                          <Ionicons name="share-outline" color={colors.text} size={16} />
+                          <Text style={styles.contextMenuText}>Share</Text>
+                        </Pressable>
+                        {item.role === "assistant" && (
+                          <Pressable style={styles.contextMenuItem} onPress={() => handleRetry(item)}>
+                            <Ionicons name="refresh-outline" color={colors.text} size={16} />
+                            <Text style={styles.contextMenuText}>Retry</Text>
+                          </Pressable>
+                        )}
+                        <Pressable style={styles.contextMenuItem} onPress={() => handleDeleteMessage(item.id)}>
+                          <Ionicons name="trash-outline" color={colors.danger} size={16} />
+                          <Text style={[styles.contextMenuText, { color: colors.danger }]}>Delete</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+
+                {/* Typing indicator */}
+                {loading && <TypingIndicator colors={colors} />}
+              </>
             ) : (
-              <View style={styles.emptyHint}>
-                <Text style={styles.emptyHintTitle}>Start with a question</Text>
-                <Text style={styles.emptyHintCopy}>Ask Tupu chat anything.</Text>
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyHint}>
+                  <Ionicons name="sparkles" color={colors.primary} size={28} style={{ alignSelf: "center", marginBottom: spacing.sm }} />
+                  <Text style={styles.emptyHintTitle}>What can I help you with?</Text>
+                  <Text style={styles.emptyHintCopy}>Ask Tupu chat anything — brainstorm, write, plan, or just explore ideas.</Text>
+                </View>
+                <View style={styles.promptChips}>
+                  {SUGGESTED_PROMPTS.map((prompt) => (
+                    <Pressable
+                      key={prompt.text}
+                      style={styles.promptChip}
+                      onPress={() => handleSend(prompt.text)}
+                    >
+                      <Ionicons name={prompt.icon} color={colors.primary} size={16} />
+                      <Text style={styles.promptChipText} numberOfLines={1}>{prompt.text}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             )}
           </ScrollView>
@@ -354,6 +538,63 @@ export default function ChatScreen() {
       </Modal>
     </KeyboardAvoidingView>
   );
+}
+
+function createMarkdownStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return {
+    body: { color: colors.text, fontSize: 14, lineHeight: 20 },
+    heading1: { color: colors.text, fontSize: 20, fontWeight: "900" as const, marginBottom: 6, marginTop: 8 },
+    heading2: { color: colors.text, fontSize: 17, fontWeight: "800" as const, marginBottom: 4, marginTop: 6 },
+    heading3: { color: colors.text, fontSize: 15, fontWeight: "700" as const, marginBottom: 4, marginTop: 4 },
+    strong: { fontWeight: "700" as const, color: colors.text },
+    em: { fontStyle: "italic" as const, color: colors.text },
+    link: { color: colors.primary, textDecorationLine: "underline" as const },
+    blockquote: {
+      backgroundColor: colors.surfaceElevated,
+      borderLeftColor: colors.primary,
+      borderLeftWidth: 3,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      marginVertical: spacing.xs,
+    },
+    code_inline: {
+      backgroundColor: colors.surfaceElevated,
+      color: colors.primary,
+      fontSize: 13,
+      paddingHorizontal: 4,
+      paddingVertical: 1,
+      borderRadius: 4,
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    },
+    code_block: {
+      backgroundColor: colors.surfaceElevated,
+      color: colors.text,
+      fontSize: 13,
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+      marginVertical: spacing.xs,
+    },
+    fence: {
+      backgroundColor: colors.surfaceElevated,
+      color: colors.text,
+      fontSize: 13,
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+      marginVertical: spacing.xs,
+    },
+    bullet_list: { marginVertical: spacing.xs },
+    ordered_list: { marginVertical: spacing.xs },
+    list_item: { marginVertical: 2 },
+    paragraph: { marginVertical: 2 },
+    hr: { backgroundColor: colors.border, height: 1, marginVertical: spacing.sm },
+    table: { borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
+    thead: { backgroundColor: colors.surfaceElevated },
+    th: { color: colors.text, fontWeight: "700" as const, padding: 6 },
+    td: { color: colors.text, padding: 6 },
+    tr: { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+  };
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset: number) {
@@ -460,10 +701,62 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       shadowOpacity: 0.08,
       shadowRadius: 14,
     },
+    errorBubble: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
     bubbleText: {
       color: colors.text,
       fontSize: 14,
       lineHeight: 20,
+    },
+    bubbleActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    bubbleActionBtn: {
+      padding: 4,
+      borderRadius: radius.xs,
+    },
+    retryBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      backgroundColor: "rgba(250,204,21,0.14)",
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    contextMenu: {
+      position: "absolute",
+      top: -4,
+      right: spacing.sm,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radius.sm,
+      borderColor: colors.border,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingVertical: spacing.xs,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 8,
+      zIndex: 100,
+      minWidth: 130,
+    },
+    contextMenuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    contextMenuText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "600",
     },
     detailsLink: {
       alignItems: "center",
@@ -481,28 +774,53 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontWeight: "900",
       textTransform: "uppercase",
     },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: "center",
+      gap: spacing.lg,
+    },
     emptyHint: {
       alignSelf: "center",
       backgroundColor: colors.surfaceGlass,
       borderColor: colors.border,
       borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth,
-      padding: spacing.md,
+      padding: spacing.lg,
       width: "100%",
     },
     emptyHintTitle: {
       color: colors.text,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: "900",
       textAlign: "center",
     },
     emptyHintCopy: {
       color: colors.textMuted,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: "700",
-      lineHeight: 16,
-      marginTop: 4,
+      lineHeight: 18,
+      marginTop: 6,
       textAlign: "center",
+    },
+    promptChips: {
+      gap: spacing.sm,
+    },
+    promptChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      backgroundColor: colors.surfaceGlass,
+      borderColor: colors.primaryBorder,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 12,
+    },
+    promptChipText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "700",
+      flex: 1,
     },
     error: {
       backgroundColor: colors.dangerSoft,
