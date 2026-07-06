@@ -108,14 +108,14 @@ export async function handleChatMessage(
           type: "function" as const,
           function: {
             name: "generatePdfReport",
-            description: "Generates a PDF document and returns it. ONLY use this when the user EXPLICITLY asks for a PDF report or summary.",
+            description: "Generates a PDF document and returns it. CRITICAL: ONLY use this when the user EXPLICITLY asks for a PDF report or summary. NEVER use this tool if the user is just saying hello or asking a general question.",
             parameters: {
               type: "object",
               properties: {
                 markdownData: { type: "string", description: "The markdown string to render into the PDF." },
-                recipientEmail: { type: "string", description: "OPTIONAL. If the user explicitly asks to email the report, provide their email address." },
-                subject: { type: "string", description: "OPTIONAL. The subject of the email, if emailing." },
-                bodyText: { type: "string", description: "OPTIONAL. The body of the email, if emailing." }
+                recipientEmail: { type: "string", description: "CRITICAL: LEAVE EMPTY unless the user explicitly types 'email it to me' or provides an email. DO NOT proactively send emails." },
+                subject: { type: "string", description: "Leave empty unless emailing." },
+                bodyText: { type: "string", description: "Leave empty unless emailing." }
               },
               required: ["markdownData"]
             }
@@ -125,14 +125,14 @@ export async function handleChatMessage(
           type: "function" as const,
           function: {
             name: "generateExcelReport",
-            description: "Generates an Excel spreadsheet and returns it. ONLY use this when the user EXPLICITLY asks for an Excel or spreadsheet report.",
+            description: "Generates an Excel spreadsheet and returns it. CRITICAL: ONLY use this when the user EXPLICITLY asks for an Excel or spreadsheet report. NEVER use this tool if the user is just saying hello or asking a general question.",
             parameters: {
               type: "object",
               properties: {
                 jsonData: { type: "string", description: "A VALID JSON array of objects representing rows and columns. Example: '[{\"Name\":\"Project A\"}]'." },
-                recipientEmail: { type: "string", description: "OPTIONAL. If the user explicitly asks to email the report, provide their email address." },
-                subject: { type: "string", description: "OPTIONAL. The subject of the email, if emailing." },
-                bodyText: { type: "string", description: "OPTIONAL. The body of the email, if emailing." }
+                recipientEmail: { type: "string", description: "CRITICAL: LEAVE EMPTY unless the user explicitly types 'email it to me' or provides an email. DO NOT proactively send emails." },
+                subject: { type: "string", description: "Leave empty unless emailing." },
+                bodyText: { type: "string", description: "Leave empty unless emailing." }
               },
               required: ["jsonData"]
             }

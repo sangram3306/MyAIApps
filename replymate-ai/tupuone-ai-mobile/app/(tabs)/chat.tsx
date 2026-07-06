@@ -222,6 +222,7 @@ export default function ChatScreen() {
         toolCalls: result.toolCalls,
         agentTrace: result.agentTrace,
         metadata: result.metadata,
+        attachments: result.attachments,
       };
 
       saveAgentDetails({
@@ -368,7 +369,16 @@ export default function ChatScreen() {
               <Pressable style={styles.historyBtn} onPress={() => setShowHistory(true)}>
                 <Ionicons name="time-outline" color={colors.text} size={20} />
               </Pressable>
-              <Pressable style={styles.historyBtn} onPress={() => { setCurrentSessionId(null); setMessages([]); }}>
+              <Pressable style={styles.historyBtn} onPress={() => {
+                if (abortControllerRef.current) {
+                  abortControllerRef.current.abort();
+                  abortControllerRef.current = null;
+                }
+                setLoading(false);
+                setError("");
+                setCurrentSessionId(null); 
+                setMessages([]); 
+              }}>
                 <Ionicons name="create-outline" color={colors.text} size={20} />
               </Pressable>
             </View>
