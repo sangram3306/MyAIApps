@@ -35,7 +35,7 @@ import {
   updateWatchEntryTool,
   updateWatchEntryStatusTool,
 } from "./tools/watch.js";
-import { generateAndEmailReportTool } from "./tools/documents.js";
+import { generatePdfTool, generateExcelTool } from "./tools/documents.js";
 
 dotenv.config();
 
@@ -141,8 +141,12 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
       return res.json(await saveDecisionSimulationTool(payload));
     }
 
-    if (toolName === "generateAndEmailReport") {
-      return res.json(await generateAndEmailReportTool(payload));
+    if (toolName === "generatePdfReport") {
+      return res.json(await generatePdfTool(payload));
+    }
+
+    if (toolName === "generateExcelReport") {
+      return res.json(await generateExcelTool(payload));
     }
 
     if (toolName === "listDecisionSimulations") {

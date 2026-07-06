@@ -167,6 +167,11 @@ export type ChatMessageResponse = {
   toolCalls: ChatToolCall[];
   agentTrace: string[];
   agentEvents?: ChatAgentEvent[];
+  attachments?: Array<{
+    filename: string;
+    mimeType: string;
+    base64: string;
+  }>;
   metadata: {
     toolsUsed: string[];
     toolSources: Record<string, "static" | "llm" | "fallback">;
