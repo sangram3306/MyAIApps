@@ -70,8 +70,6 @@ export async function handleChatMessage(
     (userName ? `You are talking to ${userName}. ` : "") +
     "Answer the user's message directly and naturally based on your general knowledge. " +
     "If the user asks about live or real-time data (like current weather) that you cannot access, politely explain that you don't have real-time information. " +
-    "DO NOT artificially limit yourself or say your capabilities are limited to reports. " +
-    "You have an additional tool to generate and email PDF/Excel reports, but ONLY mention or use it if explicitly requested. " +
     "If the user asks to modify app data, explain briefly that you cannot perform that action. " +
     memoryBlock;
 
