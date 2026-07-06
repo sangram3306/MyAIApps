@@ -18,6 +18,7 @@ type AgentEvent = {
 
 export type ChatResponse = {
   assistantReply: string;
+  suggestedTitle?: string;
   intent: "general";
   toolCalls: Array<{
     name: string;
@@ -67,7 +68,7 @@ export async function handleChatMessage(
   const systemPrompt =
     "You are Tupu chat, a helpful general-purpose assistant. " +
     (userName ? `You are talking to ${userName}. ` : "") +
-    "Answer the user's message directly and naturally. You have access to tools to generate and email PDF and Excel reports. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action." +
+    "Answer the user's message directly and naturally. You have access to tools to generate and email PDF and Excel reports. DO NOT call the report tool unless the user explicitly requests a report. If the user asks to modify app data, explain briefly that this chat can answer generally but cannot perform that action." +
     memoryBlock;
 
   // ── Only use the last 5 messages for short-term context ──────────────
@@ -99,7 +100,7 @@ export async function handleChatMessage(
         type: "function" as const,
         function: {
           name: "generateAndEmailReport",
-          description: "Generates a PDF or Excel document and emails it to the user. Use this when the user asks for a report, summary, or document to be sent to them. The data payload should be robust and well-formatted.",
+          description: "Generates a PDF or Excel document and emails it to the user. ONLY use this when the user EXPLICITLY asks for a report, summary, or document to be sent to them. DO NOT use this tool for greetings or general questions. The data payload should be robust and well-formatted.",
           parameters: {
             type: "object",
             properties: {
@@ -109,7 +110,7 @@ export async function handleChatMessage(
               bodyText: { type: "string", description: "The text body of the email" },
               data: {
                 type: "string",
-                description: "For PDF, provide a markdown string. For Excel, provide a JSON string representing an array of objects. Example: '[{\"Name\":\"Project A\", \"Cost\":100}]'"
+                description: "For PDF, provide a markdown string. For Excel, provide a VALID JSON string representing an array of objects. Example: '[{\"Name\":\"Project A\"}]'. CRITICAL: DO NOT abbreviate or truncate the data with ellipses (...). You MUST output valid JSON only."
               }
             },
             required: ["reportType", "recipientEmail", "subject", "bodyText", "data"]
@@ -237,8 +238,20 @@ export async function handleChatMessage(
     );
     trace.push("Triggered background memory extraction");
 
+    // ── Generate session title for new conversations ──────────────────
+    let suggestedTitle: string | undefined;
+    if (!history || history.length === 0) {
+      try {
+        suggestedTitle = await generateSessionTitle(trimmedMessage, assistantReply.trim());
+        trace.push(`Generated session title: "${suggestedTitle}"`);
+      } catch (err) {
+        console.error("[chat] title generation failed (non-blocking):", err);
+      }
+    }
+
     return buildResponse({
       assistantReply: assistantReply.trim(),
+      suggestedTitle,
       trace: [...trace, "Generated final response"],
       source: "llm",
       agentEvents,
@@ -336,17 +349,20 @@ Respond with ONLY the JSON array:`;
 
 function buildResponse({
   assistantReply,
+  suggestedTitle,
   trace,
   source,
   agentEvents,
 }: {
   assistantReply: string;
+  suggestedTitle?: string;
   trace: string[];
   source: Source;
   agentEvents: AgentEvent[];
 }): ChatResponse {
   return {
     assistantReply,
+    ...(suggestedTitle ? { suggestedTitle } : {}),
     intent: "general",
     toolCalls: [],
     agentTrace: [...trace, "Returned response"],
@@ -358,4 +374,32 @@ function buildResponse({
       },
     },
   };
+}
+
+/**
+ * Generate a short descriptive title for a chat session from the first exchange.
+ */
+async function generateSessionTitle(
+  userMessage: string,
+  assistantReply: string
+): Promise<string> {
+  const result = await callChatCompletion({
+    temperature: 0.3,
+    maxTokens: 30,
+    messages: [
+      {
+        role: "system",
+        content:
+          "Generate a very short title (3-6 words max) for this chat conversation. " +
+          "Return ONLY the title text, no quotes, no punctuation at the end, no explanation.",
+      },
+      {
+        role: "user",
+        content: `User: ${userMessage.slice(0, 200)}\nAssistant: ${assistantReply.slice(0, 200)}`,
+      },
+    ],
+  });
+
+  const title = result.content.trim().replace(/^["']|["']$/g, "");
+  return title.length > 50 ? title.slice(0, 47) + "..." : title;
 }
