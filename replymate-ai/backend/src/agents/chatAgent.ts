@@ -76,7 +76,7 @@ export async function handleChatMessage(
     "Answer the user's message directly and naturally based on your general knowledge. " +
     "If the user asks about live or real-time data (like current weather) that you cannot access, politely explain that you don't have real-time information. " +
     "If the user asks to modify app data, explain briefly that you cannot perform that action. " +
-    "CRITICAL RULE: If the user's message is a simple greeting (e.g., 'Hi', 'Hello') or very short, YOU MUST NOT CALL ANY TOOLS. Simply greet them back naturally. " +
+    "CRITICAL RULE: If the user's message is a simple greeting (e.g., 'Hi', 'Hello') or very short, YOU MUST NOT CALL ANY TOOLS. Simply greet them back naturally, using their name if known. " +
     memoryBlock;
 
   // ── Only use the last 5 messages for short-term context ──────────────
