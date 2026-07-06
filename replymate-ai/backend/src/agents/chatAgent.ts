@@ -27,6 +27,11 @@ export type ChatResponse = {
   }>;
   agentTrace: string[];
   agentEvents: AgentEvent[];
+  attachments?: Array<{
+    filename: string;
+    mimeType: string;
+    base64: string;
+  }>;
   metadata: {
     toolsUsed: string[];
     toolSources: Record<string, Source>;
@@ -98,27 +103,42 @@ export async function handleChatMessage(
   try {
     const tools = [];
     if (process.env.MCP_SERVER_URL) {
-      tools.push({
-        type: "function" as const,
-        function: {
-          name: "generateAndEmailReport",
-          description: "Generates a PDF or Excel document and emails it to the user. ONLY use this when the user EXPLICITLY asks for a report, summary, or document to be sent to them. DO NOT use this tool for greetings or general questions. The data payload should be robust and well-formatted.",
-          parameters: {
-            type: "object",
-            properties: {
-              reportType: { type: "string", enum: ["pdf", "excel"] },
-              recipientEmail: { type: "string", description: "The email address to send the report to" },
-              subject: { type: "string", description: "The subject of the email" },
-              bodyText: { type: "string", description: "The text body of the email" },
-              data: {
-                type: "string",
-                description: "For PDF, provide a markdown string. For Excel, provide a VALID JSON string representing an array of objects. Example: '[{\"Name\":\"Project A\"}]'. CRITICAL: DO NOT abbreviate or truncate the data with ellipses (...). You MUST output valid JSON only."
-              }
-            },
-            required: ["reportType", "recipientEmail", "subject", "bodyText", "data"]
+      tools.push(
+        {
+          type: "function" as const,
+          function: {
+            name: "generatePdfReport",
+            description: "Generates a PDF document and returns it. ONLY use this when the user EXPLICITLY asks for a PDF report or summary.",
+            parameters: {
+              type: "object",
+              properties: {
+                markdownData: { type: "string", description: "The markdown string to render into the PDF." },
+                recipientEmail: { type: "string", description: "OPTIONAL. If the user explicitly asks to email the report, provide their email address." },
+                subject: { type: "string", description: "OPTIONAL. The subject of the email, if emailing." },
+                bodyText: { type: "string", description: "OPTIONAL. The body of the email, if emailing." }
+              },
+              required: ["markdownData"]
+            }
+          }
+        },
+        {
+          type: "function" as const,
+          function: {
+            name: "generateExcelReport",
+            description: "Generates an Excel spreadsheet and returns it. ONLY use this when the user EXPLICITLY asks for an Excel or spreadsheet report.",
+            parameters: {
+              type: "object",
+              properties: {
+                jsonData: { type: "string", description: "A VALID JSON array of objects representing rows and columns. Example: '[{\"Name\":\"Project A\"}]'." },
+                recipientEmail: { type: "string", description: "OPTIONAL. If the user explicitly asks to email the report, provide their email address." },
+                subject: { type: "string", description: "OPTIONAL. The subject of the email, if emailing." },
+                bodyText: { type: "string", description: "OPTIONAL. The body of the email, if emailing." }
+              },
+              required: ["jsonData"]
+            }
           }
         }
-      });
+      );
     }
 
     let completion = await callChatCompletion({
@@ -130,45 +150,24 @@ export async function handleChatMessage(
 
     let assistantReply = completion.content;
     let agentEvents: AgentEvent[] = [];
-
-    // Fallback: If the LLM failed to use native tool calling and instead output raw JSON in the chat
-    if ((!completion.toolCalls || completion.toolCalls.length === 0) && assistantReply.trim().startsWith('{') && assistantReply.includes('"generateAndEmailReport"')) {
-      try {
-        const parsedContent = JSON.parse(assistantReply.trim());
-        if (parsedContent.name === "generateAndEmailReport" && parsedContent.parameters) {
-          completion.toolCalls = [
-            {
-              id: "fallback_call",
-              type: "function",
-              function: {
-                name: "generateAndEmailReport",
-                arguments: JSON.stringify(parsedContent.parameters)
-              }
-            }
-          ];
-          // Clear the reply since it was just a tool call payload
-          assistantReply = "";
-        }
-      } catch (e) {
-        // Not valid JSON, ignore and let it be sent as a normal chat message
-      }
-    }
+    let responseAttachments: NonNullable<ChatResponse["attachments"]> = [];
 
     // Handle tool call interception
     if (completion.toolCalls && completion.toolCalls.length > 0) {
       trace.push(`Intercepted tool call: ${completion.toolCalls[0].function.name}`);
       
       const toolCall = completion.toolCalls[0];
-      if (toolCall.function.name === "generateAndEmailReport" && process.env.MCP_SERVER_URL) {
+      const validTools = ["generatePdfReport", "generateExcelReport"];
+      
+      if (validTools.includes(toolCall.function.name) && process.env.MCP_SERVER_URL) {
         try {
           const args = JSON.parse(toolCall.function.arguments);
           
-          // If Excel, the LLM might have sent the data as a stringified JSON array
-          if (args.reportType === "excel" && typeof args.data === "string") {
-            try { args.data = JSON.parse(args.data); } catch (e) { /* ignore */ }
+          if (toolCall.function.name === "generateExcelReport" && typeof args.jsonData === "string") {
+            try { args.jsonData = JSON.parse(args.jsonData); } catch (e) { /* ignore */ }
           }
 
-          const mcpResponse = await fetch(`${process.env.MCP_SERVER_URL.replace(/\/$/, "")}/tools/generateAndEmailReport`, {
+          const mcpResponse = await fetch(`${process.env.MCP_SERVER_URL.replace(/\/$/, "")}/tools/${toolCall.function.name}`, {
             method: "POST",
             headers: { 
               "Content-Type": "application/json",
@@ -178,12 +177,24 @@ export async function handleChatMessage(
           });
           
           const mcpResult = await mcpResponse.json();
-          trace.push(`MCP tool call returned: ${JSON.stringify(mcpResult)}`);
+          
+          // If the tool returned a file, add it to attachments and remove base64 from the trace
+          if (mcpResult.base64) {
+            responseAttachments.push({
+              filename: mcpResult.filename,
+              mimeType: mcpResult.mimeType,
+              base64: mcpResult.base64
+            });
+            trace.push(`MCP tool call returned a file: ${mcpResult.filename}`);
+            mcpResult.base64 = "[BASE64_DATA_REMOVED_FOR_LLM]";
+          } else {
+            trace.push(`MCP tool call returned: ${JSON.stringify(mcpResult)}`);
+          }
 
           // Fetch follow-up completion to summarize the result to the user
           const followupMessages = [
             ...requestBody.messages,
-            { role: "assistant" as const, content: "I am generating the report now." },
+            { role: "assistant" as const, content: `I am executing ${toolCall.function.name}...` },
             { role: "user" as const, content: `System: The tool call completed with result: ${JSON.stringify(mcpResult)}. Please tell the user.` }
           ];
 
@@ -257,6 +268,7 @@ export async function handleChatMessage(
       trace: [...trace, "Generated final response"],
       source: "llm",
       agentEvents,
+      attachments: responseAttachments.length > 0 ? responseAttachments : undefined,
     });
   } catch (error) {
     console.error("[chat] direct LLM fallback", error);
@@ -355,12 +367,14 @@ function buildResponse({
   trace,
   source,
   agentEvents,
+  attachments,
 }: {
   assistantReply: string;
   suggestedTitle?: string;
   trace: string[];
   source: Source;
   agentEvents: AgentEvent[];
+  attachments?: ChatResponse["attachments"];
 }): ChatResponse {
   return {
     assistantReply,
@@ -369,6 +383,7 @@ function buildResponse({
     toolCalls: [],
     agentTrace: [...trace, "Returned response"],
     agentEvents,
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
     metadata: {
       toolsUsed: [source === "llm" ? "directLlmChat" : "directChatFallback"],
       toolSources: {

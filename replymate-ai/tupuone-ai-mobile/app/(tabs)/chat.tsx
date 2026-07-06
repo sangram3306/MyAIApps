@@ -13,6 +13,8 @@ import {
   Modal,
 } from "react-native";
 import * as ExpoClipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Markdown from "react-native-markdown-display";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -33,6 +35,7 @@ type ChatBubble = {
   toolCalls?: ChatMessageResponse["toolCalls"];
   agentTrace?: string[];
   metadata?: ChatMessageResponse["metadata"];
+  attachments?: ChatMessageResponse["attachments"];
   isError?: boolean;
 };
 
@@ -306,6 +309,26 @@ export default function ChatScreen() {
     }
   }
 
+  async function handleDownloadAttachment(attachment: NonNullable<ChatBubble["attachments"]>[0]) {
+    try {
+      const fileUri = FileSystem.documentDirectory + attachment.filename;
+      await FileSystem.writeAsStringAsync(fileUri, attachment.base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: attachment.mimeType,
+          dialogTitle: "Save or share document",
+        });
+      } else {
+        alert("Sharing is not available on this device");
+      }
+    } catch (e) {
+      alert("Failed to download the attachment.");
+      console.error(e);
+    }
+  }
+
   function handleDeleteMessage(id: string) {
     setMessages((current) => current.filter((m) => m.id !== id));
     setActiveBubbleMenu(null);
@@ -376,6 +399,21 @@ export default function ChatScreen() {
                     ) : (
                       <Text style={styles.bubbleText}>{item.content}</Text>
                     )}
+
+                    {/* Attachments */}
+                    {item.attachments && item.attachments.map((att, idx) => (
+                      <Pressable 
+                        key={idx} 
+                        style={styles.attachmentBtn}
+                        onPress={() => handleDownloadAttachment(att)}
+                      >
+                        <Ionicons name="document-text-outline" color={colors.primary} size={20} />
+                        <Text style={[styles.detailsLinkTitle, { marginLeft: spacing.xs, flex: 1 }]} numberOfLines={1}>
+                          {att.filename}
+                        </Text>
+                        <Ionicons name="download-outline" color={colors.primary} size={18} />
+                      </Pressable>
+                    ))}
 
                     {/* Action buttons row */}
                     {item.role === "assistant" && (
@@ -709,6 +747,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       color: colors.text,
       fontSize: 14,
       lineHeight: 20,
+    },
+    attachmentBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      marginTop: spacing.sm,
     },
     bubbleActions: {
       flexDirection: "row",
