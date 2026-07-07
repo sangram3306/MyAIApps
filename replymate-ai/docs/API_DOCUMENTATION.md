@@ -1,7 +1,8 @@
-# ReplyMate AI Backend API Documentation
+# API Documentation
+
+This document provides a detailed description of the available endpoints in the ReplyMate AI backend.
 
 ## Base URL
-
 `http://localhost:4000`
 
 ## Global Headers
@@ -24,11 +25,37 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +97,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +173,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -362,7 +391,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +440,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +473,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +503,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +543,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -546,7 +576,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +606,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,7 +646,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -650,7 +679,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +709,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,7 +749,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -745,6 +773,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,7 +806,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -856,7 +888,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +923,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +944,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +954,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -952,7 +988,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 

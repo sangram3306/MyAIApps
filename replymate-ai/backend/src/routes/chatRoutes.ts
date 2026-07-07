@@ -8,7 +8,7 @@ const router = Router();
 
 router.post("/message", handleChatMessageRequest);
 
-export async function handleChatMessageRequest(req: { body: unknown; headers: Record<string, string | string[] | undefined> }, res: {
+export async function handleChatMessageRequest(req: { body: unknown; headers?: Record<string, string | string[] | undefined> }, res: {
   status(code: number): { json(payload: unknown): void };
   json(payload: unknown): void;
 }) {
