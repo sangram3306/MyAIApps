@@ -1,18 +1,21 @@
 # ReplyMate AI Backend API Documentation
 
-## Base URL
+This documentation is automatically generated from the OpenAPI/Swagger specification.
 
+## Base URL
 `http://localhost:4000`
 
 ## Global Headers
 
-- `X-LLM-Provider`: (Optional) Specifies the LLM provider (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
-- `X-LLM-Model`: (Optional) Specific model to use from the provider.
-- `X-LLM-Reasoning`: (Optional) Boolean string (`true`, `false`) to toggle reasoning.
+Many endpoints support the following optional headers to override the default LLM provider and model:
 
-## Routes and Payloads
+- `X-LLM-Provider`: The LLM provider to use (e.g., `nvidia`, `groq`, `openai`).
+- `X-LLM-Model`: The specific model to use (e.g., `llama3-70b-8192`).
+- `X-LLM-Reasoning`: Set to `true` to enable reasoning if the provider supports it.
 
-### POST `/api/chat/message`
+## Endpoints
+
+### POST /api/chat/message
 
 **Payload (JSON):**
 
@@ -28,19 +31,15 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/coach/analyze`
+- **200**: Successful response
+### POST /api/coach/analyze
 
 **Payload (JSON):**
 
@@ -70,19 +69,15 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/creator/repurpose`
+- **200**: Successful response
+### POST /api/creator/repurpose
 
 **Payload (JSON):**
 
@@ -145,19 +140,15 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/decision/simulate`
+- **200**: Successful response
+### POST /api/decision/simulate
 
 **Payload (JSON):**
 
@@ -206,15 +197,10 @@
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/create`
+- **200**: Successful response
+### POST /api/expense/create
 
 **Payload (JSON):**
 
@@ -256,15 +242,10 @@
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/message`
+- **200**: Successful response
+### POST /api/expense/message
 
 **Payload (JSON):**
 
@@ -284,15 +265,10 @@
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/intelligence`
+- **200**: Successful response
+### POST /api/expense/intelligence
 
 **Payload (JSON):**
 
@@ -313,15 +289,10 @@
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/learning/skill-tree`
+- **200**: Successful response
+### POST /api/learning/skill-tree
 
 **Payload (JSON):**
 
@@ -362,19 +333,15 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/learning/roadmap`
+- **200**: Successful response
+### POST /api/learning/roadmap
 
 **Payload (JSON):**
 
@@ -410,19 +377,15 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/generate`
+- **200**: Successful response
+### POST /api/replies/generate
 
 **Payload (JSON):**
 
@@ -442,7 +405,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +435,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,19 +475,15 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/rewrite`
+- **200**: Successful response
+### POST /api/replies/rewrite
 
 **Payload (JSON):**
 
@@ -546,7 +503,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +533,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,19 +573,15 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/grammar`
+- **200**: Successful response
+### POST /api/replies/grammar
 
 **Payload (JSON):**
 
@@ -650,7 +601,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +631,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,19 +671,15 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/watch/log`
+- **200**: Successful response
+### POST /api/watch/log
 
 **Payload (JSON):**
 
@@ -745,6 +690,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,19 +723,15 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### PATCH `/api/watch/items/{id}`
+- **200**: Successful response
+### PATCH /api/watch/items/{id}
 
 **Payload (JSON):**
 
@@ -856,7 +800,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +835,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +856,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,19 +866,15 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### PATCH `/api/watch/items/{id}/status`
+- **200**: Successful response
+### PATCH /api/watch/items/{id}/status
 
 **Payload (JSON):**
 
@@ -952,19 +895,15 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/watch/search`
+- **200**: Successful response
+### POST /api/watch/search
 
 **Payload (JSON):**
 
@@ -985,10 +924,6 @@
 }
 ```
 
-**Response:**
+**Responses:**
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+- **200**: Successful response
