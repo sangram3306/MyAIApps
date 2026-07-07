@@ -6,7 +6,8 @@
 
 ## Global Headers
 
-- `X-LLM-Provider`: (Optional) Specifies the LLM provider (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
+- `X-LLM-Provider`: (Optional) Specifies the LLM provider
+  (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
 - `X-LLM-Model`: (Optional) Specific model to use from the provider.
 - `X-LLM-Reasoning`: (Optional) Boolean string (`true`, `false`) to toggle reasoning.
 
@@ -14,7 +15,7 @@
 
 ### POST `/api/chat/message`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -28,7 +29,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -36,13 +38,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/coach/analyze`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -70,7 +72,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -78,13 +81,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/creator/repurpose`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -145,7 +148,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -153,13 +157,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/decision/simulate`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -202,7 +206,8 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -210,13 +215,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/expense/create`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -224,8 +229,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,7 +256,8 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -260,13 +265,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/expense/message`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -280,7 +285,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -288,13 +294,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/expense/intelligence`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -309,7 +315,8 @@
       ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -317,13 +324,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/learning/skill-tree`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -362,7 +369,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -370,13 +378,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/learning/roadmap`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -410,7 +418,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -418,13 +427,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/replies/generate`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -442,7 +451,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +481,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +521,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -522,13 +530,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/replies/rewrite`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -546,7 +554,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +584,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,7 +624,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -626,13 +633,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/replies/grammar`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -650,7 +657,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +687,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,7 +727,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -730,13 +736,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/watch/log`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -745,6 +751,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,7 +784,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -783,13 +793,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### PATCH `/api/watch/items/{id}`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -856,7 +866,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +901,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +922,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +932,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -927,13 +941,13 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### PATCH `/api/watch/items/{id}/status`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
@@ -952,7 +966,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -960,28 +975,34 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
 }
 ```
 
 ### POST `/api/watch/search`
 
-**Payload (JSON):**
+**Payload (JSON Schema):**
 
 ```json
 {
   "type": "object",
   "properties": {
-    "query": {
-      "type": "string"
+    "q": {
+      "type": "string",
+      "minLength": 1
     },
-    "limit": {
-      "type": "number"
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
     }
   },
   "required": [
-    "query"
-  ]
+    "q"
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -989,6 +1010,52 @@
 
 ```json
 {
-  "success": "true (or structured response)"
+  "success": true
+}
+```
+
+### POST `/api/watch/resolve-title`
+
+Endpoint for /api/watch/resolve-title
+
+**Payload (JSON Schema):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
 }
 ```
