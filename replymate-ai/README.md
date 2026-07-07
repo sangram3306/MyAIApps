@@ -26,6 +26,8 @@ Main capabilities:
 - Creator repurposing tools.
 - Decision simulator.
 - Learning roadmap and skill-tree tools.
+- AI memory management.
+- Document generation (PDF and Excel) from chat.
 - Watch tracker screens shared with earlier TupuOne features.
 - User authentication, profile management, and account settings.
 - Cine Finder for semantic search of watch libraries using embeddings.
@@ -177,6 +179,12 @@ Settings:
 - `GET /api/settings/deepseek-usage`
 - `GET /api/settings/usage`
 
+Memory:
+
+- `GET /api/memory/list`
+- `DELETE /api/memory/clear`
+- `DELETE /api/memory/:id`
+
 ## Reply Request Example
 
 `POST /api/replies/generate`
@@ -220,6 +228,7 @@ Current tool names include:
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
 - Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Document tools: `generatePdfReport`, `generateExcelReport`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
@@ -282,6 +291,12 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+# Email variables for Document Generation tools
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
 ```
 
 ### 3. SP One mobile app
@@ -290,6 +305,13 @@ MONGODB_WATCH_COLLECTION=watch_tracker
 cd tupuone-ai-mobile
 npm install
 npm run start
+```
+
+Important SP One env vars (add to `.env`):
+
+```text
+# Overrides the default monthly subscription pro price (defaults to 39)
+EXPO_PUBLIC_SPONE_MONTHLY_SUB_PRO_PRICE=39
 ```
 
 ### 4. CineTrack AI mobile app
