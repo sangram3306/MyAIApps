@@ -164,6 +164,8 @@ Watch tracker:
 - `POST /api/watch/log`
 - `GET /api/watch/items`
 - `GET /api/watch/profile`
+- `GET /api/watch/search-titles`
+- `POST /api/watch/resolve-title`
 - `PATCH /api/watch/items/:id`
 - `PATCH /api/watch/items/:id/status`
 - `DELETE /api/watch/items/:id`
@@ -215,11 +217,10 @@ Expected response shape:
 Current tool names include:
 
 - Reply coach tools: `classifyIntent`, `detectEmotion`, `relationshipRules`, `riskAssessment`, `qualityCheck`
-- Todo tools: `createTodo`, `listTodos`, `completeTodo`, `deleteTodo`, `updateTodo`
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
-- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`, `searchOmdbTitles`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
@@ -238,6 +239,7 @@ Important backend env vars:
 
 ```text
 PORT=4000
+CORS_ORIGIN=*
 DEFAULT_LLM_PROVIDER=nvidia
 NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
@@ -248,9 +250,20 @@ DEEPSEEK_MODEL=deepseek-chat
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-flash-latest
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_API_KEY=
+ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+CLAUDE_API_KEY=
+CLAUDE_BASE_URL=https://api.anthropic.com/v1
+CLAUDE_MODEL=claude-3-5-sonnet-latest
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_APP_TITLE=
 GROQ_API_KEY=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=openai/gpt-oss-120b
@@ -277,10 +290,17 @@ NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 MCP_SHARED_SECRET=
+EXPENSE_STORE_PATH=
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=AE,IN,US,GB
 MONGODB_URI=
 MONGODB_DB_NAME=replymate_ai
-MONGODB_TODOS_COLLECTION=todos
+MONGODB_DECISIONS_COLLECTION=decisions
 MONGODB_EXPENSES_COLLECTION=expenses
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
 MONGODB_WATCH_COLLECTION=watch_tracker
 ```
 
