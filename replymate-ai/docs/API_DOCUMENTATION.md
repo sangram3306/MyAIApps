@@ -24,11 +24,37 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +96,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +172,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -202,7 +230,8 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -224,8 +253,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,7 +280,8 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -280,7 +309,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -302,14 +332,10 @@
   "properties": {
     "period": {
       "type": "string",
-      "enum": [
-        "all",
-        "month",
-        "year"
-      ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -362,7 +388,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +437,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +470,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +500,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +540,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -746,6 +773,9 @@
       "type": "string",
       "minLength": 1
     },
+    "imdbId": {
+      "type": "string"
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -775,7 +805,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -952,7 +983,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
