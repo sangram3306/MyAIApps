@@ -133,10 +133,12 @@ CineTrack chat:
 Expenses:
 
 - `POST /api/expenses/create`
+- `POST /api/expenses/batch`
 - `POST /api/expenses/message`
 - `GET /api/expenses/export`
 - `POST /api/expenses/intelligence`
 - `POST /api/expenses/clear`
+- `POST /api/expenses/ocr`
 
 Creator:
 
@@ -169,6 +171,13 @@ Watch tracker:
 - `DELETE /api/watch/items/:id`
 - `POST /api/watch/search`
 - `POST /api/watch/embed-all`
+- `POST /api/watch/resolve-title`
+
+Memory:
+
+- `GET /api/memory/list`
+- `DELETE /api/memory/clear`
+- `DELETE /api/memory/:id`
 
 Settings:
 
