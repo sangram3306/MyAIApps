@@ -164,6 +164,8 @@ Watch tracker:
 - `POST /api/watch/log`
 - `GET /api/watch/items`
 - `GET /api/watch/profile`
+- `GET /api/watch/search-titles`
+- `POST /api/watch/resolve-title`
 - `PATCH /api/watch/items/:id`
 - `PATCH /api/watch/items/:id/status`
 - `DELETE /api/watch/items/:id`
@@ -219,7 +221,8 @@ Current tool names include:
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
-- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`, `searchOmdbTitles`
+- Document tools: `generatePdfReport`, `generateExcelReport`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
@@ -239,6 +242,7 @@ Important backend env vars:
 ```text
 PORT=4000
 DEFAULT_LLM_PROVIDER=nvidia
+CORS_ORIGIN=false
 NVIDIA_API_KEY=
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
@@ -251,6 +255,8 @@ GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_APP_TITLE=
 GROQ_API_KEY=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=openai/gpt-oss-120b
@@ -282,6 +288,19 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
+EXPENSE_STORE_PATH=
+OMDB_API_KEY=
+TMDB_API_KEY=
+TMDB_READ_ACCESS_TOKEN=
+TMDB_REGIONS=AE,IN,US,GB
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM="Tupu chat" <onboarding@resend.dev>
 ```
 
 ### 3. SP One mobile app
@@ -290,6 +309,12 @@ MONGODB_WATCH_COLLECTION=watch_tracker
 cd tupuone-ai-mobile
 npm install
 npm run start
+```
+
+Important SP One env vars (add to `.env` or `.env.local`):
+
+```text
+EXPO_PUBLIC_SPONE_MONTHLY_SUB_PRO_PRICE=39
 ```
 
 ### 4. CineTrack AI mobile app
