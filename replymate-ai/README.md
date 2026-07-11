@@ -27,6 +27,7 @@ Main capabilities:
 - Decision simulator.
 - Learning roadmap and skill-tree tools.
 - Watch tracker screens shared with earlier TupuOne features.
+- AI Memory to automatically learn and remember important facts for personalization.
 - User authentication, profile management, and account settings.
 - Cine Finder for semantic search of watch libraries using embeddings.
 - LLM provider/model selector with optional reasoning toggle where supported.
@@ -170,6 +171,12 @@ Watch tracker:
 - `POST /api/watch/search`
 - `POST /api/watch/embed-all`
 
+Memory:
+
+- `GET /api/memory/list`
+- `DELETE /api/memory/clear`
+- `DELETE /api/memory/:id`
+
 Settings:
 
 - `GET /api/settings/llm-options`
@@ -217,6 +224,7 @@ Current tool names include:
 - Reply coach tools: `classifyIntent`, `detectEmotion`, `relationshipRules`, `riskAssessment`, `qualityCheck`
 - Todo tools: `createTodo`, `listTodos`, `completeTodo`, `deleteTodo`, `updateTodo`
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
+- Document tools: `generatePdfTool`, `generateExcelTool`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
 - Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
@@ -282,6 +290,11 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
 ```
 
 ### 3. SP One mobile app
