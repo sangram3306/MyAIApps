@@ -15,6 +15,13 @@ import {
   listExpensesTool,
 } from "./tools/expenses.js";
 import {
+  createRecurringExpenseTool,
+  deleteRecurringExpenseTool,
+  listRecurringExpensesTool,
+  logRecurringExpenseTool,
+  updateRecurringExpenseTool,
+} from "./tools/recurring.js";
+import {
   listDecisionSimulationsTool,
   saveDecisionSimulationTool,
 } from "./tools/decisions.js";
@@ -135,6 +142,26 @@ app.post("/tools/:toolName", async (req: Request, res: Response) => {
 
     if (toolName === "deleteExpense") {
       return res.json(await deleteExpenseTool(payload));
+    }
+
+    if (toolName === "createRecurringExpense") {
+      return res.json(await createRecurringExpenseTool(payload));
+    }
+
+    if (toolName === "listRecurringExpenses") {
+      return res.json(await listRecurringExpensesTool(payload));
+    }
+
+    if (toolName === "updateRecurringExpense") {
+      return res.json(await updateRecurringExpenseTool(payload));
+    }
+
+    if (toolName === "deleteRecurringExpense") {
+      return res.json(await deleteRecurringExpenseTool(payload));
+    }
+
+    if (toolName === "logRecurringExpense") {
+      return res.json(await logRecurringExpenseTool(payload));
     }
 
     if (toolName === "saveDecisionSimulation") {

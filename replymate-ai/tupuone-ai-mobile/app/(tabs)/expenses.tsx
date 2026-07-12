@@ -36,6 +36,9 @@ import {
   sendExpenseMessageFromApi,
   OcrItem,
   createBatchExpensesFromApi,
+  listRecurringExpensesFromApi,
+  logRecurringExpenseFromApi,
+  RecurringExpense,
 } from "../../services/api";
 
 const baseCategories: {
@@ -114,6 +117,8 @@ export default function ExpensesScreen() {
   const [scanning, setScanning] = useState(false);
   const [scannedItems, setScannedItems] = useState<OcrItem[] | null>(null);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [dueRecurring, setDueRecurring] = useState<RecurringExpense[]>([]);
+  const [loggingRecurring, setLoggingRecurring] = useState<Record<string, boolean>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -139,6 +144,17 @@ export default function ExpensesScreen() {
         setAutoCategorySuggestions(autoCategory);
         setQuickAddCategories(quickAdds);
         setReceiptOcrEnabled(ocrEnabled);
+
+        if (url) {
+          try {
+            const recurringRes = await listRecurringExpensesFromApi({ backendUrl: url, activeOnly: true, dueToday: true });
+            if (isActive) {
+              setDueRecurring(recurringRes.items || []);
+            }
+          } catch (e) {
+            console.warn("Failed to load recurring expenses", e);
+          }
+        }
 
         // Fetch current & last month totals for the dashboard card
         if (url) {
@@ -520,8 +536,63 @@ export default function ExpensesScreen() {
               </View>
               <Ionicons name="chevron-forward" color={colors.primary} size={16} />
             </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/recurring-expenses" as never)}
+              style={styles.linkRowCompact}
+            >
+              <View style={styles.linkRowLeft}>
+                <Ionicons name="repeat-outline" color={colors.primary} size={15} />
+                <Text style={styles.linkTitleCompact}>Manage Recurring</Text>
+              </View>
+              <Ionicons name="chevron-forward" color={colors.primary} size={16} />
+            </Pressable>
           </View>
         </View>
+
+        {dueRecurring.length > 0 ? (
+          <View style={[styles.card, { borderColor: colors.amber, backgroundColor: colors.amber + "11" }]}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="notifications" color={colors.amber} size={18} />
+                <Text style={[styles.sectionTitle, { color: colors.amber }]}>Due Today</Text>
+              </View>
+              <Text style={styles.sectionHint}>{dueRecurring.length} recurring {dueRecurring.length === 1 ? "expense" : "expenses"}</Text>
+            </View>
+            
+            {dueRecurring.map((item) => (
+              <View key={item.id} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <View>
+                  <Text style={{ color: colors.text, fontSize: 16, fontWeight: "600" }}>{item.description}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>{item.currency} {item.amount}</Text>
+                </View>
+                <Pressable
+                  style={{ backgroundColor: colors.amber, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, opacity: loggingRecurring[item.id] ? 0.5 : 1 }}
+                  onPress={async () => {
+                    if (!backendUrl) return;
+                    setLoggingRecurring(prev => ({ ...prev, [item.id]: true }));
+                    try {
+                      await logRecurringExpenseFromApi({ backendUrl, id: item.id });
+                      setDueRecurring(prev => prev.filter(r => r.id !== item.id));
+                      // For a full refresh, we could re-call loadData() here
+                    } catch (err) {
+                      Alert.alert("Error", err instanceof Error ? err.message : "Failed to log expense");
+                    } finally {
+                      setLoggingRecurring(prev => ({ ...prev, [item.id]: false }));
+                    }
+                  }}
+                  disabled={loggingRecurring[item.id]}
+                >
+                  {loggingRecurring[item.id] ? (
+                    <ActivityIndicator size="small" color={colors.background} />
+                  ) : (
+                    <Text style={{ color: colors.background, fontWeight: "600", fontSize: 13 }}>Log Now</Text>
+                  )}
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
