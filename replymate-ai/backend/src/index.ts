@@ -13,6 +13,7 @@ import settingsRouter from "./routes/settingsRoutes";
 import watchRouter from "./routes/watchRoutes";
 import memoryRouter from "./routes/memoryRoutes";
 import authRouter from "./routes/auth";
+import recurringRouter from "./routes/recurringRoutes";
 import { getActiveLlmInfo, normalizeProvider, runWithLlmContext } from "./services/llmService";
 import { connectDB } from "./services/db";
 import { logEnvStatus } from "./utils/env";
@@ -91,6 +92,7 @@ app.use("/api/learning", learningRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/watch", watchRouter);
 app.use("/api/memory", memoryRouter);
+app.use("/api/recurring", recurringRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found." });

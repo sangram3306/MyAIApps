@@ -189,6 +189,27 @@ export type ExpenseItem = {
   updatedAt: string;
 };
 
+export type RecurringExpense = {
+  id: string;
+  amount: number;
+  currency: "AED" | "INR";
+  category: string;
+  description: string;
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+  nextDueDate: string;
+  lastLoggedDate: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RecurringExpenseResponse = {
+  source: string;
+  summary: string;
+  recurring?: RecurringExpense;
+  items: RecurringExpense[];
+};
+
 export type ExpenseToolCall = {
   name: string;
   source: "static" | "llm" | "fallback";
@@ -766,10 +787,107 @@ export async function ocrReceiptFromApi(params: {
     | null;
 
   if (!response.ok) {
-    throw new Error(data?.error || "Could not process receipt image.");
+    throw new Error(data?.error || "Backend could not process your OCR receipt request.");
   }
 
   return data || { items: [] };
+}
+
+export async function createRecurringExpenseFromApi(params: {
+  backendUrl: string;
+  amount: number;
+  currency?: "AED" | "INR";
+  category: string;
+  description: string;
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+  startDate?: string;
+}): Promise<RecurringExpenseResponse> {
+  const response = await fetch(`${params.backendUrl}/api/recurring/create`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+    body: JSON.stringify({
+      amount: params.amount,
+      currency: params.currency,
+      category: params.category,
+      description: params.description,
+      frequency: params.frequency,
+      startDate: params.startDate,
+    }),
+  });
+
+  const data = (await response.json().catch(() => null)) as any;
+  if (!response.ok) throw new Error(data?.error || "Failed to create recurring expense");
+  return data;
+}
+
+export async function listRecurringExpensesFromApi(params: {
+  backendUrl: string;
+  activeOnly?: boolean;
+  dueToday?: boolean;
+}): Promise<RecurringExpenseResponse> {
+  const query = new URLSearchParams();
+  if (params.activeOnly !== undefined) query.append("activeOnly", String(params.activeOnly));
+  if (params.dueToday !== undefined) query.append("dueToday", String(params.dueToday));
+
+  const response = await fetch(`${params.backendUrl}/api/recurring/list?${query.toString()}`, {
+    method: "GET",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as any;
+  if (!response.ok) throw new Error(data?.error || "Failed to fetch recurring expenses");
+  return data;
+}
+
+export async function updateRecurringExpenseFromApi(params: {
+  backendUrl: string;
+  id: string;
+  amount?: number;
+  currency?: "AED" | "INR";
+  category?: string;
+  description?: string;
+  frequency?: "daily" | "weekly" | "monthly" | "yearly";
+  nextDueDate?: string;
+  isActive?: boolean;
+}): Promise<RecurringExpenseResponse> {
+  const { backendUrl, id, ...updates } = params;
+  const response = await fetch(`${backendUrl}/api/recurring/${id}`, {
+    method: "PUT",
+    headers: await getApiHeaders(),
+    body: JSON.stringify(updates),
+  });
+
+  const data = (await response.json().catch(() => null)) as any;
+  if (!response.ok) throw new Error(data?.error || "Failed to update recurring expense");
+  return data;
+}
+
+export async function deleteRecurringExpenseFromApi(params: {
+  backendUrl: string;
+  id: string;
+}): Promise<RecurringExpenseResponse> {
+  const response = await fetch(`${params.backendUrl}/api/recurring/${params.id}`, {
+    method: "DELETE",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as any;
+  if (!response.ok) throw new Error(data?.error || "Failed to delete recurring expense");
+  return data;
+}
+
+export async function logRecurringExpenseFromApi(params: {
+  backendUrl: string;
+  id: string;
+}): Promise<RecurringExpenseResponse> {
+  const response = await fetch(`${params.backendUrl}/api/recurring/${params.id}/log`, {
+    method: "POST",
+    headers: await getApiHeaders(),
+  });
+
+  const data = (await response.json().catch(() => null)) as any;
+  if (!response.ok) throw new Error(data?.error || "Failed to log recurring expense");
+  return data;
 }
 
 export async function createBatchExpensesFromApi(params: {

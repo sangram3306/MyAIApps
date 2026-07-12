@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { getBackendUrl, getBudgetTargetPreference, saveBudgetTargetPreference, getYearlyBudgetTargetPreference, saveYearlyBudgetTargetPreference, getBudgetWarningThresholdPreference } from "../../storage/appStorage";
-import { ExpenseExportResponse, ExpenseItem, getExpenseExportFromApi, getExpenseIntelligenceFromApi, ExpenseIntelligenceResponse } from "../../services/api";
+import { ExpenseExportResponse, ExpenseItem, getExpenseExportFromApi, getExpenseIntelligenceFromApi, ExpenseIntelligenceResponse, listRecurringExpensesFromApi, RecurringExpense } from "../../services/api";
 
 const summaryPeriods = ["month", "year"] as const;
 type SummaryPeriod = (typeof summaryPeriods)[number];
@@ -79,6 +79,8 @@ export default function AnalyticsScreen() {
   const [aiCoachLoading, setAiCoachLoading] = useState(false);
   const [aiCoachError, setAiCoachError] = useState("");
 
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+
   const monthYearString = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, "0");
@@ -133,6 +135,15 @@ export default function AnalyticsScreen() {
         
         if (!yearData) {
           fetchYearData(url);
+        }
+
+        try {
+          const recurringRes = await listRecurringExpensesFromApi({ backendUrl: url, activeOnly: true });
+          if (active) {
+            setRecurringExpenses(recurringRes.items || []);
+          }
+        } catch (e) {
+          console.warn("Failed to load recurring expenses", e);
         }
       }
       load();
@@ -254,8 +265,18 @@ export default function AnalyticsScreen() {
       .map(([category, stats]) => ({ category, ...stats }))
       .sort((a, b) => b.total - a.total);
       
-    return { expenses: monthExpenses, total, count, average, currency, byCategory };
-  }, [yearData, monthYearString]);
+    const fixedCost = recurringExpenses.reduce((sum, item) => {
+      let monthlyAmount = item.amount;
+      if (item.frequency === "daily") monthlyAmount = item.amount * 30;
+      if (item.frequency === "weekly") monthlyAmount = item.amount * 4.33;
+      if (item.frequency === "yearly") monthlyAmount = item.amount / 12;
+      return sum + monthlyAmount;
+    }, 0);
+
+    const variableCost = Math.max(0, total - fixedCost);
+
+    return { expenses: monthExpenses, total, count, average, currency, byCategory, fixedCost, variableCost };
+  }, [yearData, monthYearString, recurringExpenses]);
 
   return (
       <ScrollView 
@@ -432,6 +453,31 @@ export default function AnalyticsScreen() {
                 <SummaryMetricCard styles={styles} colors={colors} icon="list" label="Entries" value={`${monthSummaryData.count}`} />
               </View>
 
+              <View style={styles.card}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Fixed vs Variable Costs</Text>
+                  <Ionicons name="pie-chart-outline" size={18} color={colors.primary} />
+                </View>
+                
+                <View style={{ flexDirection: "row", marginTop: 15 }}>
+                  <View style={{ flex: 1, backgroundColor: colors.surfaceElevated, borderRadius: 12, padding: 15, marginRight: 10, borderWidth: 1, borderColor: colors.border }}>
+                    <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 4 }}>Fixed</Text>
+                    <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }}>{monthSummaryData.currency} {formatAmount(monthSummaryData.fixedCost)}</Text>
+                    <Text style={{ color: colors.primary, fontSize: 12, marginTop: 4 }}>{(monthSummaryData.total > 0 ? (monthSummaryData.fixedCost / monthSummaryData.total) * 100 : 0).toFixed(0)}% of total</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: colors.surfaceElevated, borderRadius: 12, padding: 15, borderWidth: 1, borderColor: colors.border }}>
+                    <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 4 }}>Variable</Text>
+                    <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }}>{monthSummaryData.currency} {formatAmount(monthSummaryData.variableCost)}</Text>
+                    <Text style={{ color: colors.cyan, fontSize: 12, marginTop: 4 }}>{(monthSummaryData.total > 0 ? (monthSummaryData.variableCost / monthSummaryData.total) * 100 : 0).toFixed(0)}% of total</Text>
+                  </View>
+                </View>
+                
+                <View style={{ height: 8, borderRadius: 4, flexDirection: "row", marginTop: 15, overflow: "hidden", backgroundColor: colors.surfaceElevated }}>
+                  <View style={{ backgroundColor: colors.primary, width: `${(monthSummaryData.total > 0 ? (monthSummaryData.fixedCost / monthSummaryData.total) * 100 : 0)}%`, height: "100%" }} />
+                  <View style={{ backgroundColor: colors.cyan, width: `${(monthSummaryData.total > 0 ? (monthSummaryData.variableCost / monthSummaryData.total) * 100 : 0)}%`, height: "100%" }} />
+                </View>
+              </View>
+
               <View style={styles.budgetPanel}>
                 <View style={styles.budgetPanelHeader}>
                   <Text style={styles.panelTitle}>🎯 Monthly Budget</Text>
@@ -458,6 +504,16 @@ export default function AnalyticsScreen() {
                       onPress={() => {
                         setMonthlyBudgetInput(budgetTarget ? String(budgetTarget) : "");
                         setIsEditingMonthlyBudget(true);
+                      }}
+                    >
+                      <Text style={styles.panelValue}>
+                        {formatAmount(monthSummaryData.total, monthSummaryData.currency)} /{" "}
+                        {budgetTarget ? formatAmount(budgetTarget, monthSummaryData.currency) : "Set Target"}
+                      </Text>
+                      <Ionicons name="pencil" size={12} color={colors.primary} />
+                    </Pressable>
+                  )}
+                </View>
                       }}
                     >
                       <Text style={styles.panelValue}>
