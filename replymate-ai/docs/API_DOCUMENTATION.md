@@ -24,11 +24,37 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +96,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +172,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +438,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +471,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +501,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +541,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -746,6 +774,9 @@
       "type": "string",
       "minLength": 1
     },
+    "imdbId": {
+      "type": "string"
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -775,7 +806,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -856,7 +888,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +923,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +944,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +954,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -952,7 +988,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -990,5 +1027,310 @@
 ```json
 {
   "success": "true (or structured response)"
+}
+```
+
+### POST `/api/decisions/simulate`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 2000,
+      "default": ""
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "maxItems": 6,
+      "default": []
+    },
+    "horizon": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "near-term"
+    },
+    "stakes": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    }
+  },
+  "required": [
+    "question"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/expenses/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/recurring/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "startDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category",
+    "description",
+    "frequency"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### PUT `/api/recurring/{id}`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "nextDueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "isActive": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### POST `/api/watch/resolve-title`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### GET `/api/watch/search-titles`
+
+**Query Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "q": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    }
+  },
+  "required": [
+    "q"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true
 }
 ```
