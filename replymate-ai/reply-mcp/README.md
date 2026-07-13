@@ -19,6 +19,11 @@ It exposes:
 - `POST /tools/listExpenses`
 - `POST /tools/expenseSummary`
 - `POST /tools/deleteExpense`
+- `POST /tools/createRecurringExpense`
+- `POST /tools/listRecurringExpenses`
+- `POST /tools/updateRecurringExpense`
+- `POST /tools/deleteRecurringExpense`
+- `POST /tools/logRecurringExpense`
 
 The tools are hybrid:
 
@@ -54,6 +59,9 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
 ```
 
 ## Render Deployment
@@ -73,6 +81,9 @@ MONGODB_WATCH_COLLECTION=watch_tracker
    - `MONGODB_TODOS_COLLECTION`
    - `MONGODB_EXPENSES_COLLECTION`
    - `MONGODB_WATCH_COLLECTION`
+   - `MONGODB_DECISIONS_COLLECTION`
+   - `MONGODB_SKILL_TREES_COLLECTION`
+   - `MONGODB_LEARNING_ROADMAPS_COLLECTION`
 6. Deploy the service.
 7. Copy the deployed URL.
 8. Set that URL in the backend `MCP_SERVER_URL`.
