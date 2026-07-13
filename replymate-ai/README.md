@@ -23,6 +23,7 @@ Main capabilities:
 - Smart Reply Coach.
 - General AI chat and todo-style assistant.
 - Expense tracker, spending summary, and expense intelligence.
+- Recurring expense management system.
 - Creator repurposing tools.
 - Decision simulator.
 - Learning roadmap and skill-tree tools.
@@ -138,6 +139,14 @@ Expenses:
 - `POST /api/expenses/intelligence`
 - `POST /api/expenses/clear`
 
+Recurring Expenses:
+
+- `POST /api/recurring/create`
+- `GET /api/recurring/list`
+- `PUT /api/recurring/:id`
+- `DELETE /api/recurring/:id`
+- `POST /api/recurring/:id/log`
+
 Creator:
 
 - `POST /api/creator/repurpose`
@@ -217,6 +226,7 @@ Current tool names include:
 - Reply coach tools: `classifyIntent`, `detectEmotion`, `relationshipRules`, `riskAssessment`, `qualityCheck`
 - Todo tools: `createTodo`, `listTodos`, `completeTodo`, `deleteTodo`, `updateTodo`
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
+- Recurring tools: `createRecurringExpense`, `listRecurringExpenses`, `updateRecurringExpense`, `deleteRecurringExpense`, `logRecurringExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
 - Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
@@ -282,6 +292,9 @@ MONGODB_DB_NAME=replymate_ai
 MONGODB_TODOS_COLLECTION=todos
 MONGODB_EXPENSES_COLLECTION=expenses
 MONGODB_WATCH_COLLECTION=watch_tracker
+MONGODB_DECISIONS_COLLECTION=decisions
+MONGODB_SKILL_TREES_COLLECTION=skill_trees
+MONGODB_LEARNING_ROADMAPS_COLLECTION=learning_roadmaps
 ```
 
 ### 3. SP One mobile app
