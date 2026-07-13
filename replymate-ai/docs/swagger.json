@@ -51,6 +51,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -60,11 +61,37 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "history": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "assistant"
+                          ]
+                        },
+                        "content": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "content"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
                   }
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -105,6 +132,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -132,7 +160,8 @@
                 "required": [
                   "message",
                   "relationshipContext"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -173,6 +202,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -233,7 +263,8 @@
                 },
                 "required": [
                   "sourceText"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -621,6 +652,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -654,7 +686,8 @@
                 },
                 "required": [
                   "topic"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -695,6 +728,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -712,7 +746,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -743,7 +776,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -784,7 +816,8 @@
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -1085,6 +1118,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1093,6 +1127,9 @@
                   "title": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "imdbId": {
+                    "type": "string"
                   },
                   "type": {
                     "type": "string",
@@ -1123,7 +1160,8 @@
                 },
                 "required": [
                   "title"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -1172,6 +1210,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1238,7 +1277,8 @@
                       },
                       "required": [
                         "source"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "availability": {
@@ -1272,7 +1312,8 @@
                       "required": [
                         "provider",
                         "region"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "externalDetails": {
@@ -1292,7 +1333,8 @@
                       "required": [
                         "label",
                         "value"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "synopsis": {
@@ -1301,7 +1343,8 @@
                   "notes": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -1350,6 +1393,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1368,7 +1412,8 @@
                 },
                 "required": [
                   "status"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -1433,6 +1478,461 @@
             "description": "Successful response"
           }
         }
+      }
+    },
+    "/api/decisions/simulate": {
+      "post": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 500
+                  },
+                  "context": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "default": ""
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "maxItems": 6,
+                    "default": []
+                  },
+                  "horizon": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "default": "near-term"
+                  },
+                  "stakes": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium"
+                  }
+                },
+                "required": [
+                  "question"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/expenses/create": {
+      "post": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "INR"
+                    ],
+                    "default": "AED"
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "category"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/recurring/create": {
+      "post": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "INR"
+                    ],
+                    "default": "AED"
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": [
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "yearly"
+                    ]
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "category",
+                  "description",
+                  "frequency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/recurring/{id}": {
+      "put": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "INR"
+                    ]
+                  },
+                  "category": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": [
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "yearly"
+                    ]
+                  },
+                  "nextDueDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/watch/resolve-title": {
+      "post": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "year": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "movie",
+                      "series"
+                    ]
+                  },
+                  "director": {
+                    "type": "string"
+                  },
+                  "hint": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-LLM-Provider",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Model",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-LLM-Reasoning",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/watch/search-titles": {
+      "get": {
+        "tags": [
+          "Auto-Generated"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "series"
+              ]
+            }
+          }
+        ]
       }
     }
   }
