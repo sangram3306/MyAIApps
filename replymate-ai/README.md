@@ -170,6 +170,20 @@ Watch tracker:
 - `POST /api/watch/search`
 - `POST /api/watch/embed-all`
 
+Memory:
+
+- `GET /api/memory/list`
+- `DELETE /api/memory/clear`
+- `DELETE /api/memory/:id`
+
+Recurring expenses:
+
+- `POST /api/recurring/create`
+- `GET /api/recurring/list`
+- `PUT /api/recurring/:id`
+- `DELETE /api/recurring/:id`
+- `POST /api/recurring/:id/log`
+
 Settings:
 
 - `GET /api/settings/llm-options`
@@ -217,9 +231,11 @@ Current tool names include:
 - Reply coach tools: `classifyIntent`, `detectEmotion`, `relationshipRules`, `riskAssessment`, `qualityCheck`
 - Todo tools: `createTodo`, `listTodos`, `completeTodo`, `deleteTodo`, `updateTodo`
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
+- Recurring tools: `createRecurringExpense`, `listRecurringExpenses`, `updateRecurringExpense`, `deleteRecurringExpense`, `logRecurringExpense`
+- Document tools: `generatePdfReport`, `generateExcelReport`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
-- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
+- Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`, `searchOmdbTitles`
 
 The backend authenticates to this service using `MCP_SHARED_SECRET`.
 
