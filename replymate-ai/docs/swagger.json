@@ -24,33 +24,11 @@
   "paths": {
     "/api/chat/message": {
       "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
+        "summary": "Chat Message",
+        "description": "Send a message to the general chat agent.",
+        "tags": ["Chat"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -60,11 +38,29 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "history": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["user", "assistant"]
+                        },
+                        "content": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": ["role", "content"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
                   }
                 },
-                "required": [
-                  "message"
-                ]
+                "required": ["message"],
+                "additionalProperties": false
               }
             }
           }
@@ -73,11 +69,7 @@
           "200": {
             "description": "Successful response"
           }
-        }
-      }
-    },
-    "/api/coach/analyze": {
-      "post": {
+        },
         "parameters": [
           {
             "schema": {
@@ -103,8 +95,16 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
+        ]
+      }
+    },
+    "/api/coach/analyze": {
+      "post": {
+        "summary": "Coach Analyze",
+        "description": "Analyze interactions using the Smart Reply Coach.",
+        "tags": ["Coach"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -129,10 +129,8 @@
                     ]
                   }
                 },
-                "required": [
-                  "message",
-                  "relationshipContext"
-                ]
+                "required": ["message", "relationshipContext"],
+                "additionalProperties": false
               }
             }
           }
@@ -141,11 +139,7 @@
           "200": {
             "description": "Successful response"
           }
-        }
-      }
-    },
-    "/api/creator/repurpose": {
-      "post": {
+        },
         "parameters": [
           {
             "schema": {
@@ -171,8 +165,16 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
+        ]
+      }
+    },
+    "/api/creator/repurpose": {
+      "post": {
+        "summary": "Repurpose Content",
+        "description": "Repurpose creator content for multiple platforms.",
+        "tags": ["Creator"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -215,25 +217,13 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "x",
-                        "linkedin",
-                        "instagram",
-                        "email",
-                        "thread"
-                      ]
+                      "enum": ["x", "linkedin", "instagram", "email", "thread"]
                     },
-                    "default": [
-                      "x",
-                      "linkedin",
-                      "instagram",
-                      "email"
-                    ]
+                    "default": ["x", "linkedin", "instagram", "email"]
                   }
                 },
-                "required": [
-                  "sourceText"
-                ]
+                "required": ["sourceText"],
+                "additionalProperties": false
               }
             }
           }
@@ -242,11 +232,7 @@
           "200": {
             "description": "Successful response"
           }
-        }
-      }
-    },
-    "/api/decision/simulate": {
-      "post": {
+        },
         "parameters": [
           {
             "schema": {
@@ -272,276 +258,16 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "question": {
-                    "type": "string",
-                    "minLength": 5,
-                    "maxLength": 500
-                  },
-                  "context": {
-                    "type": "string",
-                    "maxLength": 2000,
-                    "default": ""
-                  },
-                  "options": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 160
-                    },
-                    "maxItems": 6,
-                    "default": []
-                  },
-                  "horizon": {
-                    "type": "string",
-                    "maxLength": 120,
-                    "default": "near-term"
-                  },
-                  "stakes": {
-                    "type": "string",
-                    "enum": [
-                      "low",
-                      "medium",
-                      "high"
-                    ],
-                    "default": "medium"
-                  }
-                },
-                "required": [
-                  "question"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/api/expense/create": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "amount": {
-                    "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
-                  },
-                  "currency": {
-                    "type": "string",
-                    "enum": [
-                      "AED",
-                      "INR"
-                    ],
-                    "default": "AED"
-                  },
-                  "category": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80
-                  },
-                  "description": {
-                    "type": "string",
-                    "maxLength": 160
-                  },
-                  "date": {
-                    "type": "string",
-                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                  }
-                },
-                "required": [
-                  "amount",
-                  "category"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/api/expense/message": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "message": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 2000
-                  }
-                },
-                "required": [
-                  "message"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/api/expense/intelligence": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "period": {
-                    "type": "string",
-                    "enum": [
-                      "all",
-                      "month",
-                      "year"
-                    ],
-                    "default": "month"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
+        ]
       }
     },
     "/api/learning/skill-tree": {
       "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
+        "summary": "Generate Skill Tree",
+        "description": "Generate a skill tree for learning a topic.",
+        "tags": ["Learning"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -578,9 +304,8 @@
                     "default": []
                   }
                 },
-                "required": [
-                  "skillName"
-                ]
+                "required": ["skillName"],
+                "additionalProperties": false
               }
             }
           }
@@ -589,11 +314,7 @@
           "200": {
             "description": "Successful response"
           }
-        }
-      }
-    },
-    "/api/learning/roadmap": {
-      "post": {
+        },
         "parameters": [
           {
             "schema": {
@@ -619,8 +340,16 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
+        ]
+      }
+    },
+    "/api/learning/roadmap": {
+      "post": {
+        "summary": "Generate Learning Roadmap",
+        "description": "Generate a learning roadmap.",
+        "tags": ["Learning"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -652,9 +381,8 @@
                     "default": "3 hours/week"
                   }
                 },
-                "required": [
-                  "topic"
-                ]
+                "required": ["topic"],
+                "additionalProperties": false
               }
             }
           }
@@ -663,38 +391,42 @@
           "200": {
             "description": "Successful response"
           }
-        }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Provider",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Model",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Reasoning",
+            "in": "header"
+          }
+        ]
       }
     },
     "/api/replies/generate": {
       "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
+        "summary": "Generate Replies",
+        "description": "Generate reply suggestions based on tone and role.",
+        "tags": ["Replies"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -712,7 +444,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -743,7 +474,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -782,9 +512,8 @@
                     "default": 5
                   }
                 },
-                "required": [
-                  "message"
-                ]
+                "required": ["message"],
+                "additionalProperties": false
               }
             }
           }
@@ -793,38 +522,42 @@
           "200": {
             "description": "Successful response"
           }
-        }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Provider",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Model",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Reasoning",
+            "in": "header"
+          }
+        ]
       }
     },
     "/api/replies/rewrite": {
       "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
+        "summary": "Rewrite Content",
+        "description": "Rewrite the given content.",
+        "tags": ["Replies"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -842,7 +575,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -873,7 +605,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -912,9 +643,8 @@
                     "default": 5
                   }
                 },
-                "required": [
-                  "message"
-                ]
+                "required": ["message"],
+                "additionalProperties": false
               }
             }
           }
@@ -923,38 +653,42 @@
           "200": {
             "description": "Successful response"
           }
-        }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Provider",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Model",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Reasoning",
+            "in": "header"
+          }
+        ]
       }
     },
     "/api/replies/grammar": {
       "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Provider",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Model",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "X-LLM-Reasoning",
-            "in": "header"
-          }
-        ],
+        "summary": "Fix Grammar",
+        "description": "Fix grammar in the given content.",
+        "tags": ["Replies"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -972,7 +706,6 @@
                   },
                   "tone": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "clearer",
@@ -1003,7 +736,6 @@
                   },
                   "role": {
                     "type": "string",
-                    "nullable": true,
                     "enum": [
                       "none",
                       "friend",
@@ -1042,9 +774,8 @@
                     "default": 5
                   }
                 },
-                "required": [
-                  "message"
-                ]
+                "required": ["message"],
+                "additionalProperties": false
               }
             }
           }
@@ -1053,11 +784,7 @@
           "200": {
             "description": "Successful response"
           }
-        }
-      }
-    },
-    "/api/watch/log": {
-      "post": {
+        },
         "parameters": [
           {
             "schema": {
@@ -1083,8 +810,16 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
+        ]
+      }
+    },
+    "/api/watch/log": {
+      "post": {
+        "summary": "Log Watch Item",
+        "description": "Log a new watch item (movie or series).",
+        "tags": ["Watch Tracker"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1094,12 +829,12 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "imdbId": {
+                    "type": "string"
+                  },
                   "type": {
                     "type": "string",
-                    "enum": [
-                      "movie",
-                      "series"
-                    ]
+                    "enum": ["movie", "series"]
                   },
                   "status": {
                     "type": "string",
@@ -1121,9 +856,8 @@
                     "default": ""
                   }
                 },
-                "required": [
-                  "title"
-                ]
+                "required": ["title"],
+                "additionalProperties": false
               }
             }
           }
@@ -1132,11 +866,40 @@
           "200": {
             "description": "Successful response"
           }
-        }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Provider",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Model",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "X-LLM-Reasoning",
+            "in": "header"
+          }
+        ]
       }
     },
     "/api/watch/items/{id}": {
       "patch": {
+        "summary": "Update Watch Item Details",
+        "description": "Update the details of a watch item.",
+        "tags": ["Watch Tracker"],
         "parameters": [
           {
             "schema": {
@@ -1172,6 +935,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1183,10 +947,7 @@
                   },
                   "type": {
                     "type": "string",
-                    "enum": [
-                      "movie",
-                      "series"
-                    ]
+                    "enum": ["movie", "series"]
                   },
                   "status": {
                     "type": "string",
@@ -1236,9 +997,8 @@
                           "default": "Unknown"
                         }
                       },
-                      "required": [
-                        "source"
-                      ]
+                      "required": ["source"],
+                      "additionalProperties": false
                     }
                   },
                   "availability": {
@@ -1256,23 +1016,15 @@
                         },
                         "type": {
                           "type": "string",
-                          "enum": [
-                            "stream",
-                            "rent",
-                            "buy",
-                            "free",
-                            "ads"
-                          ],
+                          "enum": ["stream", "rent", "buy", "free", "ads"],
                           "default": "stream"
                         },
                         "link": {
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "provider",
-                        "region"
-                      ]
+                      "required": ["provider", "region"],
+                      "additionalProperties": false
                     }
                   },
                   "externalDetails": {
@@ -1289,10 +1041,8 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "label",
-                        "value"
-                      ]
+                      "required": ["label", "value"],
+                      "additionalProperties": false
                     }
                   },
                   "synopsis": {
@@ -1301,7 +1051,8 @@
                   "notes": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -1315,6 +1066,9 @@
     },
     "/api/watch/items/{id}/status": {
       "patch": {
+        "summary": "Update Watch Item Status",
+        "description": "Update the status of a watch item.",
+        "tags": ["Watch Tracker"],
         "parameters": [
           {
             "schema": {
@@ -1350,6 +1104,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1366,9 +1121,8 @@
                     ]
                   }
                 },
-                "required": [
-                  "status"
-                ]
+                "required": ["status"],
+                "additionalProperties": false
               }
             }
           }
@@ -1382,6 +1136,36 @@
     },
     "/api/watch/search": {
       "post": {
+        "summary": "Search Watch Titles",
+        "description": "Search for watch titles using semantic search.",
+        "tags": ["Watch Tracker"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["movie", "series"]
+                  }
+                },
+                "required": ["q"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
         "parameters": [
           {
             "schema": {
@@ -1407,27 +1191,409 @@
             "name": "X-LLM-Reasoning",
             "in": "header"
           }
-        ],
+        ]
+      }
+    },
+    "/api/cinetrack/chat": {
+      "post": {
+        "summary": "CineTrack Chat",
+        "description": "Dedicated chat endpoint for CineTrack AI mobile app.",
+        "tags": ["CineTrack", "Chat"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "query": {
-                    "type": "string"
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
                   },
-                  "limit": {
-                    "type": "number"
+                  "history": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["user", "assistant"]
+                        },
+                        "content": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": ["role", "content"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
                   }
                 },
-                "required": [
-                  "query"
-                ]
+                "required": ["message"],
+                "additionalProperties": false
               }
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/decisions/simulate": {
+      "post": {
+        "summary": "Decision Simulator",
+        "description": "Simulate outcomes for a decision.",
+        "tags": ["Decisions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 500
+                  },
+                  "context": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "default": ""
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "maxItems": 6,
+                    "default": []
+                  },
+                  "horizon": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "default": "near-term"
+                  },
+                  "stakes": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"],
+                    "default": "medium"
+                  }
+                },
+                "required": ["question"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expenses/create": {
+      "post": {
+        "summary": "Create Expense",
+        "description": "Create a new expense entry.",
+        "tags": ["Expenses"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["AED", "INR"],
+                    "default": "AED"
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": ["amount", "category"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expenses/batch": {
+      "post": {
+        "summary": "Batch Create Expenses",
+        "description": "Create multiple new expense entries.",
+        "tags": ["Expenses"],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expenses/message": {
+      "post": {
+        "summary": "Expense Chat",
+        "description": "Chat regarding expenses.",
+        "tags": ["Expenses"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": ["message"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expenses/intelligence": {
+      "post": {
+        "summary": "Expense Intelligence",
+        "description": "Get intelligence on expenses.",
+        "tags": ["Expenses"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "period": {
+                    "type": "string",
+                    "default": "month"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/expenses/clear": {
+      "post": {
+        "summary": "Clear Expenses",
+        "description": "Clear all expense entries.",
+        "tags": ["Expenses"],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/recurring/create": {
+      "post": {
+        "summary": "Create Recurring Expense",
+        "description": "Create a new recurring expense.",
+        "tags": ["Recurring"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["AED", "INR"],
+                    "default": "AED"
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": ["daily", "weekly", "monthly", "yearly"]
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": ["amount", "category", "description", "frequency"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/recurring/{id}": {
+      "put": {
+        "summary": "Update Recurring Expense",
+        "description": "Update an existing recurring expense.",
+        "tags": ["Recurring"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["AED", "INR"]
+                  },
+                  "category": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": ["daily", "weekly", "monthly", "yearly"]
+                  },
+                  "nextDueDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Recurring Expense",
+        "description": "Delete an existing recurring expense.",
+        "tags": ["Recurring"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/recurring/list": {
+      "get": {
+        "summary": "List Recurring Expenses",
+        "description": "List all recurring expenses.",
+        "tags": ["Recurring"],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/api/recurring/{id}/log": {
+      "post": {
+        "summary": "Log Recurring Expense",
+        "description": "Log an instance of a recurring expense.",
+        "tags": ["Recurring"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response"
