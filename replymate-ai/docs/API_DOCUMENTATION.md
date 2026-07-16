@@ -1,20 +1,18 @@
-# ReplyMate AI Backend API Documentation
+# API Documentation
 
-## Base URL
+## Chat Message
 
-`http://localhost:4000`
+**Endpoint:** `POST /api/chat/message`
 
-## Global Headers
+Send a message to the general chat agent.
 
-- `X-LLM-Provider`: (Optional) Specifies the LLM provider (e.g. `openai`, `anthropic`, `gemini`). Defaults to internal logic if absent.
-- `X-LLM-Model`: (Optional) Specific model to use from the provider.
-- `X-LLM-Reasoning`: (Optional) Boolean string (`true`, `false`) to toggle reasoning.
+### Parameters
 
-## Routes and Payloads
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
 
-### POST `/api/chat/message`
-
-**Payload (JSON):**
+### Request Body (application/json)
 
 ```json
 {
@@ -24,25 +22,59 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/coach/analyze`
+---
 
-**Payload (JSON):**
+## Coach Analyze
+
+**Endpoint:** `POST /api/coach/analyze`
+
+Analyze interactions using the Smart Reply Coach.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -70,21 +102,30 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/creator/repurpose`
+---
 
-**Payload (JSON):**
+## Repurpose Content
+
+**Endpoint:** `POST /api/creator/repurpose`
+
+Repurpose creator content for multiple platforms.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -145,185 +186,30 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/decision/simulate`
+---
 
-**Payload (JSON):**
+## Generate Skill Tree
 
-```json
-{
-  "type": "object",
-  "properties": {
-    "question": {
-      "type": "string",
-      "minLength": 5,
-      "maxLength": 500
-    },
-    "context": {
-      "type": "string",
-      "maxLength": 2000,
-      "default": ""
-    },
-    "options": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 160
-      },
-      "maxItems": 6,
-      "default": []
-    },
-    "horizon": {
-      "type": "string",
-      "maxLength": 120,
-      "default": "near-term"
-    },
-    "stakes": {
-      "type": "string",
-      "enum": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "default": "medium"
-    }
-  },
-  "required": [
-    "question"
-  ]
-}
-```
+**Endpoint:** `POST /api/learning/skill-tree`
 
-**Response:**
+Generate a skill tree for learning a topic.
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+### Parameters
 
-### POST `/api/expense/create`
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
 
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "amount": {
-      "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
-    },
-    "currency": {
-      "type": "string",
-      "enum": [
-        "AED",
-        "INR"
-      ],
-      "default": "AED"
-    },
-    "category": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 80
-    },
-    "description": {
-      "type": "string",
-      "maxLength": 160
-    },
-    "date": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-    }
-  },
-  "required": [
-    "amount",
-    "category"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/message`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/intelligence`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "period": {
-      "type": "string",
-      "enum": [
-        "all",
-        "month",
-        "year"
-      ],
-      "default": "month"
-    }
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/learning/skill-tree`
-
-**Payload (JSON):**
+### Request Body (application/json)
 
 ```json
 {
@@ -362,21 +248,30 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/learning/roadmap`
+---
 
-**Payload (JSON):**
+## Generate Learning Roadmap
+
+**Endpoint:** `POST /api/learning/roadmap`
+
+Generate a learning roadmap.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -410,21 +305,30 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/replies/generate`
+---
 
-**Payload (JSON):**
+## Generate Replies
+
+**Endpoint:** `POST /api/replies/generate`
+
+Generate reply suggestions based on tone and role.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -442,7 +346,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +376,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,21 +416,30 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/replies/rewrite`
+---
 
-**Payload (JSON):**
+## Rewrite Content
+
+**Endpoint:** `POST /api/replies/rewrite`
+
+Rewrite the given content.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -546,7 +457,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -577,7 +487,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -618,21 +527,30 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/replies/grammar`
+---
 
-**Payload (JSON):**
+## Fix Grammar
+
+**Endpoint:** `POST /api/replies/grammar`
+
+Fix grammar in the given content.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -650,7 +568,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -681,7 +598,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -722,21 +638,30 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/watch/log`
+---
 
-**Payload (JSON):**
+## Log Watch Item
+
+**Endpoint:** `POST /api/watch/log`
+
+Log a new watch item (movie or series).
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -745,6 +670,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,21 +703,31 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### PATCH `/api/watch/items/{id}`
+---
 
-**Payload (JSON):**
+## Update Watch Item Details
+
+**Endpoint:** `PATCH /api/watch/items/{id}`
+
+Update the details of a watch item.
+
+### Parameters
+
+- **id** (path):  (Required: true)
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -856,7 +794,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +829,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +850,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,21 +860,31 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### PATCH `/api/watch/items/{id}/status`
+---
 
-**Payload (JSON):**
+## Update Watch Item Status
+
+**Endpoint:** `PATCH /api/watch/items/{id}/status`
+
+Update the status of a watch item.
+
+### Parameters
+
+- **id** (path):  (Required: true)
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
@@ -952,43 +903,476 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
 
-```json
-{
-  "success": "true (or structured response)"
-}
-```
+Successful response.
 
-### POST `/api/watch/search`
+---
 
-**Payload (JSON):**
+## Search Watch Titles
+
+**Endpoint:** `POST /api/watch/search`
+
+Search for watch titles using semantic search.
+
+### Parameters
+
+- **X-LLM-Provider** (header):  (Required: false)
+- **X-LLM-Model** (header):  (Required: false)
+- **X-LLM-Reasoning** (header):  (Required: false)
+
+### Request Body (application/json)
 
 ```json
 {
   "type": "object",
   "properties": {
-    "query": {
-      "type": "string"
+    "q": {
+      "type": "string",
+      "minLength": 1
     },
-    "limit": {
-      "type": "number"
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
     }
   },
   "required": [
-    "query"
-  ]
+    "q"
+  ],
+  "additionalProperties": false
 }
 ```
 
-**Response:**
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## CineTrack Chat
+
+**Endpoint:** `POST /api/cinetrack/chat`
+
+Dedicated chat endpoint for CineTrack AI mobile app.
+
+### Request Body (application/json)
 
 ```json
 {
-  "success": "true (or structured response)"
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
 }
 ```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Decision Simulator
+
+**Endpoint:** `POST /api/decisions/simulate`
+
+Simulate outcomes for a decision.
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 2000,
+      "default": ""
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "maxItems": 6,
+      "default": []
+    },
+    "horizon": {
+      "type": "string",
+      "maxLength": 120,
+      "default": "near-term"
+    },
+    "stakes": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    }
+  },
+  "required": [
+    "question"
+  ],
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Create Expense
+
+**Endpoint:** `POST /api/expenses/create`
+
+Create a new expense entry.
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category"
+  ],
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Batch Create Expenses
+
+**Endpoint:** `POST /api/expenses/batch`
+
+Create multiple new expense entries.
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Expense Chat
+
+**Endpoint:** `POST /api/expenses/message`
+
+Chat regarding expenses.
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Expense Intelligence
+
+**Endpoint:** `POST /api/expenses/intelligence`
+
+Get intelligence on expenses.
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "string",
+      "default": "month"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Clear Expenses
+
+**Endpoint:** `POST /api/expenses/clear`
+
+Clear all expense entries.
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Create Recurring Expense
+
+**Endpoint:** `POST /api/recurring/create`
+
+Create a new recurring expense.
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "startDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category",
+    "description",
+    "frequency"
+  ],
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Update Recurring Expense
+
+**Endpoint:** `PUT /api/recurring/{id}`
+
+Update an existing recurring expense.
+
+### Parameters
+
+- **id** (path):  (Required: true)
+
+### Request Body (application/json)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "nextDueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "isActive": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Delete Recurring Expense
+
+**Endpoint:** `DELETE /api/recurring/{id}`
+
+Delete an existing recurring expense.
+
+### Parameters
+
+- **id** (path):  (Required: true)
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## List Recurring Expenses
+
+**Endpoint:** `GET /api/recurring/list`
+
+List all recurring expenses.
+
+### Response (200 OK)
+
+Successful response.
+
+---
+
+## Log Recurring Expense
+
+**Endpoint:** `POST /api/recurring/{id}/log`
+
+Log an instance of a recurring expense.
+
+### Parameters
+
+- **id** (path):  (Required: true)
+
+### Response (200 OK)
+
+Successful response.
+
+---
