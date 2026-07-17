@@ -138,6 +138,14 @@ Expenses:
 - `POST /api/expenses/intelligence`
 - `POST /api/expenses/clear`
 
+Recurring expenses:
+
+- `POST /api/recurring/create`
+- `GET /api/recurring/list`
+- `PUT /api/recurring/:id`
+- `DELETE /api/recurring/:id`
+- `POST /api/recurring/:id/log`
+
 Creator:
 
 - `POST /api/creator/repurpose`
@@ -217,6 +225,7 @@ Current tool names include:
 - Reply coach tools: `classifyIntent`, `detectEmotion`, `relationshipRules`, `riskAssessment`, `qualityCheck`
 - Todo tools: `createTodo`, `listTodos`, `completeTodo`, `deleteTodo`, `updateTodo`
 - Expense tools: `createExpense`, `listExpenses`, `expenseSummary`, `deleteExpense`
+- Recurring expense tools: `createRecurringExpense`, `listRecurringExpenses`, `updateRecurringExpense`, `deleteRecurringExpense`, `logRecurringExpense`
 - Decision tools: `saveDecisionSimulation`, `listDecisionSimulations`
 - Learning tools: `saveSkillTree`, `listSkillTrees`, `deleteSkillTree`, `saveLearningRoadmap`, `listLearningRoadmaps`, `deleteLearningRoadmap`
 - Watch tools: `saveWatchEntry`, `listWatchEntries`, `updateWatchEntryStatus`, `updateWatchEntry`, `deleteWatchEntry`, `fetchWatchMetadata`
