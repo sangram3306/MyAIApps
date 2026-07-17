@@ -24,11 +24,37 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +96,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +172,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -202,7 +230,8 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -224,8 +253,7 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,7 +280,8 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -280,7 +309,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -302,14 +332,10 @@
   "properties": {
     "period": {
       "type": "string",
-      "enum": [
-        "all",
-        "month",
-        "year"
-      ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -362,7 +388,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +437,8 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +470,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +500,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,7 +540,8 @@
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -746,6 +773,9 @@
       "type": "string",
       "minLength": 1
     },
+    "imdbId": {
+      "type": "string"
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -775,7 +805,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -856,7 +887,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +922,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +943,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +953,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -952,7 +987,8 @@
   },
   "required": [
     "status"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -972,16 +1008,184 @@
 {
   "type": "object",
   "properties": {
-    "query": {
-      "type": "string"
+    "q": {
+      "type": "string",
+      "minLength": 1
     },
-    "limit": {
-      "type": "number"
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
     }
   },
   "required": [
-    "query"
-  ]
+    "q"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/recurring/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "startDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category",
+    "description",
+    "frequency"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### PUT `/api/recurring/:id`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "nextDueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "isActive": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/watch/resolve-title`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
 }
 ```
 
