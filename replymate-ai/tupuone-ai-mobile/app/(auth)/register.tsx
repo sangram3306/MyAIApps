@@ -27,6 +27,8 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -106,26 +108,56 @@ export default function RegisterScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Password</Text>
-              <TextInput
-                secureTextEntry
-                placeholder="••••••••"
-                placeholderTextColor={colors.mutedSoft}
-                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                value={password}
-                onChangeText={setPassword}
-              />
+              <View style={[styles.passwordWrapper, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <TextInput
+                  secureTextEntry={!showPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedSoft}
+                  style={[styles.passwordInput, { color: colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.eyeButton}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.mutedSoft}
+                  />
+                </Pressable>
+              </View>
             </View>
             
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Confirm Password</Text>
-              <TextInput
-                secureTextEntry
-                placeholder="••••••••"
-                placeholderTextColor={colors.mutedSoft}
-                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
+              <View style={[styles.passwordWrapper, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <TextInput
+                  secureTextEntry={!showConfirmPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedSoft}
+                  style={[styles.passwordInput, { color: colors.text }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <Pressable
+                  onPress={() => setShowConfirmPassword((prev) => !prev)}
+                  style={styles.eyeButton}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.mutedSoft}
+                  />
+                </Pressable>
+              </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -219,6 +251,24 @@ const styles = StyleSheet.create({
     height: 52,
     paddingHorizontal: spacing.md,
     fontSize: 16,
+  },
+  passwordWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    height: 52,
+    paddingHorizontal: spacing.md,
+  },
+  passwordInput: {
+    flex: 1,
+    height: "100%",
+    fontSize: 16,
+  },
+  eyeButton: {
+    padding: spacing.xs,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     color: "#EF4444",

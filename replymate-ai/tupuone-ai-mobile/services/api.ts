@@ -883,6 +883,7 @@ export async function logRecurringExpenseFromApi(params: {
   const response = await fetch(`${params.backendUrl}/api/recurring/${params.id}/log`, {
     method: "POST",
     headers: await getApiHeaders(),
+    body: JSON.stringify({}),
   });
 
   const data = (await response.json().catch(() => null)) as any;

@@ -22,6 +22,7 @@ import {
   deleteRecurringExpenseFromApi,
   listRecurringExpensesFromApi,
   logRecurringExpenseFromApi,
+  updateRecurringExpenseFromApi,
   RecurringExpense,
 } from "../services/api";
 import { getBackendUrl } from "../storage/appStorage";
@@ -39,11 +40,14 @@ export default function RecurringExpensesScreen() {
   const [error, setError] = useState("");
 
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [addAmount, setAddAmount] = useState("");
   const [addCurrency, setAddCurrency] = useState<"AED" | "INR">("AED");
   const [addCategory, setAddCategory] = useState("Food");
   const [addDescription, setAddDescription] = useState("");
   const [addFrequency, setAddFrequency] = useState<typeof frequencyOptions[number]>("monthly");
+  const [addStartDate, setAddStartDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
@@ -86,24 +90,53 @@ export default function RecurringExpensesScreen() {
 
     setAddSaving(true);
     try {
-      await createRecurringExpenseFromApi({
-        backendUrl,
-        amount: numericAmount,
-        currency: addCurrency,
-        category: addCategory.toLowerCase(),
-        description: desc,
-        frequency: addFrequency,
-      });
+      if (editingId) {
+        await updateRecurringExpenseFromApi({
+          backendUrl,
+          id: editingId,
+          amount: numericAmount,
+          currency: addCurrency,
+          category: addCategory.toLowerCase(),
+          description: desc,
+          frequency: addFrequency,
+          nextDueDate: addStartDate.toISOString().slice(0, 10), // updating start date alters next due date
+        });
+      } else {
+        await createRecurringExpenseFromApi({
+          backendUrl,
+          amount: numericAmount,
+          currency: addCurrency,
+          category: addCategory.toLowerCase(),
+          description: desc,
+          frequency: addFrequency,
+          startDate: addStartDate.toISOString().slice(0, 10),
+        });
+      }
 
       setIsAdding(false);
+      setEditingId(null);
       setAddAmount("");
       setAddDescription("");
+      setAddStartDate(new Date());
+      setShowDatePicker(false);
       loadData();
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to save recurring expense.");
     } finally {
       setAddSaving(false);
     }
+  };
+
+  const handleEdit = (item: RecurringExpense) => {
+    setEditingId(item.id);
+    setAddAmount(item.amount.toString());
+    setAddCurrency(item.currency);
+    const catLabel = baseCategories.find(c => c.label.toLowerCase() === item.category.toLowerCase())?.label || "Food";
+    setAddCategory(catLabel);
+    setAddDescription(item.description);
+    setAddFrequency(item.frequency);
+    setAddStartDate(new Date(item.nextDueDate));
+    setIsAdding(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -163,23 +196,51 @@ export default function RecurringExpensesScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
-      style={styles.container}
+      style={[styles.container, { width: "100%" }]}
     >
       <MatrixBackground density={12} />
       
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Recurring Expenses</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Subscriptions</Text>
+          <Text style={styles.headerSubtitle}>Manage recurring expenses</Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, width: "100%" }}
+        contentContainerStyle={styles.content} 
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Fixed Costs (Estimated Monthly)</Text>
-          <Text style={styles.summaryAmount}>
-            {loading ? "..." : `AED ${calculateMonthlyFixed().toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-          </Text>
+          <View style={styles.summaryIconRow}>
+            <View style={styles.summaryIconBox}>
+              <Ionicons name="repeat" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Monthly Fixed Costs</Text>
+              <Text style={styles.summaryAmount}>
+                {loading ? "..." : `AED ${calculateMonthlyFixed().toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryFooter}>
+            <View style={styles.summaryStatChip}>
+              <Text style={styles.summaryStatValue}>{recurringExpenses.length}</Text>
+              <Text style={styles.summaryStatLabel}>Active</Text>
+            </View>
+            <View style={styles.summaryStatDot} />
+            <View style={styles.summaryStatChip}>
+              <Text style={styles.summaryStatValue}>
+                {recurringExpenses.filter(i => i.nextDueDate <= new Date().toISOString().slice(0, 10)).length}
+              </Text>
+              <Text style={styles.summaryStatLabel}>Due</Text>
+            </View>
+          </View>
         </View>
 
         {error ? (
@@ -189,18 +250,27 @@ export default function RecurringExpensesScreen() {
         ) : null}
 
         {!isAdding && (
-          <Pressable style={styles.addButton} onPress={() => setIsAdding(true)}>
-            <Ionicons name="add" size={20} color={colors.background} />
-            <Text style={styles.addButtonText}>Add Recurring Expense</Text>
+          <Pressable style={styles.addButton} onPress={() => {
+            setEditingId(null);
+            setAddAmount("");
+            setAddDescription("");
+            setAddStartDate(new Date());
+            setIsAdding(true);
+          }}>
+            <View style={styles.addIconCircle}>
+              <Ionicons name="add" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.addButtonText}>Add Subscription</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
           </Pressable>
         )}
 
         {isAdding && (
           <View style={styles.addCard}>
             <View style={styles.addHeader}>
-              <Text style={styles.addTitle}>New Recurring Expense</Text>
-              <Pressable onPress={() => setIsAdding(false)}>
-                <Ionicons name="close" size={24} color={colors.muted} />
+              <Text style={styles.addTitle}>{editingId ? "Edit Subscription" : "New Subscription"}</Text>
+              <Pressable onPress={() => { setIsAdding(false); setEditingId(null); }} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={colors.muted} />
               </Pressable>
             </View>
 
@@ -260,6 +330,67 @@ export default function RecurringExpensesScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Start Date</Text>
+              <Pressable
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(!showDatePicker)}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {addStartDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                </Text>
+                <Ionicons name={showDatePicker ? "chevron-up" : "chevron-down"} size={16} color={colors.muted} />
+              </Pressable>
+              {showDatePicker && (
+                <View style={styles.dateGrid}>
+                  <View style={styles.dateRow}>
+                    <Pressable
+                      style={styles.dateArrowBtn}
+                      onPress={() => setAddStartDate(prev => {
+                        const d = new Date(prev);
+                        d.setMonth(d.getMonth() - 1);
+                        return d;
+                      })}
+                    >
+                      <Ionicons name="chevron-back" size={18} color={colors.text} />
+                    </Pressable>
+                    <Text style={styles.dateMonthLabel}>
+                      {addStartDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </Text>
+                    <Pressable
+                      style={styles.dateArrowBtn}
+                      onPress={() => setAddStartDate(prev => {
+                        const d = new Date(prev);
+                        d.setMonth(d.getMonth() + 1);
+                        return d;
+                      })}
+                    >
+                      <Ionicons name="chevron-forward" size={18} color={colors.text} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.dateDaysGrid}>
+                    {Array.from({ length: new Date(addStartDate.getFullYear(), addStartDate.getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map(day => {
+                      const isSelected = addStartDate.getDate() === day;
+                      return (
+                        <Pressable
+                          key={day}
+                          style={[styles.dateDayCell, isSelected && styles.dateDayCellActive]}
+                          onPress={() => {
+                            const d = new Date(addStartDate);
+                            d.setDate(day);
+                            setAddStartDate(d);
+                          }}
+                        >
+                          <Text style={[styles.dateDayText, isSelected && styles.dateDayTextActive]}>{day}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
                 {baseCategories.map(cat => (
@@ -297,54 +428,73 @@ export default function RecurringExpensesScreen() {
           {loading && !recurringExpenses.length ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
           ) : recurringExpenses.length === 0 ? (
-            <Text style={styles.emptyText}>No active recurring expenses.</Text>
+            <View style={styles.emptyCard}>
+              <Ionicons name="wallet-outline" size={36} color={colors.muted} />
+              <Text style={styles.emptyTitle}>No subscriptions yet</Text>
+              <Text style={styles.emptyHint}>Add your first recurring expense to track fixed costs automatically.</Text>
+            </View>
           ) : (
             recurringExpenses.map(item => {
               const isDue = item.nextDueDate <= new Date().toISOString().slice(0, 10);
               const catInfo = baseCategories.find(c => c.label.toLowerCase() === item.category.toLowerCase()) || baseCategories.find(c => c.label === "Other");
               const isActionLoading = actionLoading[item.id];
+              const accent = catInfo?.accent || colors.primary;
 
               return (
-                <View key={item.id} style={styles.itemCard}>
+                <View key={item.id} style={[styles.itemCard, isDue && styles.itemCardDue]}>
                   <View style={styles.itemHeaderRow}>
                     <View style={styles.itemInfo}>
-                      <View style={[styles.iconBox, { backgroundColor: (catInfo?.accent || colors.primary) + "22" }]}>
-                        <Ionicons name={(catInfo?.icon as any) || "pricetag"} size={18} color={catInfo?.accent || colors.primary} />
+                      <View style={[styles.iconBox, { backgroundColor: accent + "22" }]}>
+                        <Ionicons name={(catInfo?.icon as any) || "pricetag"} size={18} color={accent} />
                       </View>
-                      <View>
-                        <Text style={styles.itemDesc}>{item.description}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemDesc} numberOfLines={1}>{item.description}</Text>
                         <Text style={styles.itemMeta}>
-                          {item.currency} {item.amount} • {item.frequency}
+                          {item.frequency.charAt(0).toUpperCase() + item.frequency.slice(1)}
                         </Text>
                       </View>
                     </View>
-                    <Pressable
-                      style={styles.deleteBtn}
-                      onPress={() => handleDelete(item.id)}
-                      disabled={isActionLoading}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.red} />
-                    </Pressable>
+                    <View style={[styles.amountBadge, { backgroundColor: accent + "18" }]}>
+                      <Text style={[styles.amountBadgeText, { color: accent }]}>
+                        {item.currency} {item.amount}
+                      </Text>
+                    </View>
                   </View>
                   
                   <View style={styles.itemFooterRow}>
                     <View style={styles.dueBox}>
                       <Ionicons name="calendar-outline" size={14} color={isDue ? colors.amber : colors.muted} />
                       <Text style={[styles.dueText, isDue && styles.dueTextUrgent]}>
-                        Next: {item.nextDueDate} {isDue && "(Due)"}
+                        {isDue ? "Due now" : item.nextDueDate}
                       </Text>
                     </View>
-                    <Pressable
-                      style={[styles.logBtn, isDue && styles.logBtnDue, isActionLoading && styles.logBtnDisabled]}
-                      onPress={() => handleLogNow(item.id)}
-                      disabled={isActionLoading}
-                    >
-                      {isActionLoading ? (
-                        <ActivityIndicator size="small" color={isDue ? colors.background : colors.primary} />
-                      ) : (
-                        <Text style={[styles.logBtnText, isDue && styles.logBtnTextDue]}>Log Now</Text>
-                      )}
-                    </Pressable>
+                    <View style={styles.itemActions}>
+                      <Pressable
+                        style={[styles.logBtn, isDue && styles.logBtnDue, isActionLoading && styles.logBtnDisabled]}
+                        onPress={() => handleLogNow(item.id)}
+                        disabled={isActionLoading}
+                      >
+                        {isActionLoading ? (
+                          <ActivityIndicator size="small" color={isDue ? colors.background : colors.primary} />
+                        ) : (
+                          <Text style={[styles.logBtnText, isDue && styles.logBtnTextDue]}>Log Now</Text>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        style={styles.deleteBtn}
+                        onPress={() => handleEdit(item)}
+                        disabled={isActionLoading}
+                      >
+                        <Ionicons name="pencil-outline" size={16} color={colors.primary + "CC"} />
+                      </Pressable>
+                      <Pressable
+                        style={styles.deleteBtn}
+                        onPress={() => handleDelete(item.id)}
+                        disabled={isActionLoading}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.red + "88"} />
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               );
@@ -356,6 +506,7 @@ export default function RecurringExpensesScreen() {
   );
 }
 
+
 function createStyles(colors: any, topInset: number) {
   return StyleSheet.create({
     container: {
@@ -364,7 +515,7 @@ function createStyles(colors: any, topInset: number) {
     },
     header: {
       paddingTop: topInset + 10,
-      paddingBottom: 15,
+      paddingBottom: 12,
       paddingHorizontal: spacing.screen,
       flexDirection: "row",
       alignItems: "center",
@@ -373,8 +524,8 @@ function createStyles(colors: any, topInset: number) {
       backgroundColor: colors.background + "E6",
     },
     backButton: {
-      marginRight: 15,
-      padding: 5,
+      marginRight: 14,
+      padding: 4,
     },
     headerTitle: {
       fontSize: 20,
@@ -382,60 +533,125 @@ function createStyles(colors: any, topInset: number) {
       color: colors.text,
       fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
     },
+    headerSubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+      marginTop: 2,
+    },
     content: {
       padding: spacing.screen,
-      paddingBottom: 100,
+      paddingBottom: 60,
     },
+
+    // ── Hero Summary ──────────────────────────────────
     summaryCard: {
-      backgroundColor: colors.primary + "1A",
+      backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
       borderColor: colors.primary + "33",
       borderRadius: 16,
-      padding: 20,
-      marginBottom: 20,
+      padding: 16,
+      marginBottom: 14,
+    },
+    summaryIconRow: {
+      flexDirection: "row",
       alignItems: "center",
+      gap: 14,
+    },
+    summaryIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: colors.primary + "1A",
+      alignItems: "center",
+      justifyContent: "center",
     },
     summaryLabel: {
-      fontSize: 14,
-      color: colors.text,
-      opacity: 0.8,
-      marginBottom: 8,
+      fontSize: 13,
+      color: colors.muted,
+      marginBottom: 2,
     },
     summaryAmount: {
-      fontSize: 28,
+      fontSize: 26,
       fontWeight: "800",
       color: colors.primary,
     },
+    summaryDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 12,
+    },
+    summaryFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 20,
+    },
+    summaryStatChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    summaryStatValue: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    summaryStatLabel: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    summaryStatDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.muted,
+    },
+
+    // ── Error ─────────────────────────────────────────
     errorContainer: {
       backgroundColor: colors.red + "22",
       padding: 12,
       borderRadius: 8,
-      marginBottom: 20,
+      marginBottom: 14,
     },
     errorText: {
       color: colors.red,
       fontSize: 14,
     },
+
+    // ── Add Button ────────────────────────────────────
     addButton: {
-      backgroundColor: colors.text,
       flexDirection: "row",
       alignItems: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 14,
+      gap: 12,
+    },
+    addIconCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.primary + "1A",
+      alignItems: "center",
       justifyContent: "center",
-      padding: 16,
-      borderRadius: 12,
-      marginBottom: 20,
     },
     addButtonText: {
-      color: colors.background,
-      fontSize: 16,
+      flex: 1,
+      color: colors.text,
+      fontSize: 15,
       fontWeight: "600",
-      marginLeft: 8,
     },
+
+    // ── Add Card / Form ──────────────────────────────
     addCard: {
       backgroundColor: colors.surfaceElevated,
       borderRadius: 16,
-      padding: 20,
-      marginBottom: 20,
+      padding: 18,
+      marginBottom: 14,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -443,21 +659,26 @@ function createStyles(colors: any, topInset: number) {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 20,
+      marginBottom: 18,
     },
     addTitle: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: "600",
       color: colors.text,
     },
+    closeBtn: {
+      padding: 4,
+    },
     inputGroup: {
-      marginBottom: 20,
+      marginBottom: 16,
     },
     inputLabel: {
-      fontSize: 14,
-      color: colors.text,
-      opacity: 0.7,
-      marginBottom: 8,
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: "500",
+      marginBottom: 6,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
     },
     amountRow: {
       flexDirection: "row",
@@ -487,7 +708,7 @@ function createStyles(colors: any, topInset: number) {
       alignItems: "center",
     },
     currencyOptionActive: {
-      backgroundColor: colors.text,
+      backgroundColor: colors.primary,
     },
     currencyText: {
       fontSize: 14,
@@ -543,14 +764,14 @@ function createStyles(colors: any, topInset: number) {
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: 10,
+      marginRight: 8,
       gap: 6,
     },
     categoryCardActive: {
       backgroundColor: colors.text,
     },
     categoryCardText: {
-      fontSize: 14,
+      fontSize: 13,
       color: colors.text,
     },
     categoryCardTextActive: {
@@ -558,11 +779,11 @@ function createStyles(colors: any, topInset: number) {
       fontWeight: "600",
     },
     saveButton: {
-      backgroundColor: colors.text,
-      padding: 16,
+      backgroundColor: colors.primary,
+      padding: 14,
       borderRadius: 12,
       alignItems: "center",
-      marginTop: 10,
+      marginTop: 4,
     },
     saveButtonDisabled: {
       opacity: 0.5,
@@ -572,59 +793,92 @@ function createStyles(colors: any, topInset: number) {
       fontSize: 16,
       fontWeight: "600",
     },
+
+    // ── List Section ──────────────────────────────────
     listSection: {
-      marginTop: 10,
+      marginTop: 6,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: "700",
       color: colors.text,
-      marginBottom: 15,
-    },
-    emptyText: {
-      color: colors.muted,
-      fontSize: 15,
-      textAlign: "center",
-      marginTop: 20,
-    },
-    itemCard: {
-      backgroundColor: colors.surfaceElevated,
-      borderRadius: 16,
-      padding: 16,
       marginBottom: 12,
+    },
+    emptyCard: {
+      backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
       borderColor: colors.border,
+      borderRadius: 16,
+      padding: 30,
+      alignItems: "center",
+      gap: 8,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    emptyHint: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+
+    // ── Subscription Cards ────────────────────────────
+    itemCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    itemCardDue: {
+      borderColor: colors.amber + "66",
     },
     itemHeaderRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginBottom: 15,
+      alignItems: "center",
+      marginBottom: 12,
     },
     itemInfo: {
       flexDirection: "row",
-      gap: 12,
+      gap: 10,
       flex: 1,
+      alignItems: "center",
+      marginRight: 10,
     },
     iconBox: {
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
       borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
     },
     itemDesc: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: "600",
       color: colors.text,
-      marginBottom: 4,
+      marginBottom: 2,
     },
     itemMeta: {
-      fontSize: 13,
+      fontSize: 12,
       color: colors.muted,
     },
+    amountBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      maxWidth: "40%",
+    },
+    amountBadgeText: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
     deleteBtn: {
-      padding: 8,
+      padding: 6,
     },
     itemFooterRow: {
       flexDirection: "row",
@@ -632,15 +886,22 @@ function createStyles(colors: any, topInset: number) {
       alignItems: "center",
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingTop: 12,
+      paddingTop: 10,
+    },
+    itemActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
     },
     dueBox: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: 5,
+      flexShrink: 1,
+      marginRight: 10,
     },
     dueText: {
-      fontSize: 13,
+      fontSize: 12,
       color: colors.muted,
     },
     dueTextUrgent: {
@@ -650,7 +911,7 @@ function createStyles(colors: any, topInset: number) {
     logBtn: {
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: 10,
       backgroundColor: colors.primary + "22",
     },
     logBtnDue: {
@@ -667,5 +928,69 @@ function createStyles(colors: any, topInset: number) {
     logBtnTextDue: {
       color: colors.background,
     },
+
+    // ── Date Picker ───────────────────────────────────
+    datePickerButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      padding: 12,
+      gap: 10,
+    },
+    datePickerText: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text,
+    },
+    dateGrid: {
+      marginTop: 10,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: 12,
+    },
+    dateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
+    dateArrowBtn: {
+      padding: 6,
+    },
+    dateMonthLabel: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    dateDaysGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 5,
+    },
+    dateDayCell: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceElevated,
+    },
+    dateDayCellActive: {
+      backgroundColor: colors.primary,
+    },
+    dateDayText: {
+      fontSize: 13,
+      color: colors.text,
+    },
+    dateDayTextActive: {
+      color: colors.background,
+      fontWeight: "700",
+    },
   });
 }
+

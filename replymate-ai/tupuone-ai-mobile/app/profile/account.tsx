@@ -168,19 +168,38 @@ function Field({
   keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
 }) {
   const { colors } = useAppTheme();
+  const [isSecure, setIsSecure] = useState(Boolean(secureTextEntry));
+
   return (
     <View style={styles.fieldBlock}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        placeholder={placeholder}
-        placeholderTextColor={colors.muted}
-        style={styles.fieldInput}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize={autoCapitalize}
-        keyboardType={keyboardType}
-      />
+      <View style={styles.fieldInputContainer}>
+        <TextInput
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          style={styles.fieldInput}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secureTextEntry ? isSecure : false}
+          autoCapitalize={autoCapitalize}
+          keyboardType={keyboardType}
+        />
+        {secureTextEntry ? (
+          <Pressable
+            onPress={() => setIsSecure((prev) => !prev)}
+            style={styles.eyeButton}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={isSecure ? "Show password" : "Hide password"}
+          >
+            <Ionicons
+              name={isSecure ? "eye-outline" : "eye-off-outline"}
+              size={18}
+              color={colors.textMuted}
+            />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -259,16 +278,26 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"], topInset
       fontWeight: "900",
       letterSpacing: 0.4,
     },
-    fieldInput: {
+    fieldInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: "rgba(17,24,36,0.64)",
       borderColor: colors.border,
       borderRadius: radius.sm,
       borderWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.sm,
+    },
+    fieldInput: {
+      flex: 1,
       color: colors.text,
       fontSize: 14,
       minHeight: 48,
-      paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
+    },
+    eyeButton: {
+      padding: spacing.xs,
+      justifyContent: "center",
+      alignItems: "center",
     },
     hintText: {
       color: colors.textMuted,

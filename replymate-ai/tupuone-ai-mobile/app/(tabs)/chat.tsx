@@ -26,6 +26,7 @@ import { getBackendUrl, getChatContextLengthPreference } from "../../storage/app
 import { saveAgentDetails } from "../../storage/agentDetailsStore";
 import { ChatMessageResponse, sendChatMessageFromApi } from "../../services/api";
 import { ChatSession, listChatSessions, saveChatSession, deleteChatSession } from "../../storage/chatSessionStore";
+import { VoiceMicButton } from "../../components/VoiceMicButton";
 
 type ChatBubble = {
   id: string;
@@ -521,6 +522,13 @@ export default function ChatScreen() {
               value={message}
               onChangeText={setMessage}
             />
+            {!loading ? (
+              <VoiceMicButton
+                onTranscript={(text) => setMessage((prev) => (prev ? prev + " " + text : text))}
+                disabled={loading}
+                size={34}
+              />
+            ) : null}
             <Pressable
               onPress={() => (loading ? handleStop() : handleSend())}
               style={[styles.sendButton]}

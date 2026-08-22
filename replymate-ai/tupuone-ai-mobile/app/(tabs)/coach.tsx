@@ -20,6 +20,7 @@ import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
 import { analyzeCoachFromApi, CoachAnalyzeResponse } from "../../services/api";
 import { getBackendUrl } from "../../storage/appStorage";
+import { VoiceMicButton } from "../../components/VoiceMicButton";
 
 const relationshipOptions = [
   { label: "Friend", value: "Friend" },
@@ -124,10 +125,17 @@ export default function CoachScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Message text</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs }}>
+            <Text style={styles.cardTitle}>Message text</Text>
+            <VoiceMicButton
+              onTranscript={(text) => setMessage((prev) => (prev ? prev + " " + text : text))}
+              disabled={loading}
+              size={32}
+            />
+          </View>
           <TextInput
             multiline
-            placeholder="Paste the message you received..."
+            placeholder="Paste or speak the message you received..."
             placeholderTextColor={colors.muted}
             style={styles.input}
             textAlignVertical="top"

@@ -514,16 +514,7 @@ export default function AnalyticsScreen() {
                     </Pressable>
                   )}
                 </View>
-                      }}
-                    >
-                      <Text style={styles.panelValue}>
-                        {formatAmount(monthSummaryData.total, monthSummaryData.currency)} /{" "}
-                        {budgetTarget ? formatAmount(budgetTarget, monthSummaryData.currency) : "Set Target"}
-                      </Text>
-                      <Ionicons name="pencil" size={12} color={colors.primary} />
-                    </Pressable>
-                  )}
-                </View>
+
                 {budgetTarget && budgetTarget > 0 ? (
                   <View style={styles.progressTrack}>
                     <View
