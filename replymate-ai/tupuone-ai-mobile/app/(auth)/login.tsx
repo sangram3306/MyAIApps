@@ -25,6 +25,7 @@ export default function LoginScreen() {
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,14 +84,29 @@ export default function LoginScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Password</Text>
-              <TextInput
-                secureTextEntry
-                placeholder="••••••••"
-                placeholderTextColor={colors.mutedSoft}
-                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                value={password}
-                onChangeText={setPassword}
-              />
+              <View style={[styles.passwordWrapper, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <TextInput
+                  secureTextEntry={!showPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedSoft}
+                  style={[styles.passwordInput, { color: colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.eyeButton}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.mutedSoft}
+                  />
+                </Pressable>
+              </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -184,6 +200,24 @@ const styles = StyleSheet.create({
     height: 52,
     paddingHorizontal: spacing.md,
     fontSize: 16,
+  },
+  passwordWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    height: 52,
+    paddingHorizontal: spacing.md,
+  },
+  passwordInput: {
+    flex: 1,
+    height: "100%",
+    fontSize: 16,
+  },
+  eyeButton: {
+    padding: spacing.xs,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     color: "#EF4444",

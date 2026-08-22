@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatrixBackground } from "../../components/PremiumUI";
 import { radius, spacing } from "../../constants/theme";
 import { useAppTheme } from "../../context/app-theme";
+import { VoiceMicButton } from "../../components/VoiceMicButton";
 import {
   getAutoCategorySuggestionsPreference,
   getBackendUrl,
@@ -673,21 +674,39 @@ export default function ExpensesScreen() {
             })}
           </ScrollView>
 
-          <TextInput
-            placeholder="Optional note, e.g. lunch with friends"
-            placeholderTextColor={colors.muted}
-            style={styles.noteInput}
-            value={note}
-            onChangeText={(text) => {
-              setNote(text);
-              if (autoCategorySuggestions && text.trim()) {
-                const inferred = inferCategory(text, quickAddCategories);
-                if (inferred && inferred !== category) {
-                  setCategory(inferred);
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+            <TextInput
+              placeholder="Optional note, e.g. lunch with friends"
+              placeholderTextColor={colors.muted}
+              style={[styles.noteInput, { flex: 1 }]}
+              value={note}
+              onChangeText={(text) => {
+                setNote(text);
+                if (autoCategorySuggestions && text.trim()) {
+                  const inferred = inferCategory(text, quickAddCategories);
+                  if (inferred && inferred !== category) {
+                    setCategory(inferred);
+                  }
                 }
-              }
-            }}
-          />
+              }}
+            />
+            <VoiceMicButton
+              onTranscript={(text) => {
+                setNote((prev) => {
+                  const newNote = prev ? prev + " " + text : text;
+                  if (autoCategorySuggestions && newNote.trim()) {
+                    const inferred = inferCategory(newNote, quickAddCategories);
+                    if (inferred && inferred !== category) {
+                      setCategory(inferred);
+                    }
+                  }
+                  return newNote;
+                });
+              }}
+              disabled={saving || scanning}
+              size={44}
+            />
+          </View>
 
           <View style={styles.buttonRow}>
             <Pressable
@@ -753,20 +772,27 @@ export default function ExpensesScreen() {
             ))}
           </View>
 
-          <Pressable
-            disabled={insightLoading}
-            onPress={handleGenerateInsight}
-            style={[styles.secondaryButton, insightLoading && styles.disabledButton]}
-          >
-            {insightLoading ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <>
-                <Ionicons name="sparkles-outline" color={colors.primary} size={17} />
-                <Text style={styles.secondaryButtonText}>Generate Insight</Text>
-              </>
-            )}
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
+            <Pressable
+              disabled={insightLoading}
+              onPress={handleGenerateInsight}
+              style={[styles.secondaryButton, { flex: 1 }, insightLoading && styles.disabledButton]}
+            >
+              {insightLoading ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="sparkles-outline" color={colors.primary} size={17} />
+                  <Text style={styles.secondaryButtonText}>Generate Insight</Text>
+                </>
+              )}
+            </Pressable>
+            <VoiceMicButton
+              onTranscript={(text) => setInsightPrompt((prev) => (prev ? prev + " " + text : text))}
+              disabled={insightLoading}
+              size={48}
+            />
+          </View>
 
           {insightError ? <Text style={styles.error}>{insightError}</Text> : null}
 

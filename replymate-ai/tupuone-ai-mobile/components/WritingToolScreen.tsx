@@ -19,6 +19,7 @@ import { EmptyState } from "./EmptyState";
 import { GrammarFixCard } from "./GrammarFixCard";
 import { MatrixBackground } from "./PremiumUI";
 import { ReplyCard } from "./ReplyCard";
+import { VoiceMicButton } from "./VoiceMicButton";
 import { Role, replyRoles, rewriteRoles } from "../constants/roles";
 import { replyTones, rewriteStyles, Tone } from "../constants/tones";
 import { spacing } from "../constants/theme";
@@ -216,14 +217,21 @@ export function WritingToolScreen({ mode }: Props) {
 
             <View style={styles.inputBlock}>
               <View style={styles.labelRow}>
-                <Ionicons
-                  name={mode === "reply" ? "mail-outline" : mode === "rewrite" ? "document-text-outline" : "checkmark-done-outline"}
-                  color={colors.primary}
-                  size={14}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <Ionicons
+                    name={mode === "reply" ? "mail-outline" : mode === "rewrite" ? "document-text-outline" : "checkmark-done-outline"}
+                    color={colors.primary}
+                    size={14}
+                  />
+                  <Text style={styles.label}>
+                    {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
+                  </Text>
+                </View>
+                <VoiceMicButton
+                  onTranscript={(text) => setMessage((prev) => (prev ? prev + " " + text : text))}
+                  disabled={loading}
+                  size={32}
                 />
-                <Text style={styles.label}>
-                  {mode === "reply" ? "Message to reply to" : mode === "rewrite" ? "Your message" : "Text to fix"}
-                </Text>
               </View>
               <TextInput
                 multiline
@@ -245,8 +253,15 @@ export function WritingToolScreen({ mode }: Props) {
             {mode === "reply" ? (
               <View style={styles.inputBlock}>
                 <View style={styles.labelRow}>
-                  <Ionicons name="bulb-outline" color={colors.primary} size={14} />
-                  <Text style={styles.label}>Reply note</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                    <Ionicons name="bulb-outline" color={colors.primary} size={14} />
+                    <Text style={styles.label}>Reply note</Text>
+                  </View>
+                  <VoiceMicButton
+                    onTranscript={(text) => setReplyNote((prev) => (prev ? prev + " " + text : text))}
+                    disabled={loading}
+                    size={32}
+                  />
                 </View>
                 <TextInput
                   multiline
