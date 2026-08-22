@@ -24,11 +24,37 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 200
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -70,7 +96,8 @@
   "required": [
     "message",
     "relationshipContext"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -145,7 +172,8 @@
   },
   "required": [
     "sourceText"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -157,7 +185,7 @@
 }
 ```
 
-### POST `/api/decision/simulate`
+### POST `/api/decisions/simulate`
 
 **Payload (JSON):**
 
@@ -202,7 +230,8 @@
   },
   "required": [
     "question"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -214,7 +243,36 @@
 }
 ```
 
-### POST `/api/expense/create`
+### POST `/api/expenses/message`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/expenses/create`
 
 **Payload (JSON):**
 
@@ -224,8 +282,8 @@
   "properties": {
     "amount": {
       "type": "number",
-      "minimum": 0,
-      "exclusiveMinimum": true
+      "exclusiveMinimum": true,
+      "minimum": 0
     },
     "currency": {
       "type": "string",
@@ -252,7 +310,8 @@
   "required": [
     "amount",
     "category"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -264,35 +323,7 @@
 }
 ```
 
-### POST `/api/expense/message`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/expense/intelligence`
+### POST `/api/expenses/intelligence`
 
 **Payload (JSON):**
 
@@ -302,14 +333,10 @@
   "properties": {
     "period": {
       "type": "string",
-      "enum": [
-        "all",
-        "month",
-        "year"
-      ],
       "default": "month"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -362,7 +389,8 @@
   },
   "required": [
     "skillName"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -410,7 +438,128 @@
   },
   "required": [
     "topic"
-  ]
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### POST `/api/recurring/create`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": true,
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ],
+      "default": "AED"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "startDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "amount",
+    "category",
+    "description",
+    "frequency"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### PUT `/api/recurring/{id}`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": true,
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "INR"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ]
+    },
+    "nextDueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "isActive": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -442,7 +591,6 @@
     },
     "tone": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "clearer",
@@ -473,7 +621,6 @@
     },
     "role": {
       "type": "string",
-      "nullable": true,
       "enum": [
         "none",
         "friend",
@@ -514,215 +661,8 @@
   },
   "required": [
     "message"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/rewrite`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    },
-    "note": {
-      "type": "string",
-      "maxLength": 800,
-      "default": ""
-    },
-    "tone": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "clearer",
-        "shorter",
-        "polite",
-        "professional",
-        "friendly",
-        "casual",
-        "funny",
-        "snarky",
-        "confident",
-        "apologetic",
-        "romantic",
-        "sarcastic",
-        "excited",
-        "calm",
-        "formal",
-        "persuasive",
-        "simple_english",
-        "hinglish",
-        "hindi",
-        "more_human",
-        "short",
-        "short_sweet",
-        "detailed"
-      ],
-      "default": "none"
-    },
-    "role": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "friend",
-        "best_friend",
-        "partner",
-        "customer_support",
-        "manager",
-        "professional_writer",
-        "sales_expert",
-        "marketing_expert",
-        "influencer",
-        "startup_founder",
-        "comedian",
-        "savage_friend",
-        "poet",
-        "teacher",
-        "pirate",
-        "five_year_old",
-        "doctor",
-        "ai_engineer",
-        "thief",
-        "cowboy",
-        "astronaut",
-        "shakespeare",
-        "grandma",
-        "lawyer",
-        "gym_coach",
-        "detective"
-      ],
-      "default": "none"
-    },
-    "responseCount": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 5,
-      "default": 5
-    }
-  },
-  "required": [
-    "message"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/replies/grammar`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
-    },
-    "note": {
-      "type": "string",
-      "maxLength": 800,
-      "default": ""
-    },
-    "tone": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "clearer",
-        "shorter",
-        "polite",
-        "professional",
-        "friendly",
-        "casual",
-        "funny",
-        "snarky",
-        "confident",
-        "apologetic",
-        "romantic",
-        "sarcastic",
-        "excited",
-        "calm",
-        "formal",
-        "persuasive",
-        "simple_english",
-        "hinglish",
-        "hindi",
-        "more_human",
-        "short",
-        "short_sweet",
-        "detailed"
-      ],
-      "default": "none"
-    },
-    "role": {
-      "type": "string",
-      "nullable": true,
-      "enum": [
-        "none",
-        "friend",
-        "best_friend",
-        "partner",
-        "customer_support",
-        "manager",
-        "professional_writer",
-        "sales_expert",
-        "marketing_expert",
-        "influencer",
-        "startup_founder",
-        "comedian",
-        "savage_friend",
-        "poet",
-        "teacher",
-        "pirate",
-        "five_year_old",
-        "doctor",
-        "ai_engineer",
-        "thief",
-        "cowboy",
-        "astronaut",
-        "shakespeare",
-        "grandma",
-        "lawyer",
-        "gym_coach",
-        "detective"
-      ],
-      "default": "none"
-    },
-    "responseCount": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 5,
-      "default": 5
-    }
-  },
-  "required": [
-    "message"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -745,6 +685,9 @@
     "title": {
       "type": "string",
       "minLength": 1
+    },
+    "imdbId": {
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -775,7 +718,8 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -787,7 +731,41 @@
 }
 ```
 
-### PATCH `/api/watch/items/{id}`
+### PUT `/api/watch/{id}/status`
+
+**Payload (JSON):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "in_progress",
+        "completed",
+        "dropped"
+      ]
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### PUT `/api/watch/{id}`
 
 **Payload (JSON):**
 
@@ -856,7 +834,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "availability": {
@@ -890,7 +869,8 @@
         "required": [
           "provider",
           "region"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "externalDetails": {
@@ -910,7 +890,8 @@
         "required": [
           "label",
           "value"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "synopsis": {
@@ -919,7 +900,8 @@
     "notes": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -931,7 +913,7 @@
 }
 ```
 
-### PATCH `/api/watch/items/{id}/status`
+### POST `/api/watch/resolve`
 
 **Payload (JSON):**
 
@@ -939,49 +921,66 @@
 {
   "type": "object",
   "properties": {
-    "status": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "year": {
+      "type": "string"
+    },
+    "type": {
       "type": "string",
       "enum": [
-        "planned",
-        "started",
-        "in_progress",
-        "completed",
-        "dropped"
+        "movie",
+        "series"
+      ]
+    },
+    "director": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": "true (or structured response)"
+}
+```
+
+### GET `/api/watch/search`
+
+**Query Parameters (JSON Schema format):**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "q": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "movie",
+        "series"
       ]
     }
   },
   "required": [
-    "status"
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": "true (or structured response)"
-}
-```
-
-### POST `/api/watch/search`
-
-**Payload (JSON):**
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "query": {
-      "type": "string"
-    },
-    "limit": {
-      "type": "number"
-    }
-  },
-  "required": [
-    "query"
-  ]
+    "q"
+  ],
+  "additionalProperties": false
 }
 ```
 
